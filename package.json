@@ -4,9 +4,9 @@
   "license": "GPL-3.0-or-later",
   "scripts": {
     "predev": "powershell -NoProfile -ExecutionPolicy Bypass -File tools/dev/sweep.ps1",
-    "dev": "tauri dev",
+    "dev": "set PATH=C:\\Users\\juner\\AppData\\Local\\Android\\Sdk\\ndk\\28.2.13676358\\toolchains\\llvm\\prebuilt\\windows-x86_64\\bin;%USERPROFILE%\\.cargo\\bin;%PATH% && tauri dev",
     "prebuild": "powershell -NoProfile -ExecutionPolicy Bypass -File tools/dev/sweep.ps1",
-    "build": "tauri build",
+    "build": "set PATH=C:\\Users\\juner\\AppData\\Local\\Android\\Sdk\\ndk\\28.2.13676358\\toolchains\\llvm\\prebuilt\\windows-x86_64\\bin;%USERPROFILE%\\.cargo\\bin;%PATH% && tauri build",
     "postinstall": "npm --prefix ui install"
   },
   "devDependencies": {
