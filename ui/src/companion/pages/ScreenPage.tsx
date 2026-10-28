@@ -9,8 +9,9 @@ import { type PageProps, screenState } from './page'
  * connection from WestPlay to the game to the screen. On the room's screen, Home, and WestPlay saying the
  * same in a banner.
  */
-export function ScreenPage({ status, settings, cw }: PageProps) {
+export function ScreenPage({ status, settings, cw, setup }: PageProps) {
   const w = cw.screen
+  const gameTitle = status?.gameTitle ?? setup.game?.title ?? (w.game === 'Euro Truck Simulator 2' ? 'American Truck Simulator' : w.game)
   const state = screenState(status)
   // Known once the cabin page has said (it owns the state): the switch waits for it.
   const open = status?.westplayOpen ?? null
@@ -55,7 +56,7 @@ export function ScreenPage({ status, settings, cw }: PageProps) {
           accessory={<Status tone={status?.error ? 'bad' : status ? 'good' : 'busy'} />}
         />
         <Row
-          title={w.game}
+          title={gameTitle}
           value={status?.gameConnected ? w.gameConnected : w.gameNotRunning}
           accessory={<Status tone={status?.gameConnected ? 'good' : 'idle'} />}
         />

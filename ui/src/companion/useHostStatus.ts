@@ -14,6 +14,7 @@ export interface HostStatus {
   framesPerSecond: number
   droppedTotal: number
   gameConnected: boolean
+  gameTitle?: string | null
   screenDrawing: boolean
   /** Whether the truck the player is in is one WestPlay shows in, as the plugin last saw (`null`: not known yet). */
   truckSupported: boolean | null

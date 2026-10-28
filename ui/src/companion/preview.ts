@@ -25,11 +25,13 @@ const query = new URLSearchParams(location.search)
 const gameState = query.get('game') ?? 'live'
 
 const GAME: GameInfo = {
-  dir: 'C:\\Program Files (x86)\\Steam\\steamapps\\common\\Euro Truck Simulator 2',
+  kind: 'ats',
+  title: 'American Truck Simulator',
+  dir: 'D:\\Program Files (x86)\\Steam\\steamapps\\common\\American Truck Simulator',
   foundBy: 'steam',
-  version: '1.61.1.9',
+  version: '1.60.1.8',
   tested: true,
-  dlcs: 34,
+  dlcs: 14,
 }
 
 // A first run has no game set up until the onboarding installs into it.
@@ -108,8 +110,8 @@ let westplayOpen: boolean | null = gameState === 'live' ? true : null
 
 /** A laptop's two graphics cards, the fast one first. */
 const ADAPTERS = [
+  { id: '8086:7d51:00000000:1', name: 'Intel(R) Arc(TM) 130T GPU (16GB)' },
   { id: '10de:2860:00000000:161', name: 'NVIDIA GeForce RTX 4070 Laptop GPU' },
-  { id: '8086:a7a0:00000000:4', name: 'Intel(R) Iris(R) Xe Graphics' },
 ]
 
 function status(): HostStatus {
@@ -124,6 +126,7 @@ function status(): HostStatus {
     framesPerSecond: live ? 58 + Math.round(Math.random() * 3) : 0,
     droppedTotal: live ? 3 : 0,
     gameConnected: gameState !== 'off',
+    gameTitle: 'American Truck Simulator',
     screenDrawing: live,
     // `?game=unsupported`: in a truck WestPlay doesn't show in.
     truckSupported: gameState === 'unsupported' ? false : live ? true : null,

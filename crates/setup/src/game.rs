@@ -246,6 +246,17 @@ pub fn running_kind(kind: GameKind) -> bool {
     running_process(&[kind.process_name()])
 }
 
+/// The running game kind, if any.
+pub fn running_game() -> Option<GameKind> {
+    if running_kind(GameKind::Ats) {
+        Some(GameKind::Ats)
+    } else if running_kind(GameKind::Ets2) {
+        Some(GameKind::Ets2)
+    } else {
+        None
+    }
+}
+
 fn running_process(process_names: &[&str]) -> bool {
     use windows::Win32::Foundation::CloseHandle;
     use windows::Win32::System::Diagnostics::ToolHelp::{

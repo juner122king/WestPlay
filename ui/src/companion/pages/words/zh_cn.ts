@@ -56,7 +56,7 @@ export const words: CompanionWords = {
     engine: 'WestPlay 引擎',
     engineRunning: '运行中',
     engineStarting: '正在启动…',
-    game: 'Euro Truck Simulator 2',
+    game: 'American Truck Simulator',
     gameConnected: '已连接',
     gameNotRunning: '未运行',
     truckScreen: '卡车屏幕',

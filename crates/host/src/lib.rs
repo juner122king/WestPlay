@@ -89,6 +89,7 @@ pub struct Status {
     pub frames_per_second: u64,
     pub dropped_total: u64,
     pub game_connected: bool,
+    pub game_title: Option<String>,
     pub screen_drawing: bool,
     /// Whether the truck the player is in is one WestPlay shows in, as the plugin last saw (`None`: not known yet,
     /// or no game).
@@ -576,6 +577,13 @@ pub fn run(mut config: Config, stop: Arc<AtomicBool>) -> Result<(), Error> {
                 // moving.
                 let alive = game_liveness.update(plugin.heartbeat.load(Ordering::Relaxed), Instant::now());
                 status.game_connected = plugin.pid.load(Ordering::Relaxed) != 0 && alive && bridge.matches();
+                status.game_title = if status.game_connected {
+                    westplay_setup::game::running_game()
+                        .map(|g| g.display_name().to_string())
+                        .or_else(|| Some("American Truck Simulator".to_string()))
+                } else {
+                    None
+                };
                 // A plugin of another version (the game still running from before an update): not used.
                 if !bridge.matches() && plugin.pid.load(Ordering::Relaxed) != 0 {
                     status.error = Some("the game's WestPlay plugin is another version: restart the game".into());
