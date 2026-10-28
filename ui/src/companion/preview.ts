@@ -22,7 +22,7 @@ import type { Settings } from './useSettings'
  * Nothing here is ever in the app.
  */
 const query = new URLSearchParams(location.search)
-const gameState = query.get('game') ?? 'live'
+const gameState = query.get('game') ?? 'off'
 
 const GAME: GameInfo = {
   kind: 'ats',
