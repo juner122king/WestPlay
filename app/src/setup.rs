@@ -82,6 +82,8 @@ fn plugin_file(app: &AppHandle) -> Option<PathBuf> {
 #[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct GameInfo {
+    kind: &'static str,
+    title: &'static str,
     dir: PathBuf,
     /// `steam`, `installed` (another store's, or SCS's own installer) or `chosen`.
     found_by: &'static str,
@@ -94,6 +96,8 @@ pub struct GameInfo {
 impl From<&Game> for GameInfo {
     fn from(game: &Game) -> Self {
         Self {
+            kind: game.kind.id(),
+            title: game.kind.display_name(),
             dir: game.dir.clone(),
             found_by: match game.found_by {
                 FoundBy::Steam => "steam",

@@ -75,16 +75,37 @@ pub fn documents_folders() -> Vec<PathBuf> {
 fn launch_homes() -> Vec<PathBuf> {
     let Some(steam) = steam() else { return Vec::new() };
     let users = std::fs::read_dir(steam.join("userdata")).into_iter().flatten().flatten();
-    users
-        .filter_map(|user| std::fs::read_to_string(user.path().join("config").join("localconfig.vdf")).ok())
-        .filter_map(|text| homedir(launch_options(&vdf::parse(&text)?)?))
-        .collect()
+    let mut homes = Vec::new();
+    for user in users {
+        let Ok(text) = std::fs::read_to_string(user.path().join("config").join("localconfig.vdf")) else { continue };
+        let Some(file) = vdf::parse(&text) else { continue };
+        for opt in launch_options(&file) {
+            if let Some(home) = homedir(opt) {
+                homes.push(home);
+            }
+        }
+    }
+    homes
 }
 
-/// The game's launch options in a Steam user's `localconfig.vdf` (its keys in any case).
-fn launch_options(config: &vdf::Value) -> Option<&str> {
-    let steam = config.get("UserLocalConfigStore")?.get("Software")?.get("Valve")?.get("Steam")?;
-    steam.get("apps")?.get(crate::game::STEAM_APP)?.get("LaunchOptions")?.text()
+/// The game's launch options in a Steam user's `localconfig.vdf` (for ETS2 or ATS).
+fn launch_options(config: &vdf::Value) -> Vec<&str> {
+    let Some(steam) = config
+        .get("UserLocalConfigStore")
+        .and_then(|v| v.get("Software"))
+        .and_then(|v| v.get("Valve"))
+        .and_then(|v| v.get("Steam"))
+    else {
+        return Vec::new();
+    };
+    let Some(apps) = steam.get("apps") else { return Vec::new() };
+    let mut options = Vec::new();
+    for app in [crate::game::STEAM_APP, crate::game::ATS_STEAM_APP] {
+        if let Some(opts) = apps.get(app).and_then(|a| a.get("LaunchOptions")).and_then(|l| l.text()) {
+            options.push(opts);
+        }
+    }
+    options
 }
 
 /// The folder `-homedir` names in launch `options` (`-homedir D:\ETS2`, or quoted when it has spaces).
@@ -116,6 +137,17 @@ pub fn westplay_documents() -> Option<PathBuf> {
     Some(documents()?.join("WestPlay"))
 }
 
+/// The game's own folder in Documents for a specific game kind: its profiles, mods and settings.
+pub fn game_documents_for_kind(kind: crate::game::GameKind) -> Option<PathBuf> {
+    game_documents_for(kind.documents_folder())
+}
+
+/// The game's own folder in Documents by folder name: its profiles, mods and settings.
+pub fn game_documents_for(folder_name: &str) -> Option<PathBuf> {
+    choose_game_documents_named(&documents_folders(), folder_name)
+        .or_else(|| Some(documents()?.join(folder_name)))
+}
+
 /// The game's own folder in Documents: its profiles, mods and settings. Of the folders that may be Documents
 /// ([`documents_folders`]), the one the game wrote its settings in last; Windows' Documents' if it has none
 /// yet (a game never started).
@@ -127,7 +159,23 @@ pub fn game_documents() -> Option<PathBuf> {
 fn choose_game_documents(folders: &[PathBuf]) -> Option<PathBuf> {
     let written = |game: &Path| std::fs::metadata(game.join("config.cfg")).and_then(|m| m.modified()).ok();
     let mut latest: Option<(std::time::SystemTime, PathBuf)> = None;
-    for game in folders.iter().map(|folder| folder.join(GAME_FOLDER)) {
+    for game_folder in [GAME_FOLDER, "American Truck Simulator"] {
+        for game in folders.iter().map(|folder| folder.join(game_folder)) {
+            if let Some(at) = written(&game)
+                && latest.as_ref().is_none_or(|(best, _)| at > *best)
+            {
+                latest = Some((at, game));
+            }
+        }
+    }
+    latest.map(|(_, game)| game)
+}
+
+/// Of `folders`, the specific game folder whose `config.cfg` the game wrote last.
+fn choose_game_documents_named(folders: &[PathBuf], game_folder: &str) -> Option<PathBuf> {
+    let written = |game: &Path| std::fs::metadata(game.join("config.cfg")).and_then(|m| m.modified()).ok();
+    let mut latest: Option<(std::time::SystemTime, PathBuf)> = None;
+    for game in folders.iter().map(|folder| folder.join(game_folder)) {
         if let Some(at) = written(&game)
             && latest.as_ref().is_none_or(|(best, _)| at > *best)
         {

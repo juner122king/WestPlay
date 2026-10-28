@@ -237,7 +237,6 @@ struct Basis {
 type Failures = HashMap<PathBuf, (serde_json::Value, String)>;
 
 fn watch(maps: &Path, set_up: &SetUpGame, sender: &Sender<MapUpdate>, played: &PlayedMap) {
-    let documents = places::game_documents();
     let userdata = places::steam().map(|steam| steam.join("userdata"));
     let mut sent: Option<MapUpdate> = None;
     let mut worked_out: Option<(Basis, Vec<Want>)> = None;
@@ -252,6 +251,7 @@ fn watch(maps: &Path, set_up: &SetUpGame, sender: &Sender<MapUpdate>, played: &P
     loop {
         let set_up_in = set_up.state().clone();
         let game = set_up_in.dir.as_deref().and_then(Game::recognise);
+        let documents = game.as_ref().map(|g| g.kind).and_then(places::game_documents_for_kind).or_else(places::game_documents);
         let asked_now = set_up_in.asked_again != asked_again;
         if asked_now {
             asked_again = set_up_in.asked_again;

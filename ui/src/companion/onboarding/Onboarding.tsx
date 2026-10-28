@@ -349,7 +349,10 @@ function ChooseGame({
     'dashboard',
     GLOW.dashboard,
     game
-      ? { title: 'Euro Truck Simulator 2', detail: gameSummary(words, game) }
+      ? {
+          title: game.title ?? (game.kind === 'ats' ? 'American Truck Simulator' : 'Euro Truck Simulator 2'),
+          detail: gameSummary(words, game),
+        }
       : { title: w.titleMissing, detail: w.bannerMissing },
   )
 
@@ -378,15 +381,19 @@ function ChooseGame({
       }
     >
       <Group place={4}>
-        {games.map((known) => (
-          <Row
-            key={known.dir}
-            title={known.dir.replace(/[\\/]steamapps[\\/]common[\\/][^\\/]+[\\/]?$/i, '')}
-            detail={gameSummary(words, known)}
-            accessory={known.dir === game?.dir ? <Tick key={known.dir} /> : undefined}
-            onClick={() => choose(known)}
-          />
-        ))}
+        {games.map((known) => {
+          const gameTitle =
+            known.title ?? (known.kind === 'ats' ? 'American Truck Simulator' : 'Euro Truck Simulator 2')
+          return (
+            <Row
+              key={known.dir}
+              title={gameTitle}
+              detail={`${known.dir.replace(/[\\/]steamapps[\\/]common[\\/][^\\/]+[\\/]?$/i, '')} · ${gameSummary(words, known)}`}
+              accessory={known.dir === game?.dir ? <Tick key={known.dir} /> : undefined}
+              onClick={() => choose(known)}
+            />
+          )
+        })}
         <Row title={games.length ? w.chooseAnother : w.chooseFolder} link onClick={pick} />
       </Group>
       {error && <Note tone="bad">{error}</Note>}

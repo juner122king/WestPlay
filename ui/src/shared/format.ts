@@ -27,6 +27,16 @@ export function speedKmh(speed: number): number {
   return Math.round(Math.abs(speed) * 3.6)
 }
 
+/** Truck speed (m/s, negative when reversing) as whole mph. */
+export function speedMph(speed: number): number {
+  return Math.round(Math.abs(speed) * 2.236936)
+}
+
+/** Format speed according to unit ('km/h' or 'mph'). */
+export function formatSpeed(speed: number, unit: 'km/h' | 'mph' = 'km/h'): number {
+  return unit === 'mph' ? speedMph(speed) : speedKmh(speed)
+}
+
 /** How a trip's time is said: in minutes, or hours and minutes ("12 min", "1:05 hrs"). */
 export interface TimeWords {
   minutes: (minutes: number) => string

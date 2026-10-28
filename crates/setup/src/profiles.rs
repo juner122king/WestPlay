@@ -125,10 +125,15 @@ impl Profile {
 
 /// The map a profile plays, from its `map_path` (`/map/hvtmap.mbd` → `hvtmap`); `europe` without one.
 pub fn map_of(map_path: Option<&str>) -> String {
+    map_of_default(map_path, "europe")
+}
+
+/// The map a profile plays, from its `map_path` with a fallback base map.
+pub fn map_of_default(map_path: Option<&str>, default_map: &str) -> String {
     map_path
         .and_then(|path| path.trim().strip_prefix("/map/")?.strip_suffix(".mbd").map(str::to_owned))
         .filter(|name| !name.is_empty() && !name.contains('/'))
-        .unwrap_or_else(|| "europe".to_owned())
+        .unwrap_or_else(|| default_map.to_owned())
 }
 
 /// Every profile, from the game's Documents folder (`game_documents`) and Steam Cloud's (under Steam's
@@ -137,8 +142,9 @@ pub fn map_of(map_path: Option<&str>) -> String {
 pub fn find(game_documents: &Path, steam_userdata: Option<&Path>, game: Option<&Game>) -> Vec<Profile> {
     let mut folders = vec![(game_documents.join("profiles"), false), (game_documents.join("steam_profiles"), true)];
     if let Some(userdata) = steam_userdata {
+        let steam_app = game.map(|g| g.kind.steam_app()).unwrap_or(STEAM_APP);
         for user in std::fs::read_dir(userdata).into_iter().flatten().flatten() {
-            folders.push((user.path().join(STEAM_APP).join("remote").join("profiles"), true));
+            folders.push((user.path().join(steam_app).join("remote").join("profiles"), true));
         }
     }
     let mod_dir = game_documents.join("mod");
@@ -161,7 +167,8 @@ fn read_profile(dir: &Path, cloud: bool, game: Option<&Game>, mod_dir: &Path) ->
         .map(str::to_owned)
         .or_else(|| name_from_folder(dir.file_name()?.to_str()?))?;
     let mods = save::active_mods(&units).iter().map(|listed| find_mod(listed, game, mod_dir)).collect();
-    let map = map_of(user.and_then(|unit| unit.get("map_path")));
+    let default_map = game.map(|g| g.kind.base_map()).unwrap_or(BASE_MAP);
+    let map = map_of_default(user.and_then(|unit| unit.get("map_path")), default_map);
     Some(Profile { name, dir: dir.to_path_buf(), cloud, last_saved: last_saved(dir), map, mods })
 }
 
@@ -400,7 +407,8 @@ impl ModFiles {
         let (mut maps, _) = self.list("map");
         // An archive may list the base map's sectors without listing `map` itself (TruckersMP's HQ pack).
         if maps.is_empty() {
-            maps.push(BASE_MAP.to_owned());
+            maps.push("europe".to_owned());
+            maps.push("usa".to_owned());
         }
         let sectors = maps
             .into_iter()

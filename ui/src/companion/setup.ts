@@ -3,6 +3,8 @@ import type { HostStatus } from './useHostStatus'
 
 /** An install of the game. Mirrors the app's `setup::GameInfo`. */
 export interface GameInfo {
+  kind?: 'ets2' | 'ats'
+  title?: string
   dir: string
   foundBy: 'steam' | 'installed' | 'chosen'
   version: string | null

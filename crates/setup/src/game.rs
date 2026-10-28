@@ -1,5 +1,6 @@
-//! Finding the game: every install of Euro Truck Simulator 2 on the PC (Steam's, in any of its libraries, and
-//! others Windows lists as installed), each with its version (its executable's) and its DLCs.
+//! Finding the game: every install of Euro Truck Simulator 2 or American Truck Simulator on the PC
+//! (Steam's, in any of its libraries, and others Windows lists as installed), each with its version
+//! (its executable's) and its DLCs.
 
 use std::fmt;
 use std::path::{Path, PathBuf};
@@ -11,19 +12,94 @@ use windows::core::{HSTRING, w};
 
 use crate::{places, vdf};
 
-/// The game's app id on Steam (its manifest, its Workshop folder, its Steam Cloud folder).
+/// The game's app id on Steam for Euro Truck Simulator 2.
 pub const STEAM_APP: &str = "227300";
-/// The game's executable, in its folder.
-const EXECUTABLE: &str = "bin/win_x64/eurotrucks2.exe";
-/// The game's process, as Windows names it (TruckersMP's client runs the same).
-const PROCESS: &str = "eurotrucks2.exe";
-/// The game versions WestPlay has been tried with. Others may well work (the plugin finds what it needs in
-/// the game by its shape), but haven't been tried.
+/// The game's app id on Steam for American Truck Simulator.
+pub const ATS_STEAM_APP: &str = "270880";
+
+/// The target truck simulator game.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum GameKind {
+    Ets2,
+    Ats,
+}
+
+impl GameKind {
+    pub const ALL: [Self; 2] = [Self::Ets2, Self::Ats];
+
+    pub fn id(&self) -> &'static str {
+        match self {
+            Self::Ets2 => "ets2",
+            Self::Ats => "ats",
+        }
+    }
+
+    pub fn display_name(&self) -> &'static str {
+        match self {
+            Self::Ets2 => "Euro Truck Simulator 2",
+            Self::Ats => "American Truck Simulator",
+        }
+    }
+
+    pub fn steam_app(&self) -> &'static str {
+        match self {
+            Self::Ets2 => STEAM_APP,
+            Self::Ats => ATS_STEAM_APP,
+        }
+    }
+
+    pub fn executable(&self) -> &'static str {
+        match self {
+            Self::Ets2 => "bin/win_x64/eurotrucks2.exe",
+            Self::Ats => "bin/win_x64/amtrucks.exe",
+        }
+    }
+
+    pub fn process_name(&self) -> &'static str {
+        match self {
+            Self::Ets2 => "eurotrucks2.exe",
+            Self::Ats => "amtrucks.exe",
+        }
+    }
+
+    pub fn documents_folder(&self) -> &'static str {
+        match self {
+            Self::Ets2 => "Euro Truck Simulator 2",
+            Self::Ats => "American Truck Simulator",
+        }
+    }
+
+    pub fn base_map(&self) -> &'static str {
+        match self {
+            Self::Ets2 => "europe",
+            Self::Ats => "usa",
+        }
+    }
+
+    pub fn tested_versions(&self) -> &'static str {
+        match self {
+            Self::Ets2 => "1.61.*",
+            Self::Ats => "1.60.*",
+        }
+    }
+
+    pub fn is_match(&self, name: &str) -> bool {
+        let name = name.to_lowercase();
+        match self {
+            Self::Ets2 => name.contains("euro truck simulator 2") && !name.contains("demo"),
+            Self::Ats => name.contains("american truck simulator") && !name.contains("demo"),
+        }
+    }
+}
+
+/// The game versions WestPlay has been tried with.
 pub const TESTED_VERSIONS: &str = "1.61.*";
 
 /// An install of the game.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Game {
+    pub kind: GameKind,
     /// Its folder (with `base.scs`).
     pub dir: PathBuf,
     pub found_by: FoundBy,
@@ -68,9 +144,16 @@ impl fmt::Display for Version {
 impl Game {
     /// The game in `dir`, if it's an install of it: its archives and its executable are there.
     pub fn at(dir: &Path, found_by: FoundBy) -> Option<Self> {
-        if !dir.join("base.scs").is_file() || !dir.join(EXECUTABLE).is_file() {
+        if !dir.join("base.scs").is_file() {
             return None;
         }
+        let kind = if dir.join(GameKind::Ets2.executable()).is_file() {
+            GameKind::Ets2
+        } else if dir.join(GameKind::Ats.executable()).is_file() {
+            GameKind::Ats
+        } else {
+            return None;
+        };
         let mut dlcs: Vec<String> = std::fs::read_dir(dir)
             .ok()?
             .flatten()
@@ -81,7 +164,13 @@ impl Game {
             })
             .collect();
         dlcs.sort();
-        Some(Self { dir: dir.to_path_buf(), found_by, version: executable_version(&dir.join(EXECUTABLE)), dlcs })
+        Some(Self {
+            kind,
+            dir: dir.to_path_buf(),
+            found_by,
+            version: executable_version(&dir.join(kind.executable())),
+            dlcs,
+        })
     }
 
     /// The game in `dir`, found as [`find`] finds it (Steam's, or listed as installed) or else as chosen.
@@ -91,20 +180,22 @@ impl Game {
 
     /// Whether WestPlay has been tried with this version of the game ([`TESTED_VERSIONS`]).
     pub fn tested(&self) -> bool {
-        self.version.is_some_and(|version| version.matches(TESTED_VERSIONS))
+        self.version.is_some_and(|version| {
+            version.matches(self.kind.tested_versions()) || version.matches(TESTED_VERSIONS)
+        })
     }
 
     /// Where Steam keeps the game's Workshop mods, for an install in a Steam library (however it was found:
     /// a folder chosen there too).
     pub fn workshop(&self) -> Option<PathBuf> {
-        // `<library>/steamapps/common/<game>` → `<library>/steamapps/workshop/content/227300`.
+        // `<library>/steamapps/common/<game>` → `<library>/steamapps/workshop/content/<steam_app>`.
         let common = self.dir.parent()?;
         let steamapps = common.parent()?;
         let named = |path: &Path, name: &str| path.file_name().is_some_and(|n| n.eq_ignore_ascii_case(name));
         if !named(common, "common") || !named(steamapps, "steamapps") {
             return None;
         }
-        let workshop = steamapps.join("workshop").join("content").join(STEAM_APP);
+        let workshop = steamapps.join("workshop").join("content").join(self.kind.steam_app());
         workshop.is_dir().then_some(workshop)
     }
 
@@ -128,9 +219,11 @@ pub fn find() -> Vec<Game> {
     if let Some(steam) = places::steam() {
         for library in places::steam_libraries(&steam) {
             let steamapps = library.join("steamapps");
-            let manifest = std::fs::read_to_string(steamapps.join(format!("appmanifest_{STEAM_APP}.acf"))).ok();
-            if let Some(folder) = manifest.as_deref().and_then(steam_install_dir) {
-                add(Game::at(&steamapps.join("common").join(folder), FoundBy::Steam));
+            for kind in GameKind::ALL {
+                let manifest = std::fs::read_to_string(steamapps.join(format!("appmanifest_{}.acf", kind.steam_app()))).ok();
+                if let Some(folder) = manifest.as_deref().and_then(|m| steam_install_dir_for(m, kind.steam_app())) {
+                    add(Game::at(&steamapps.join("common").join(folder), FoundBy::Steam));
+                }
             }
         }
     }
@@ -145,6 +238,15 @@ pub fn find() -> Vec<Game> {
 
 /// Whether the game is running (any install of it).
 pub fn running() -> bool {
+    running_process(&[GameKind::Ets2.process_name(), GameKind::Ats.process_name()])
+}
+
+/// Whether a specific game is running.
+pub fn running_kind(kind: GameKind) -> bool {
+    running_process(&[kind.process_name()])
+}
+
+fn running_process(process_names: &[&str]) -> bool {
     use windows::Win32::Foundation::CloseHandle;
     use windows::Win32::System::Diagnostics::ToolHelp::{
         CreateToolhelp32Snapshot, PROCESSENTRY32W, Process32FirstW, Process32NextW, TH32CS_SNAPPROCESS,
@@ -157,7 +259,8 @@ pub fn running() -> bool {
     let mut more = unsafe { Process32FirstW(snapshot, &mut entry) }.is_ok();
     while more {
         let length = entry.szExeFile.iter().position(|&c| c == 0).unwrap_or(entry.szExeFile.len());
-        if String::from_utf16_lossy(&entry.szExeFile[..length]).eq_ignore_ascii_case(PROCESS) {
+        let exe = String::from_utf16_lossy(&entry.szExeFile[..length]);
+        if process_names.iter().any(|proc| exe.eq_ignore_ascii_case(proc)) {
             found = true;
             break;
         }
@@ -171,18 +274,22 @@ pub fn running() -> bool {
     found
 }
 
-/// The game's folder name in its Steam library, from its `appmanifest_227300.acf`.
+/// The game's folder name in its Steam library, from its `appmanifest_227300.acf` or ATS equivalent.
 pub fn steam_install_dir(manifest: &str) -> Option<String> {
+    steam_install_dir_for(manifest, STEAM_APP)
+}
+
+/// The game's folder name in its Steam library for a specific app id.
+pub fn steam_install_dir_for(manifest: &str, app_id: &str) -> Option<String> {
     let file = vdf::parse(manifest)?;
     let state = file.get("AppState")?;
-    (state.get("appid")?.text()? == STEAM_APP).then_some(())?;
+    (state.get("appid")?.text()? == app_id).then_some(())?;
     Some(state.get("installdir")?.text()?.to_owned())
 }
 
-/// Whether a program Windows lists is the game (not its demo, nor American Truck Simulator).
+/// Whether a program Windows lists is the game (ETS2 or ATS, not their demo).
 pub fn is_the_game(name: &str) -> bool {
-    let name = name.to_lowercase();
-    name.contains("euro truck simulator 2") && !name.contains("demo")
+    GameKind::Ets2.is_match(name) || GameKind::Ats.is_match(name)
 }
 
 fn same_folder(a: &Path, b: &Path) -> bool {
@@ -234,7 +341,7 @@ mod tests {
         let library = root.join("SteamLibrary").join("steamapps");
         let workshop = library.join("workshop").join("content").join(STEAM_APP);
         std::fs::create_dir_all(&workshop).unwrap();
-        let game = |dir: PathBuf| Game { dir, found_by: FoundBy::Chosen, version: None, dlcs: vec![] };
+        let game = |dir: PathBuf| Game { kind: GameKind::Ets2, dir, found_by: FoundBy::Chosen, version: None, dlcs: vec![] };
         // Chosen there by hand, it's still that library's game.
         assert_eq!(game(library.join("common").join("Euro Truck Simulator 2")).workshop(), Some(workshop));
         // Anywhere else, there's none.
@@ -244,7 +351,7 @@ mod tests {
 
     #[test]
     fn tells_a_tested_version() {
-        let game = |version| Game { dir: PathBuf::new(), found_by: FoundBy::Steam, version, dlcs: vec![] };
+        let game = |version| Game { kind: GameKind::Ets2, dir: PathBuf::new(), found_by: FoundBy::Steam, version, dlcs: vec![] };
         assert!(game(Some(Version([1, 61, 1, 9]))).tested());
         assert!(!game(Some(Version([1, 62, 0, 1]))).tested());
         assert!(!game(None).tested());
@@ -256,13 +363,15 @@ mod tests {
         assert_eq!(steam_install_dir(manifest).as_deref(), Some("Euro Truck Simulator 2"));
         // Another game's manifest.
         assert_eq!(steam_install_dir("\"AppState\" { \"appid\" \"270880\" \"installdir\" \"American\" }"), None);
+        assert_eq!(steam_install_dir_for("\"AppState\" { \"appid\" \"270880\" \"installdir\" \"American\" }", ATS_STEAM_APP).as_deref(), Some("American"));
     }
 
     #[test]
     fn knows_the_game_in_windows_list_of_programs() {
         assert!(is_the_game("Euro Truck Simulator 2"));
         assert!(!is_the_game("Euro Truck Simulator 2 Demo"));
-        assert!(!is_the_game("American Truck Simulator"));
+        assert!(is_the_game("American Truck Simulator"));
+        assert!(!is_the_game("American Truck Simulator Demo"));
     }
 
     #[test]
