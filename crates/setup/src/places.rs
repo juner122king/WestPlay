@@ -383,7 +383,8 @@ mod tests {
             } } } } }"#,
         )
         .unwrap();
-        assert_eq!(launch_options(&config).and_then(homedir), Some(PathBuf::from(r"D:\My Games\ETS2")));
+        let homes: Vec<_> = launch_options(&config).into_iter().filter_map(homedir).collect();
+        assert_eq!(homes, vec![PathBuf::from(r"D:\My Games\ETS2"), PathBuf::from(r"E:\ATS")]);
     }
 
     #[test]

@@ -241,7 +241,7 @@ pub async fn check_game(dir: PathBuf, store: State<'_, SetupStore>) -> Result<Ga
     let ours = store.0.plugin.clone();
     blocking(move || {
         let game = Game::recognise(&dir).ok_or("gameGone")?;
-        let (profiles, installed) = match places::game_documents() {
+        let (profiles, installed) = match places::game_documents_for_kind(game.kind) {
             Some(documents) => {
                 let userdata = places::steam().map(|steam| steam.join("userdata"));
                 let found = profiles::find(&documents, userdata.as_deref(), Some(&game));
@@ -319,7 +319,7 @@ fn build_mod(game: &Game) -> Result<(Vec<u8>, game_mod::Built, Vec<u64>), String
 
 /// The installed mods' files (active in a profile or not), for the tablet's trucks and the mod vehicles' screens.
 fn installed_mod_files(game: &Game) -> Vec<PathBuf> {
-    let documents = places::game_documents();
+    let documents = places::game_documents_for_kind(game.kind);
     let installed = documents.map(|documents| profiles::installed_files(&documents, Some(game)));
     installed.unwrap_or_default().into_iter().map(|(files, _)| files).collect()
 }
@@ -495,7 +495,7 @@ fn install_mod(game: &Game) -> Result<(), String> {
     let ours = places::westplay_documents().ok_or("noDocuments")?;
     game_mod::install(&bytes, &ours).map_err(|e| format!("Couldn't write the mod: {e}"))?;
     tablet::write_apart(&apart, &ours).map_err(|e| format!("Couldn't write the mod: {e}"))?;
-    if let Some(documents) = places::game_documents() {
+    if let Some(documents) = places::game_documents_for_kind(game.kind) {
         westplay_setup::uninstall::remove_mod(&documents)
             .map_err(|e| format!("Couldn't take the old mod out of the game's mod folder: {e}"))?;
         let userdata = places::steam().map(|steam| steam.join("userdata"));

@@ -818,7 +818,7 @@ mod tests {
 
     #[test]
     fn reads_the_junctions_with_the_played_profiles_map_mods() {
-        use westplay_setup::game::{FoundBy, Game};
+        use westplay_setup::game::{FoundBy, Game, GameKind};
         use westplay_setup::profiles::{MapContent, Mod, Profile};
 
         let a_mod = |package: &str, sectors: &[&str], files: bool| Mod {
@@ -838,7 +838,13 @@ mod tests {
         profile.mods =
             vec![a_mod("promods", &["europe"], true), a_mod("truck", &[], true), a_mod("gone", &["europe"], false)];
         // WestPlay set up in one install, the game running from another: the running one's files.
-        let set_up = Game { dir: "set-up".into(), found_by: FoundBy::Steam, version: None, dlcs: vec![] };
+        let set_up = Game {
+            kind: GameKind::Ets2,
+            dir: "set-up".into(),
+            found_by: FoundBy::Steam,
+            version: None,
+            dlcs: vec![],
+        };
         let running = Path::new("running");
 
         let files = JunctionFiles::of(running, Some(&(set_up.clone(), profile.clone())));

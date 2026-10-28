@@ -277,6 +277,7 @@ mod tests {
 
     fn game() -> Game {
         Game {
+            kind: game::GameKind::Ets2,
             dir: PathBuf::new(),
             found_by: FoundBy::Steam,
             version: Some(Version([1, 61, 1, 9])),
