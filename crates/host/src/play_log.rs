@@ -131,21 +131,21 @@ mod tests {
 
     #[test]
     fn logs_each_change_of_what_it_does_never_what_played() {
-        let mut log = PlayLog::new("spotify");
-        assert_eq!(log.heard(heard(Doing::Loading, "a", 0.0)).as_deref(), Some("[spotify] loading at 0 s"));
-        assert_eq!(log.heard(heard(Doing::Playing, "a", 0.2)).as_deref(), Some("[spotify] playing at 0 s"));
+        let mut log = PlayLog::new("netease");
+        assert_eq!(log.heard(heard(Doing::Loading, "a", 0.0)).as_deref(), Some("[netease] loading at 0 s"));
+        assert_eq!(log.heard(heard(Doing::Playing, "a", 0.2)).as_deref(), Some("[netease] playing at 0 s"));
         // Playing on: nothing.
         assert_eq!(log.heard(heard(Doing::Playing, "a", 5.0)), None);
-        assert_eq!(log.heard(heard(Doing::Paused, "a", 10.4)).as_deref(), Some("[spotify] paused at 10 s"));
+        assert_eq!(log.heard(heard(Doing::Paused, "a", 10.4)).as_deref(), Some("[netease] paused at 10 s"));
         // Another track: said so, never which.
-        assert_eq!(log.heard(heard(Doing::Playing, "b", 0.0)).as_deref(), Some("[spotify] next track, playing"));
-        assert_eq!(log.heard(None).as_deref(), Some("[spotify] stopped at 0 s"));
+        assert_eq!(log.heard(heard(Doing::Playing, "b", 0.0)).as_deref(), Some("[netease] next track, playing"));
+        assert_eq!(log.heard(None).as_deref(), Some("[netease] stopped at 0 s"));
         assert_eq!(log.heard(None), None);
     }
 
     #[test]
     fn a_track_that_falls_silent_shows_where() {
-        let mut log = PlayLog::new("spotify");
+        let mut log = PlayLog::new("netease");
         log.heard(heard(Doing::Playing, "a", 0.0));
         log.heard(heard(Doing::Playing, "a", 10.2));
         assert_eq!(log.heard(None).as_deref(), Some("[spotify] stopped at 10 s"));

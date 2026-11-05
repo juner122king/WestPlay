@@ -23,17 +23,22 @@ import {
   useAppleMusic,
 } from '../apps/music/appleMusic'
 import {
-  receiveAnswer as receiveSpotifyAnswer,
-  receivePlayback,
-  receiveState as receiveSpotifyState,
-} from '../apps/spotify/spotify'
+  receiveAnswer as receiveBilibiliAnswer,
+  receivePlayback as receiveBilibiliPlayback,
+  receiveState as receiveBilibiliState,
+} from '../apps/bilibili/bilibili'
+import {
+  receiveAnswer as receiveXimalayaAnswer,
+  receivePlayback as receiveXimalayaPlayback,
+  receiveState as receiveXimalayaState,
+} from '../apps/ximalaya/ximalaya'
+import {
+  receiveAnswer as receiveNeteaseAnswer,
+  receivePlayback as receiveNeteasePlayback,
+  receiveState as receiveNeteaseState,
+} from '../apps/netease/netease'
 import { receiveAnswer, receiveState, useYouTube } from '../apps/youtube/youtube'
 import { receiveFolder, receivePlayback as receivePlayerPlayback } from '../apps/player/player'
-import {
-  receiveAnswer as receiveYouTubeMusicAnswer,
-  receivePlayback as receiveYouTubeMusicPlayback,
-  receiveState as receiveYouTubeMusicState,
-} from '../apps/youtubeMusic/youtubeMusic'
 import { useKeyboard } from '../keyboard/store'
 import { receiveMapFolder } from '../maps/mapData'
 import { receiveDetours, receiveFollowed, receiveRouteAnswer, receiveRoutes } from '../maps/routeChange'
@@ -577,14 +582,32 @@ function receiveHostMessage(now: () => number): (message: HostMessage) => void {
       case 'map':
         receiveMapFolder(message.folder, message.built)
         break
-      case 'spotify':
-        receiveSpotifyState(message.signedIn, message.playing, message.signingIn)
+      case 'bilibili':
+        receiveBilibiliState(message.signedIn, message.playing, message.signingIn)
         break
-      case 'spotifyAnswer':
-        receiveSpotifyAnswer(message)
+      case 'bilibiliAnswer':
+        receiveBilibiliAnswer(message.id, message.failed, message.error, message.videos)
         break
-      case 'spotifyPlayback':
-        receivePlayback(message.playback)
+      case 'bilibiliPlayback':
+        receiveBilibiliPlayback(message.playback)
+        break
+      case 'ximalaya':
+        receiveXimalayaState(message.signedIn, message.playing, message.signingIn)
+        break
+      case 'ximalayaAnswer':
+        receiveXimalayaAnswer(message.id, message.failed, message.error, message.tracks, message.albums)
+        break
+      case 'ximalayaPlayback':
+        receiveXimalayaPlayback(message.playback)
+        break
+      case 'netease':
+        receiveNeteaseState(message.signedIn, message.playing, message.signingIn)
+        break
+      case 'neteaseAnswer':
+        receiveNeteaseAnswer(message.id, message.failed, message.error, message.songs, message.lyric)
+        break
+      case 'neteasePlayback':
+        receiveNeteasePlayback(message.playback)
         break
       case 'appleMusic':
         useAppleMusic.setState({
@@ -605,15 +628,6 @@ function receiveHostMessage(now: () => number): (message: HostMessage) => void {
         break
       case 'playerPlayback':
         receivePlayerPlayback(message.playback)
-        break
-      case 'youtubeMusic':
-        receiveYouTubeMusicState(message)
-        break
-      case 'youtubeMusicAnswer':
-        receiveYouTubeMusicAnswer(message)
-        break
-      case 'youtubeMusicPlayback':
-        receiveYouTubeMusicPlayback(message.playback)
         break
       case 'youtubeAnswer': {
         const { type: _, id, ...answer } = message

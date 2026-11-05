@@ -32,7 +32,9 @@ export function isIconStyle(style: unknown): style is IconStyle {
 const ROLES: AppIconRole[] = [
   'maps',
   'music',
-  'spotify',
+  'bilibili',
+  'ximalaya',
+  'netease',
   'podcasts',
   'messages',
   'phone',
@@ -40,7 +42,6 @@ const ROLES: AppIconRole[] = [
   'settings',
   'weather',
   'youtube',
-  'youtubeMusic',
   'player',
 ]
 

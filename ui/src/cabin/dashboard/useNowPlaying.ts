@@ -1,8 +1,9 @@
 import { useEffect } from 'react'
 import { command, useYouTube } from '../apps/youtube/youtube'
-import { playOrPause, useSpotifySource } from '../apps/spotify/spotify'
+import { playOrPause as playOrPauseBilibili, useBilibiliSource } from '../apps/bilibili/bilibili'
+import { playOrPause as playOrPauseXimalaya, useXimalayaSource } from '../apps/ximalaya/ximalaya'
+import { playOrPause as playOrPauseNetease, useNeteaseSource } from '../apps/netease/netease'
 import { playOrPause as playOrPauseAppleMusic, useAppleMusicSource } from '../apps/music/appleMusic'
-import { playOrPause as playOrPauseYouTubeMusic, useYouTubeMusicSource } from '../apps/youtubeMusic/youtubeMusic'
 import { playOrPause as playOrPausePlayer, usePlayerSource } from '../apps/player/player'
 import { type NowPlayingSource, shownSource } from './nowPlaying'
 
@@ -12,24 +13,27 @@ let lastPlayed: NowPlayingSource | null = null
 /** What Now Playing shows (`shownSource`): which player, and each player's own state (the screen showing it
  * draws it its own way: the Dashboard's widget, the Equalizer's track). */
 export function useNowPlaying() {
-  const spotify = useSpotifySource()
+  const bilibili = useBilibiliSource()
+  const ximalaya = useXimalayaSource()
+  const netease = useNeteaseSource()
   const appleMusic = useAppleMusicSource()
-  const youtubeMusic = useYouTubeMusicSource()
   const player = usePlayerSource()
   const video = useYouTube((store) => store.current)
   const videoPlaying = useYouTube((store) => store.state?.state === 1 && store.state.video === store.current?.video)
   const playing = {
     video: video !== null && videoPlaying,
-    spotify: spotify?.source.status === 'playing',
+    bilibili: bilibili?.source.status === 'playing',
+    ximalaya: ximalaya?.source.status === 'playing',
+    netease: netease?.source.status === 'playing',
     appleMusic: appleMusic?.source.status === 'playing',
-    youtubeMusic: youtubeMusic?.source.status === 'playing',
     player: player?.source.status === 'playing',
   }
   const has = {
     video: video !== null,
-    spotify: Boolean(spotify),
+    bilibili: Boolean(bilibili),
+    ximalaya: Boolean(ximalaya),
+    netease: Boolean(netease),
     appleMusic: Boolean(appleMusic),
-    youtubeMusic: Boolean(youtubeMusic),
     player: Boolean(player),
   }
   const showing = shownSource(playing, has, lastPlayed)
@@ -37,7 +41,7 @@ export function useNowPlaying() {
   useEffect(() => {
     if (showing !== null && showingPlays) lastPlayed = showing
   }, [showing, showingPlays])
-  return { showing, playing, spotify, appleMusic, youtubeMusic, player, video }
+  return { showing, playing, bilibili, ximalaya, netease, appleMusic, player, video }
 }
 
 /** The track Now Playing shows, as one line of a list draws it (the Equalizer's): its title, who it's by, its
@@ -49,7 +53,7 @@ export function useNowPlayingTrack(): {
   playing: boolean
   playPause: (() => void) | null
 } | null {
-  const { showing, playing, spotify, appleMusic, youtubeMusic, player, video } = useNowPlaying()
+  const { showing, playing, bilibili, ximalaya, netease, appleMusic, player, video } = useNowPlaying()
   const music = (
     player: { source: { title: string; artist: string; controls: { playPause: boolean } }; artwork: string | null },
     playPause: () => void,
@@ -72,12 +76,14 @@ export function useNowPlayingTrack(): {
             playPause: () => command({ action: playing.video ? 'pause' : 'play' }),
           }
         : null
-    case 'spotify':
-      return spotify ? music(spotify, playOrPause, playing.spotify) : null
+    case 'bilibili':
+      return bilibili ? music(bilibili, playOrPauseBilibili, playing.bilibili) : null
+    case 'ximalaya':
+      return ximalaya ? music(ximalaya, playOrPauseXimalaya, playing.ximalaya) : null
+    case 'netease':
+      return netease ? music(netease, playOrPauseNetease, playing.netease) : null
     case 'appleMusic':
       return appleMusic ? music(appleMusic, playOrPauseAppleMusic, playing.appleMusic) : null
-    case 'youtubeMusic':
-      return youtubeMusic ? music(youtubeMusic, playOrPauseYouTubeMusic, playing.youtubeMusic) : null
     case 'player':
       return player ? music(player, playOrPausePlayer, playing.player) : null
     default:

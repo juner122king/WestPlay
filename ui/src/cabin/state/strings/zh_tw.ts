@@ -481,9 +481,10 @@ export const strings: Strings = {
   apps: {
     maps: '地圖',
     music: '音樂',
-    spotify: 'Spotify',
+    bilibili: '嗶哩嗶哩',
+    ximalaya: '喜馬拉雅',
+    netease: '網易雲音樂',
     youtube: 'YouTube',
-    youtubeMusic: 'YouTube Music',
     player: 'Player',
     podcasts: 'Podcast',
     phone: '電話',

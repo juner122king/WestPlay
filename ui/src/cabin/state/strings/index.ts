@@ -2,7 +2,6 @@ import type { Sky } from '../../../shared/host'
 import type { ReturnKind } from '../../keyboard/layouts'
 import type { TurnKind } from '../../maps/guidance'
 import type { DestinationKind } from '../../maps/places'
-import type { AppId } from '../apps'
 
 /**
  * The cabin's own words, in the game's languages (by the game's codes, `tr_tr`, as the companion's words):
@@ -474,7 +473,7 @@ export interface Strings {
     back: string
   }
   /** Apps. */
-  apps: Record<AppId, string>
+  apps: Record<string, string>
   /** An app not ready yet (Phone, Messages): what its window says. */
   notBuiltYet: string
   /** The Calendar app's day without events (Apple's words). */
@@ -506,9 +505,22 @@ export function languageOf(gameLanguage: string | null): Language {
   return code && STRINGS[code] ? code : FALLBACK
 }
 
+const DEFAULT_APPS: Record<string, string> = {
+  bilibili: '哔哩哔哩',
+  ximalaya: '喜马拉雅',
+  netease: '网易云音乐',
+}
+
 /** The cabin's words in `language`. */
 export function stringsFor(language: Language): Strings {
-  return STRINGS[language] ?? STRINGS[FALLBACK]
+  const base = STRINGS[language] ?? STRINGS[FALLBACK]
+  return {
+    ...base,
+    apps: {
+      ...DEFAULT_APPS,
+      ...base.apps,
+    },
+  }
 }
 
 /** The languages there are words for. */

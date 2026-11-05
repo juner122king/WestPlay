@@ -29,7 +29,9 @@ type Adding = 'wallpapers' | 'wallpaperFolder' | 'folder' | 'zip'
 const ICON_FILES: [AppIconRole, string][] = [
   ['maps', 'maps'],
   ['music', 'music'],
-  ['spotify', 'spotify'],
+  ['bilibili', 'bilibili'],
+  ['ximalaya', 'ximalaya'],
+  ['netease', 'netease'],
   ['podcasts', 'podcasts'],
   ['messages', 'messages'],
   ['phone', 'phone'],
@@ -37,7 +39,6 @@ const ICON_FILES: [AppIconRole, string][] = [
   ['settings', 'settings'],
   ['weather', 'weather'],
   ['youtube', 'youtube'],
-  ['youtubeMusic', 'youtube-music'],
   ['player', 'player'],
 ]
 

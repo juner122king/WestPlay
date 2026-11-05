@@ -6,9 +6,10 @@ describe('the apps this release has', () => {
     expect(RELEASED_APP_IDS).toEqual([
       'maps',
       'music',
-      'spotify',
+      'netease',
+      'bilibili',
+      'ximalaya',
       'youtube',
-      'youtubeMusic',
       'player',
       'phone',
       'messages',

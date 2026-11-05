@@ -1,21 +1,24 @@
 import { useEffect, useState } from 'react'
-import { type HostStatus, appleMusicCheck, spotifyCheck, youtubeCheck } from './useHostStatus'
+import {
+  type HostStatus,
+  appleMusicCheck,
+  bilibiliCheck,
+  neteaseCheck,
+  ximalayaCheck,
+  youtubeCheck,
+} from './useHostStatus'
 
-/**
- * Whether each service is signed in, as the companion last knew: shown at once when it opens, kept up to date
- * by every status that says (a sign-in or out here, or the service run in the cab). Only whether, nothing
- * else of the account, in the companion's own storage (gone with WestPlay when it's uninstalled). A service
- * never known is asked once, as the companion opens: run hidden to say.
- */
 export interface SignedIn {
   youtube: boolean | null
-  spotify: boolean | null
+  bilibili: boolean | null
+  ximalaya: boolean | null
+  netease: boolean | null
   appleMusic: boolean | null
 }
 
 export type Service = keyof SignedIn
 
-const SERVICES: Service[] = ['youtube', 'spotify', 'appleMusic']
+const SERVICES: Service[] = ['youtube', 'bilibili', 'ximalaya', 'netease', 'appleMusic']
 
 const KEY = 'westplay.companion.signedIn'
 
@@ -27,7 +30,13 @@ function kept(): SignedIn {
     // Nothing kept: each is asked.
   }
   const known = (service: Service) => (typeof value?.[service] === 'boolean' ? (value[service] as boolean) : null)
-  return { youtube: known('youtube'), spotify: known('spotify'), appleMusic: known('appleMusic') }
+  return {
+    youtube: known('youtube'),
+    bilibili: known('bilibili'),
+    ximalaya: known('ximalaya'),
+    netease: known('netease'),
+    appleMusic: known('appleMusic'),
+  }
 }
 
 function keep(value: SignedIn) {
@@ -43,7 +52,9 @@ export function useSignedIn(status: HostStatus | null): SignedIn {
   const [known] = useState(kept)
   const now: SignedIn = {
     youtube: status?.youtubeSignedIn ?? null,
-    spotify: status?.spotifySignedIn ?? null,
+    bilibili: status?.bilibiliSignedIn ?? null,
+    ximalaya: status?.ximalayaSignedIn ?? null,
+    netease: status?.neteaseSignedIn ?? null,
     appleMusic: status?.appleMusicSignedIn ?? null,
   }
   useEffect(() => {
@@ -51,15 +62,18 @@ export function useSignedIn(status: HostStatus | null): SignedIn {
     const before = kept()
     keep({
       youtube: now.youtube ?? before.youtube,
-      spotify: now.spotify ?? before.spotify,
+      bilibili: now.bilibili ?? before.bilibili,
+      ximalaya: now.ximalaya ?? before.ximalaya,
+      netease: now.netease ?? before.netease,
       appleMusic: now.appleMusic ?? before.appleMusic,
     })
-    // Keyed by the three answers (`now` itself is new at every render).
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [now.youtube, now.spotify, now.appleMusic])
+  }, [now.youtube, now.bilibili, now.ximalaya, now.netease, now.appleMusic])
   return {
     youtube: now.youtube ?? known.youtube,
-    spotify: now.spotify ?? known.spotify,
+    bilibili: now.bilibili ?? known.bilibili,
+    ximalaya: now.ximalaya ?? known.ximalaya,
+    netease: now.netease ?? known.netease,
     appleMusic: now.appleMusic ?? known.appleMusic,
   }
 }
@@ -69,7 +83,9 @@ export function useAskOnce(): void {
   useEffect(() => {
     const known = kept()
     if (known.youtube === null) youtubeCheck().catch(() => {})
-    if (known.spotify === null) spotifyCheck().catch(() => {})
+    if (known.bilibili === null) bilibiliCheck().catch(() => {})
+    if (known.ximalaya === null) ximalayaCheck().catch(() => {})
+    if (known.netease === null) neteaseCheck().catch(() => {})
     if (known.appleMusic === null) appleMusicCheck().catch(() => {})
   }, [])
 }

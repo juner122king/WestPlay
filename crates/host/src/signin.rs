@@ -68,26 +68,31 @@ pub const YOUTUBE: Site = Site {
     page_says: None,
 };
 
-/// Google's sign-in for YouTube Music: YouTube's own (YouTube Music shares YouTube's sign-in: its cookies are
-/// YouTube's), coming back to YouTube, which sets them.
-pub const YOUTUBE_MUSIC: Site = Site { title: "Sign in to YouTube Music - WestPlay", ..YOUTUBE };
-
-/// Spotify's sign-in, coming back to its web player.
-pub const SPOTIFY: Site = Site {
-    sign_in: "https://accounts.spotify.com/login?continue=https%3A%2F%2Fopen.spotify.com%2F",
-    title: "Sign in to Spotify - WestPlay",
-    home: "https://open.spotify.com/",
-    not_yet: None,
-    page_says: None,
+/// Bilibili's sign-in with desktop QR code, coming back to Bilibili once signed in.
+pub const BILIBILI: Site = Site {
+    sign_in: "https://passport.bilibili.com/login",
+    title: "Sign in to Bilibili - WestPlay",
+    home: "https://www.bilibili.com/",
+    not_yet: Some("login"),
+    page_says: Some(include_str!("bilibili_sign_in.js")),
 };
 
-/// Spotify's sign-up, coming back to its web player signed in to the new account.
-pub const SPOTIFY_SIGN_UP: Site = Site {
-    sign_in: "https://www.spotify.com/signup?forward_url=https%3A%2F%2Fopen.spotify.com%2F",
-    title: "Sign up for Spotify - WestPlay",
-    home: "https://open.spotify.com/",
+/// Ximalaya's sign-in with desktop QR code, coming back to Ximalaya once signed in.
+pub const XIMALAYA: Site = Site {
+    sign_in: "https://passport.ximalaya.com/page/web/login",
+    title: "Sign in to Ximalaya - WestPlay",
+    home: "https://www.ximalaya.com/",
+    not_yet: Some("login"),
+    page_says: Some(include_str!("ximalaya_sign_in.js")),
+};
+
+/// NetEase Cloud Music's sign-in with desktop QR code.
+pub const NETEASE: Site = Site {
+    sign_in: "https://music.163.com/#/login",
+    title: "Sign in to NetEase Cloud Music - WestPlay",
+    home: "https://music.163.com/",
     not_yet: None,
-    page_says: None,
+    page_says: Some(include_str!("netease_sign_in.js")),
 };
 
 /// Apple Music's sign-in: the dialog of its own web player, opened at once (`apple_music_sign_in.js`).
@@ -547,15 +552,12 @@ mod tests {
     }
 
     #[test]
-    fn is_signed_in_to_spotify_once_back_on_its_web_player() {
-        assert_eq!(progress_at(&SPOTIFY, SPOTIFY.sign_in), Progress::Signing);
-        assert_eq!(progress_at(&SPOTIFY, "https://accounts.spotify.com/en/status"), Progress::Signing);
-        assert_eq!(progress_at(&SPOTIFY, "https://open.spotify.com/"), Progress::SignedIn);
-        assert_eq!(progress_at(&SPOTIFY, "https://open.spotify.com/collection/tracks"), Progress::SignedIn);
-        assert_eq!(progress_at(&SPOTIFY, "https://evil.example/?https://open.spotify.com/"), Progress::Signing);
-        // Signing up: Spotify's own pages until the new account comes back to the web player.
-        assert_eq!(progress_at(&SPOTIFY_SIGN_UP, SPOTIFY_SIGN_UP.sign_in), Progress::Signing);
-        assert_eq!(progress_at(&SPOTIFY_SIGN_UP, "https://open.spotify.com/"), Progress::SignedIn);
+    fn is_signed_in_to_bilibili_once_back_on_home() {
+        assert_eq!(progress_at(&BILIBILI, BILIBILI.sign_in), Progress::Signing);
+        assert_eq!(progress_at(&BILIBILI, "https://passport.bilibili.com/login"), Progress::Signing);
+        assert_eq!(progress_at(&BILIBILI, "https://www.bilibili.com/"), Progress::SignedIn);
+        assert_eq!(progress_at(&BILIBILI, "https://www.bilibili.com/video/BV1xx"), Progress::SignedIn);
+        assert_eq!(progress_at(&BILIBILI, "https://evil.example/?https://www.bilibili.com/"), Progress::Signing);
     }
 
     /// Apple Music's sign-in stays on its web player: signed in only once its page says so.

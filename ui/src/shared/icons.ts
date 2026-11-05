@@ -9,7 +9,9 @@
 export type AppIconRole =
   | 'maps'
   | 'music'
-  | 'spotify'
+  | 'bilibili'
+  | 'ximalaya'
+  | 'netease'
   | 'podcasts'
   | 'messages'
   | 'phone'
@@ -17,14 +19,15 @@ export type AppIconRole =
   | 'settings'
   | 'weather'
   | 'youtube'
-  | 'youtubeMusic'
   | 'player'
 
 /** Each role's files' name. */
 const FILES: Record<AppIconRole, string> = {
   maps: 'maps',
   music: 'music',
-  spotify: 'spotify',
+  bilibili: 'bilibili',
+  ximalaya: 'ximalaya',
+  netease: 'netease',
   podcasts: 'podcasts',
   messages: 'messages',
   phone: 'phone',
@@ -32,7 +35,6 @@ const FILES: Record<AppIconRole, string> = {
   settings: 'settings',
   weather: 'weather',
   youtube: 'youtube',
-  youtubeMusic: 'youtube-music',
   player: 'player',
 }
 

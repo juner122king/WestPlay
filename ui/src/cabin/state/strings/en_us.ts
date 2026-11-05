@@ -479,9 +479,10 @@ export const strings: Strings = {
   apps: {
     maps: 'Maps',
     music: 'Music',
-    spotify: 'Spotify',
+    bilibili: 'Bilibili',
+    ximalaya: 'Ximalaya',
+    netease: 'NetEase Music',
     youtube: 'YouTube',
-    youtubeMusic: 'YouTube Music',
     player: 'Player',
     podcasts: 'Podcasts',
     phone: 'Phone',

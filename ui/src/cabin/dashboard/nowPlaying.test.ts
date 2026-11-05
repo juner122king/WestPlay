@@ -1,7 +1,14 @@
 import { describe, expect, it } from 'vitest'
 import { type NowPlayingSource, shownSource } from './nowPlaying'
 
-const none: Record<NowPlayingSource, boolean> = { video: false, spotify: false, appleMusic: false, youtubeMusic: false, player: false }
+const none: Record<NowPlayingSource, boolean> = {
+  video: false,
+  netease: false,
+  bilibili: false,
+  ximalaya: false,
+  appleMusic: false,
+  player: false,
+}
 const only = (...sources: NowPlayingSource[]) => ({ ...none, ...Object.fromEntries(sources.map((s) => [s, true])) })
 
 describe("the Dashboard's Now Playing", () => {
@@ -16,14 +23,14 @@ describe("the Dashboard's Now Playing", () => {
   })
 
   it('shows what played last once it is paused, while it still has something', () => {
-    expect(shownSource(none, only('video', 'spotify'), 'spotify')).toBe('spotify')
+    expect(shownSource(none, only('video', 'netease'), 'netease')).toBe('netease')
     // Gone (signed out, say): the first that has something.
-    expect(shownSource(none, only('video'), 'spotify')).toBe('video')
+    expect(shownSource(none, only('video'), 'netease')).toBe('video')
   })
 
   it('shows the first that has something when nothing has played, and Not Playing with nothing at all', () => {
-    expect(shownSource(none, only('appleMusic', 'youtubeMusic'), null)).toBe('appleMusic')
+    expect(shownSource(none, only('netease', 'bilibili'), null)).toBe('netease')
     expect(shownSource(none, none, null)).toBeNull()
-    expect(shownSource(none, none, 'spotify')).toBeNull()
+    expect(shownSource(none, none, 'netease')).toBeNull()
   })
 })

@@ -92,7 +92,7 @@ const custom: Customizations = query.has('custom')
         {
           name: 'Sample icons',
           icons: {
-            spotify: { light: 'icons/westplay/spotify.dark.svg', dark: 'icons/westplay/spotify.dark.svg' },
+            bilibili: { light: 'icons/westplay/bilibili.dark.svg', dark: 'icons/westplay/bilibili.dark.svg' },
             youtube: { light: null, dark: 'icons/westplay/youtube.light.svg' },
           },
         },
@@ -102,8 +102,10 @@ const custom: Customizations = query.has('custom')
 
 const accounts = {
   youtube: true as boolean | null,
-  spotify: false as boolean | null,
   appleMusic: false as boolean | null,
+  bilibili: false as boolean | null,
+  ximalaya: false as boolean | null,
+  netease: false as boolean | null,
   signingIn: '',
 }
 
@@ -150,10 +152,14 @@ function status(): HostStatus {
     westplayOpen: live ? westplayOpen : null,
     youtubeSignedIn: accounts.youtube,
     youtubeSigningIn: accounts.signingIn === 'youtube',
-    spotifySignedIn: accounts.spotify,
-    spotifySigningIn: accounts.signingIn === 'spotify',
     appleMusicSignedIn: accounts.appleMusic,
     appleMusicSigningIn: accounts.signingIn === 'appleMusic',
+    bilibiliSignedIn: accounts.bilibili,
+    bilibiliSigningIn: accounts.signingIn === 'bilibili',
+    ximalayaSignedIn: accounts.ximalaya,
+    ximalayaSigningIn: accounts.signingIn === 'ximalaya',
+    neteaseSignedIn: accounts.netease,
+    neteaseSigningIn: accounts.signingIn === 'netease',
     map,
     mapFolder: null,
     mapBuilt: map.state === 'ready' ? Math.floor(Date.now() / 1000) - 3 * 86_400 : null,
@@ -205,8 +211,8 @@ function setLook(change: Partial<Settings['look']>) {
 
 const later = <T>(value: T, ms = 300) => new Promise<T>((resolve) => setTimeout(() => resolve(value), ms))
 
-/** A sign-in: Google's, Spotify's or Apple's window "open" a moment, then signed in. */
-function signIn(service: 'youtube' | 'spotify' | 'appleMusic') {
+/** A sign-in: Google's, Apple's or domestic apps' window "open" a moment, then signed in. */
+function signIn(service: 'youtube' | 'appleMusic' | 'bilibili' | 'ximalaya' | 'netease') {
   accounts.signingIn = service
   emit('host-status', status())
   setTimeout(() => {
@@ -335,17 +341,25 @@ export function answer(command: string, args?: Record<string, unknown>): Promise
       map = { state: 'building', done: 0, stage: 'reading' }
       return later(undefined, 300)
     case 'youtube_check':
-    case 'spotify_check':
     case 'apple_music_check':
+    case 'bilibili_check':
+    case 'ximalaya_check':
+    case 'netease_check':
       return later(undefined)
     case 'youtube_sign_in':
       signIn('youtube')
       return later(undefined)
-    case 'spotify_sign_in':
-      signIn('spotify')
-      return later(undefined)
     case 'apple_music_sign_in':
       signIn('appleMusic')
+      return later(undefined)
+    case 'bilibili_sign_in':
+      signIn('bilibili')
+      return later(undefined)
+    case 'ximalaya_sign_in':
+      signIn('ximalaya')
+      return later(undefined)
+    case 'netease_sign_in':
+      signIn('netease')
       return later(undefined)
     case 'open_support_page':
       window.open('https://kreosus.com/enes-less', '_blank', 'noopener')
@@ -369,15 +383,27 @@ export function answer(command: string, args?: Record<string, unknown>): Promise
         emit('host-status', status())
       }, 1200)
       return later(undefined)
-    case 'spotify_sign_out':
-      setTimeout(() => {
-        accounts.spotify = false
-        emit('host-status', status())
-      }, 1200)
-      return later(undefined)
     case 'apple_music_sign_out':
       setTimeout(() => {
         accounts.appleMusic = false
+        emit('host-status', status())
+      }, 1200)
+      return later(undefined)
+    case 'bilibili_sign_out':
+      setTimeout(() => {
+        accounts.bilibili = false
+        emit('host-status', status())
+      }, 1200)
+      return later(undefined)
+    case 'ximalaya_sign_out':
+      setTimeout(() => {
+        accounts.ximalaya = false
+        emit('host-status', status())
+      }, 1200)
+      return later(undefined)
+    case 'netease_sign_out':
+      setTimeout(() => {
+        accounts.netease = false
         emit('host-status', status())
       }, 1200)
       return later(undefined)

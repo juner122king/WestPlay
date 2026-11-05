@@ -27,10 +27,12 @@ const WALLPAPERS: &str = "wallpapers";
 const ICONS: &str = "icons";
 
 /// An icon's file name (without its extension), and the role the cabin page knows it by.
-pub const ICON_ROLES: [(&str, &str); 12] = [
+pub const ICON_ROLES: [(&str, &str); 13] = [
     ("maps", "maps"),
     ("music", "music"),
-    ("spotify", "spotify"),
+    ("bilibili", "bilibili"),
+    ("ximalaya", "ximalaya"),
+    ("netease", "netease"),
     ("podcasts", "podcasts"),
     ("messages", "messages"),
     ("phone", "phone"),
@@ -38,7 +40,6 @@ pub const ICON_ROLES: [(&str, &str); 12] = [
     ("settings", "settings"),
     ("weather", "weather"),
     ("youtube", "youtube"),
-    ("youtube-music", "youtubeMusic"),
     ("player", "player"),
 ];
 
@@ -633,7 +634,7 @@ mod tests {
     fn icon_sets_take_only_icons_named_by_role() {
         let source = folder("icons-source").join("Retro Icons");
         std::fs::create_dir_all(&source).unwrap();
-        for name in ["Maps.png", "youtube-music.png", "Spotify Logo.png", "youtubemusic.png", "music.gif"] {
+        for name in ["Maps.png", "netease.png", "Unknown Logo.png", "unknownmusic.png", "music.gif"] {
             std::fs::write(source.join(name), png(100)).unwrap();
         }
         let dir = folder("icons");
@@ -643,7 +644,7 @@ mod tests {
         let reasons: Vec<_> = report.problems.iter().map(|p| (p.file.as_str(), p.reason)).collect();
         assert_eq!(
             reasons,
-            vec![("music.gif", "notAnImage"), ("Spotify Logo.png", "unknownName"), ("youtubemusic.png", "unknownName")]
+            vec![("music.gif", "notAnImage"), ("Unknown Logo.png", "unknownName"), ("unknownmusic.png", "unknownName")]
         );
         let sets = list(&dir).icon_sets;
         assert_eq!(sets.len(), 1);
@@ -653,7 +654,7 @@ mod tests {
             icons,
             vec![
                 ("maps", both("icons/Retro Icons/maps.png")),
-                ("youtubeMusic", both("icons/Retro Icons/youtube-music.png"))
+                ("netease", both("icons/Retro Icons/netease.png"))
             ]
         );
 

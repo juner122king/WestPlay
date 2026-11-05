@@ -14,12 +14,12 @@ describe('navigate', () => {
   it('opens an app and moves it to the front of the recents', () => {
     const state = navigate(INITIAL_NAVIGATION, { type: 'openApp', app: 'youtube' })
     expect(state.route).toEqual({ kind: 'app', app: 'youtube' })
-    expect(state.recents).toEqual(['youtube', 'maps', 'music', 'spotify', 'youtubeMusic'])
+    expect(state.recents).toEqual(['youtube', 'maps', 'music', 'netease', 'bilibili', 'ximalaya'])
   })
 
   it('adds a new app to the recents, keeping every app used', () => {
     const state = navigate(INITIAL_NAVIGATION, { type: 'openApp', app: 'settings' })
-    expect(state.recents).toEqual(['settings', 'maps', 'music', 'youtube', 'spotify', 'youtubeMusic'])
+    expect(state.recents).toEqual(['settings', 'maps', 'music', 'netease', 'bilibili', 'ximalaya', 'youtube'])
     expect(RECENTS_LIMIT).toBe(APP_IDS.length)
   })
 
@@ -73,10 +73,10 @@ describe('navigate', () => {
 describe('sidebarApps', () => {
   it('shows one app of each kind, the last used of it, in a fixed order', () => {
     // Maps, the last used music app, then Phone or Messages (YouTube, Weather and Settings never take a slot).
-    expect(sidebarApps(['weather', 'spotify', 'youtube', 'music', 'maps'], 3)).toEqual(['maps', 'spotify', 'phone'])
-    expect(sidebarApps(['youtubeMusic', 'messages', 'spotify', 'phone'], 3)).toEqual([
+    expect(sidebarApps(['weather', 'bilibili', 'youtube', 'music', 'maps'], 3)).toEqual(['maps', 'bilibili', 'phone'])
+    expect(sidebarApps(['netease', 'messages', 'bilibili', 'phone'], 3)).toEqual([
       'maps',
-      'youtubeMusic',
+      'netease',
       'messages',
     ])
   })
@@ -87,17 +87,17 @@ describe('sidebarApps', () => {
   })
 
   it('shows only as many as the screen has room for, the Calendar fourth where there is', () => {
-    expect(sidebarApps(['spotify'], 1)).toEqual(['maps'])
-    expect(sidebarApps(['spotify'], 4)).toEqual(['maps', 'spotify', 'phone', 'calendar'])
-    expect(sidebarApps(['spotify'], 9)).toHaveLength(4)
+    expect(sidebarApps(['bilibili'], 1)).toEqual(['maps'])
+    expect(sidebarApps(['bilibili'], 4)).toEqual(['maps', 'bilibili', 'phone', 'calendar'])
+    expect(sidebarApps(['bilibili'], 9)).toHaveLength(4)
   })
 
   it('remembers a music app however many others were opened since', () => {
-    let state = navigate(INITIAL_NAVIGATION, { type: 'openApp', app: 'youtubeMusic' })
+    let state = navigate(INITIAL_NAVIGATION, { type: 'openApp', app: 'netease' })
     for (const app of ['maps', 'weather', 'settings', 'youtube', 'maps'] as const) {
       state = navigate(state, { type: 'openApp', app })
     }
-    expect(sidebarApps(state.recents, 3)).toEqual(['maps', 'youtubeMusic', 'phone'])
+    expect(sidebarApps(state.recents, 3)).toEqual(['maps', 'netease', 'phone'])
   })
 })
 

@@ -24,18 +24,19 @@ mod planner;
 mod play_log;
 mod player;
 mod pointer;
+mod bilibili;
+mod netease;
 pub mod route;
 mod route_change;
 pub mod settings;
 mod signin;
 pub mod speakers;
-mod spotify;
 pub mod startup;
 mod typing;
 mod weather;
 mod webview;
+mod ximalaya;
 mod youtube;
-mod youtube_music;
 
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -106,13 +107,14 @@ pub struct Status {
     /// whether Google's sign-in window is open. Nothing else of the account.
     pub youtube_signed_in: Option<bool>,
     pub youtube_signing_in: bool,
-    /// The same of Spotify: signed in or not (`None`: not known, Spotify not run yet), its sign-in window open.
-    pub spotify_signed_in: Option<bool>,
-    pub spotify_signing_in: bool,
-    /// The same of Apple Music: signed in or not (`None`: not known, Apple Music not run yet), Apple's sign-in
-    /// window open.
     pub apple_music_signed_in: Option<bool>,
     pub apple_music_signing_in: bool,
+    pub bilibili_signed_in: Option<bool>,
+    pub bilibili_signing_in: bool,
+    pub ximalaya_signed_in: Option<bool>,
+    pub ximalaya_signing_in: bool,
+    pub netease_signed_in: Option<bool>,
+    pub netease_signing_in: bool,
     /// The map of the profile played: ready, being built, waiting for the game to close...
     pub map: maps::MapStatus,
     /// The map the cab shows: its folder in WestPlay's maps, and when it was built (the companion's
@@ -124,13 +126,15 @@ pub struct Status {
     pub error: Option<String>,
 }
 
-/// The companion window's requests to sign YouTube, Spotify or Apple Music in or out (or to know whether it
+/// The companion window's requests to sign in or out (or to know whether it
 /// is), from any thread, for the host to carry out as the cab's apps would.
 #[derive(Debug, Default)]
 pub struct AccountRequests {
     pub youtube: AccountRequest,
-    pub spotify: AccountRequest,
     pub apple_music: AccountRequest,
+    pub bilibili: AccountRequest,
+    pub ximalaya: AccountRequest,
+    pub netease: AccountRequest,
 }
 
 /// One service's request, the latest not carried out yet.
@@ -389,28 +393,31 @@ pub fn run(mut config: Config, stop: Arc<AtomicBool>) -> Result<(), Error> {
     let mut youtube_log = play_log::PlayLog::new("youtube");
     // A video loading too long: the log says why, as the page reads it.
     let mut youtube_stuck = play_log::Stuck::default();
-    let mut spotify_log = play_log::PlayLog::new("spotify");
     let mut apple_music_log = play_log::PlayLog::new("apple music");
-    let mut youtube_music_log = play_log::PlayLog::new("youtube music");
-    // Spotify's web player, while the page uses it, and what it last said (sent again when the page reloads):
-    // signed in or not, and what plays.
-    let mut spotify: Option<spotify::Spotify> = None;
-    let mut spotify_state: Option<spotify::State> = None;
-    let mut spotify_signing_in = false;
-    // Each service's sign-in confirming after its window closed signed in (youtube.rs, spotify.rs).
+    let mut bilibili_log = play_log::PlayLog::new("bilibili");
+    let mut ximalaya_log = play_log::PlayLog::new("ximalaya");
+    let mut netease_log = play_log::PlayLog::new("netease");
     let (mut youtube_window_open, mut youtube_confirming) = (false, false);
-    let mut spotify_confirming = false;
-    let mut spotify_playback: Option<String> = None;
-    // Apple Music's web player, the same way.
+    // Apple Music's web player.
     let mut apple_music: Option<apple_music::AppleMusic> = None;
     let mut apple_music_state: Option<apple_music::State> = None;
     let (mut apple_music_window_open, mut apple_music_confirming) = (false, false);
     let mut apple_music_playback: Option<String> = None;
-    // YouTube Music's web player, the same way (on the cabin page's profile, sharing YouTube's sign-in).
-    let mut youtube_music: Option<youtube_music::YouTubeMusic> = None;
-    let mut youtube_music_state: Option<youtube_music::State> = None;
-    let (mut youtube_music_window_open, mut youtube_music_confirming) = (false, false);
-    let mut youtube_music_playback: Option<String> = None;
+    // Bilibili's web player.
+    let mut bilibili: Option<bilibili::Bilibili> = None;
+    let mut bilibili_state: Option<bilibili::State> = None;
+    let (mut bilibili_window_open, bilibili_confirming) = (false, false);
+    let mut bilibili_playback: Option<String> = None;
+    // Ximalaya's web player.
+    let mut ximalaya: Option<ximalaya::Ximalaya> = None;
+    let mut ximalaya_state: Option<ximalaya::State> = None;
+    let (mut ximalaya_window_open, ximalaya_confirming) = (false, false);
+    let mut ximalaya_playback: Option<String> = None;
+    // NetEase Cloud Music's web player.
+    let mut netease: Option<netease::Netease> = None;
+    let mut netease_state: Option<netease::State> = None;
+    let (mut netease_window_open, netease_confirming) = (false, false);
+    let mut netease_playback: Option<String> = None;
     // Player's own player (music_folder.rs), while the page uses it, and what it last said played.
     let mut music_player: Option<music_folder::Player> = None;
     let mut music_player_playback: Option<String> = None;
@@ -474,8 +481,7 @@ pub fn run(mut config: Config, stop: Arc<AtomicBool>) -> Result<(), Error> {
         if let Some(open) = config.open_request.take() {
             let _ = webview.post_json(&westplay_message(open));
         }
-        // The companion's YouTube, Spotify and Apple Music sign-ins or sign-outs, as the cab's would be (or only
-        // running it, to know whether it's signed in).
+        // The companion's YouTube, Apple Music, Bilibili, Ximalaya, NetEase sign-ins or sign-outs.
         if let Some(action) = config.accounts.youtube.take()
             && let Some(player) = start_youtube(&mut youtube, &stage, &config)
         {
@@ -483,22 +489,9 @@ pub fn run(mut config: Config, stop: Arc<AtomicBool>) -> Result<(), Error> {
                 AccountAction::SignIn => drop(player.command(&youtube::Command::SignIn)),
                 AccountAction::SignOut => {
                     let _ = player.command(&youtube::Command::SignOut);
-                    // YouTube Music shares the sign-in: its page again, signed out.
-                    if let Some(music) = &youtube_music {
-                        let _ = music.reload();
-                    }
                 }
                 AccountAction::Check => {}
             }
-        }
-        if let Some(action) = config.accounts.spotify.take()
-            && let Some(player) = start_spotify(&mut spotify, &stage, &config)
-        {
-            let _ = player.command(&match action {
-                AccountAction::SignIn => spotify::Command::SignIn,
-                AccountAction::SignOut => spotify::Command::SignOut,
-                AccountAction::Check => spotify::Command::Start,
-            });
         }
         if let Some(action) = config.accounts.apple_music.take()
             && let Some(player) = start_apple_music(&mut apple_music, &stage, &config)
@@ -507,6 +500,33 @@ pub fn run(mut config: Config, stop: Arc<AtomicBool>) -> Result<(), Error> {
                 AccountAction::SignIn => apple_music::Command::SignIn,
                 AccountAction::SignOut => apple_music::Command::SignOut,
                 AccountAction::Check => apple_music::Command::Start,
+            });
+        }
+        if let Some(action) = config.accounts.bilibili.take()
+            && let Some(player) = start_bilibili(&mut bilibili, &stage, &config)
+        {
+            player.command(&match action {
+                AccountAction::SignIn => bilibili::Command::SignIn,
+                AccountAction::SignOut => bilibili::Command::SignOut,
+                AccountAction::Check => bilibili::Command::Start,
+            });
+        }
+        if let Some(action) = config.accounts.ximalaya.take()
+            && let Some(player) = start_ximalaya(&mut ximalaya, &stage, &config)
+        {
+            player.command(&match action {
+                AccountAction::SignIn => ximalaya::Command::SignIn,
+                AccountAction::SignOut => ximalaya::Command::SignOut,
+                AccountAction::Check => ximalaya::Command::Start,
+            });
+        }
+        if let Some(action) = config.accounts.netease.take()
+            && let Some(player) = start_netease(&mut netease, &stage, &config)
+        {
+            player.command(&match action {
+                AccountAction::SignIn => netease::Command::SignIn,
+                AccountAction::SignOut => netease::Command::SignOut,
+                AccountAction::Check => netease::Command::Start,
             });
         }
 
@@ -630,8 +650,14 @@ pub fn run(mut config: Config, stop: Arc<AtomicBool>) -> Result<(), Error> {
                 };
                 status.game_elevated = status.game_connected && game_elevated;
                 let mut profiles = vec![(performance::Profile::Cab, webview.environment())];
-                if let Some(spotify) = &spotify {
-                    profiles.push((performance::Profile::Spotify, spotify.view().environment()));
+                if let Some(bilibili) = &bilibili {
+                    profiles.push((performance::Profile::Bilibili, bilibili.view().environment()));
+                }
+                if let Some(ximalaya) = &ximalaya {
+                    profiles.push((performance::Profile::Ximalaya, ximalaya.view().environment()));
+                }
+                if let Some(netease) = &netease {
+                    profiles.push((performance::Profile::NetEase, netease.view().environment()));
                 }
                 if let Some(apple_music) = &apple_music {
                     profiles.push((performance::Profile::AppleMusic, apple_music.view().environment()));
@@ -805,12 +831,6 @@ pub fn run(mut config: Config, stop: Arc<AtomicBool>) -> Result<(), Error> {
                     let _ = webview.post_json(&game_message(game_running));
                     let _ = webview.post_json(&truckersmp_message(truckersmp, truckersmp_game));
                     let _ = webview.post_json(&maps::map_message(map_shown.0.as_deref(), map_shown.1));
-                    if spotify.is_some() {
-                        let _ = webview.post_json(&spotify::state_message(spotify_state.as_ref(), spotify_signing_in));
-                        if let Some(playback) = &spotify_playback {
-                            let _ = webview.post_json(playback);
-                        }
-                    }
                     if apple_music.is_some() {
                         let signing_in = apple_music_window_open || apple_music_confirming;
                         let message = apple_music::state_message(apple_music_state.as_ref(), signing_in);
@@ -819,11 +839,27 @@ pub fn run(mut config: Config, stop: Arc<AtomicBool>) -> Result<(), Error> {
                             let _ = webview.post_json(playback);
                         }
                     }
-                    if youtube_music.is_some() {
-                        let signing_in = youtube_music_window_open || youtube_music_confirming;
-                        let message = youtube_music::state_message(youtube_music_state.as_ref(), signing_in);
+                    if bilibili.is_some() {
+                        let signing_in = bilibili_window_open || bilibili_confirming;
+                        let message = bilibili::state_message(bilibili_state.as_ref(), signing_in);
                         let _ = webview.post_json(&message);
-                        if let Some(playback) = &youtube_music_playback {
+                        if let Some(playback) = &bilibili_playback {
+                            let _ = webview.post_json(playback);
+                        }
+                    }
+                    if ximalaya.is_some() {
+                        let signing_in = ximalaya_window_open || ximalaya_confirming;
+                        let message = ximalaya::state_message(ximalaya_state.as_ref(), signing_in);
+                        let _ = webview.post_json(&message);
+                        if let Some(playback) = &ximalaya_playback {
+                            let _ = webview.post_json(playback);
+                        }
+                    }
+                    if netease.is_some() {
+                        let signing_in = netease_window_open || netease_confirming;
+                        let message = netease::state_message(netease_state.as_ref(), signing_in);
+                        let _ = webview.post_json(&message);
+                        if let Some(playback) = &netease_playback {
                             let _ = webview.post_json(playback);
                         }
                     }
@@ -892,19 +928,6 @@ pub fn run(mut config: Config, stop: Arc<AtomicBool>) -> Result<(), Error> {
                         // Nothing to hide: YouTube isn't running (a page reloading says it anyway).
                     } else if let Some(player) = start_youtube(&mut youtube, &stage, &config) {
                         let _ = player.command(&command);
-                        // YouTube Music shares the sign-in: its page again, signed out.
-                        if command == youtube::Command::SignOut
-                            && let Some(music) = &youtube_music
-                        {
-                            let _ = music.reload();
-                        }
-                    }
-                }
-                Some(PageMessage::Spotify { command }) => {
-                    if spotify.is_none() && matches!(command, spotify::Command::Pause) {
-                        // Nothing to pause: Spotify isn't running.
-                    } else if let Some(player) = start_spotify(&mut spotify, &stage, &config) {
-                        let _ = player.command(&command);
                     }
                 }
                 Some(PageMessage::AppleMusic { command }) => {
@@ -914,17 +937,25 @@ pub fn run(mut config: Config, stop: Arc<AtomicBool>) -> Result<(), Error> {
                         let _ = player.command(&command);
                     }
                 }
-                Some(PageMessage::YoutubeMusic { command }) => {
-                    if youtube_music.is_none() && matches!(command, youtube_music::Command::Pause) {
-                        // Nothing to pause: YouTube Music isn't running.
-                    } else if let Some(player) = start_youtube_music(&mut youtube_music, &stage, &config) {
-                        let _ = player.command(&command);
-                        // YouTube shares the sign-in: its page again, signed out.
-                        if command == youtube_music::Command::SignOut
-                            && let Some(youtube) = &youtube
-                        {
-                            let _ = youtube.reload();
-                        }
+                Some(PageMessage::Bilibili { command }) => {
+                    if bilibili.is_none() && matches!(command, bilibili::Command::Pause) {
+                        // Nothing to pause.
+                    } else if let Some(player) = start_bilibili(&mut bilibili, &stage, &config) {
+                        player.command(&command);
+                    }
+                }
+                Some(PageMessage::Ximalaya { command }) => {
+                    if ximalaya.is_none() && matches!(command, ximalaya::Command::Pause) {
+                        // Nothing to pause.
+                    } else if let Some(player) = start_ximalaya(&mut ximalaya, &stage, &config) {
+                        player.command(&command);
+                    }
+                }
+                Some(PageMessage::Netease { command }) => {
+                    if netease.is_none() && matches!(command, netease::Command::Pause) {
+                        // Nothing to pause.
+                    } else if let Some(player) = start_netease(&mut netease, &stage, &config) {
+                        player.command(&command);
                     }
                 }
                 Some(PageMessage::Player { command }) => {
@@ -1159,10 +1190,6 @@ pub fn run(mut config: Config, stop: Arc<AtomicBool>) -> Result<(), Error> {
                             (config.on_status)(&status);
                         }
                         youtube::Report::Confirming(confirming) => {
-                            // Signed in in YouTube's window: YouTube Music (the same sign-in) loads again too.
-                            if confirming && let Some(music) = &youtube_music {
-                                let _ = music.reload();
-                            }
                             youtube_confirming = confirming;
                             status.youtube_signing_in = youtube_window_open || youtube_confirming;
                             (config.on_status)(&status);
@@ -1210,84 +1237,141 @@ pub fn run(mut config: Config, stop: Arc<AtomicBool>) -> Result<(), Error> {
             }
         }
 
-        // What Spotify's page says (signed in, playing) and its sign-in window, for the page; its WebView
-        // failing closes it (the page opens it again).
-        if let Some(player) = &spotify {
-            if player.failed() || players_closing {
-                if players_closing {
-                    log!("[spotify] closed with the game");
-                } else {
-                    log!("[spotify] its browser failed: closed, the page opens it again");
-                }
-                if let Some(line) = spotify_log.heard(None) {
-                    log!("{line}");
-                }
-                if let Some(failed) = spotify.take() {
-                    failed.close(&stage);
-                }
-                spotify_state = None;
-                spotify_playback = None;
-                status.spotify_signed_in = None;
-                status.spotify_signing_in = false;
-                spotify_confirming = false;
-                (config.on_status)(&status);
-                let _ = webview.post_json(&spotify::state_message(None, false));
-                let _ = webview.post_json(&spotify::playback_message(None));
-            } else {
-                let mut state_changed = false;
-                for report in player.take_reports() {
-                    match report {
-                        spotify::Report::Spectrum(bars) => {
-                            let _ = webview.post_json(&speakers::spectrum_message(&bars));
-                        }
-                        spotify::Report::State(state) => {
-                            if status.spotify_signed_in != Some(state.signed_in) {
-                                status.spotify_signed_in = Some(state.signed_in);
-                                (config.on_status)(&status);
-                            }
-                            spotify_state = Some(state);
-                            state_changed = true;
-                        }
-                        spotify::Report::SignInWindow(open) => {
-                            spotify_signing_in = open;
-                            status.spotify_signing_in = spotify_signing_in || spotify_confirming;
-                            (config.on_status)(&status);
-                            state_changed = true;
-                        }
-                        spotify::Report::Confirming(confirming) => {
-                            spotify_confirming = confirming;
-                            status.spotify_signing_in = spotify_signing_in || spotify_confirming;
+        // What Bilibili says.
+        if let Some(player) = &bilibili {
+            let mut state_changed = false;
+            for report in player.take_reports() {
+                match report {
+                    bilibili::Report::Spectrum(bars) => {
+                        let _ = webview.post_json(&speakers::spectrum_message(&bars));
+                    }
+                    bilibili::Report::State(state) => {
+                        if status.bilibili_signed_in != Some(state.signed_in) {
+                            status.bilibili_signed_in = Some(state.signed_in);
                             (config.on_status)(&status);
                         }
-                        // Answers and what plays go straight on to the page (never logged).
-                        spotify::Report::Answer(answer) => {
-                            let _ = webview.post_json(&spotify::answer_message(&answer));
+                        bilibili_state = Some(state);
+                        state_changed = true;
+                    }
+                    bilibili::Report::SignInWindow(open) => {
+                        bilibili_window_open = open;
+                        status.bilibili_signing_in = bilibili_window_open || bilibili_confirming;
+                        (config.on_status)(&status);
+                        state_changed = true;
+                    }
+                    bilibili::Report::Answer(answer) => {
+                        let _ = webview.post_json(&bilibili::answer_message(&answer));
+                    }
+                    bilibili::Report::Playback(playback) => {
+                        let heard = playback.as_ref().map(|pb| play_log::Heard {
+                            doing: if pb.status == "playing" { play_log::Doing::Playing } else { play_log::Doing::Paused },
+                            track: Some(pb.title.as_str()),
+                            position: pb.position,
+                        });
+                        if let Some(line) = bilibili_log.heard(heard) {
+                            log!("{line}");
                         }
-                        spotify::Report::Timing(timing) => log!("{}", timing.line()),
-                        spotify::Report::Playback(playback) => {
-                            // What plays on the account's other devices (a phone) isn't this player's.
-                            let here = playback.as_deref().filter(|playback| playback.here != Some(false));
-                            let heard = here.map(|playback| play_log::Heard {
-                                doing: if playback.playing {
-                                    play_log::Doing::Playing
-                                } else {
-                                    play_log::Doing::Paused
-                                },
-                                track: playback.track.as_ref().map(|track| track.uri.as_str()),
-                                position: playback.position,
-                            });
-                            if let Some(line) = spotify_log.heard(heard) {
-                                log!("{line}");
-                            }
-                            let message = spotify::playback_message(playback.as_deref());
-                            let _ = webview.post_json(&message);
-                            spotify_playback = Some(message);
-                        }
+                        let message = bilibili::playback_message(playback.as_ref());
+                        let _ = webview.post_json(&message);
+                        bilibili_playback = Some(message);
                     }
                 }
-                if state_changed {
-                    let _ = webview.post_json(&spotify::state_message(spotify_state.as_ref(), spotify_signing_in));
+            }
+            if state_changed {
+                let signing_in = bilibili_window_open || bilibili_confirming;
+                let _ = webview.post_json(&bilibili::state_message(bilibili_state.as_ref(), signing_in));
+            }
+        }
+
+        // What Ximalaya says.
+        if let Some(player) = &ximalaya {
+            let mut state_changed = false;
+            for report in player.take_reports() {
+                match report {
+                    ximalaya::Report::Spectrum(bars) => {
+                        let _ = webview.post_json(&speakers::spectrum_message(&bars));
+                    }
+                    ximalaya::Report::State(state) => {
+                        if status.ximalaya_signed_in != Some(state.signed_in) {
+                            status.ximalaya_signed_in = Some(state.signed_in);
+                            (config.on_status)(&status);
+                        }
+                        ximalaya_state = Some(state);
+                        state_changed = true;
+                    }
+                    ximalaya::Report::SignInWindow(open) => {
+                        ximalaya_window_open = open;
+                        status.ximalaya_signing_in = ximalaya_window_open || ximalaya_confirming;
+                        (config.on_status)(&status);
+                        state_changed = true;
+                    }
+                    ximalaya::Report::Answer(answer) => {
+                        let _ = webview.post_json(&ximalaya::answer_message(&answer));
+                    }
+                    ximalaya::Report::Playback(playback) => {
+                        let heard = playback.as_ref().map(|pb| play_log::Heard {
+                            doing: if pb.status == "playing" { play_log::Doing::Playing } else { play_log::Doing::Paused },
+                            track: Some(pb.title.as_str()),
+                            position: pb.position,
+                        });
+                        if let Some(line) = ximalaya_log.heard(heard) {
+                            log!("{line}");
+                        }
+                        let message = ximalaya::playback_message(playback.as_ref());
+                        let _ = webview.post_json(&message);
+                        ximalaya_playback = Some(message);
+                    }
                 }
+            }
+            if state_changed {
+                let signing_in = ximalaya_window_open || ximalaya_confirming;
+                let _ = webview.post_json(&ximalaya::state_message(ximalaya_state.as_ref(), signing_in));
+            }
+        }
+
+        // What NetEase Cloud Music says.
+        if let Some(player) = &netease {
+            let mut state_changed = false;
+            for report in player.take_reports() {
+                match report {
+                    netease::Report::Spectrum(bars) => {
+                        let _ = webview.post_json(&speakers::spectrum_message(&bars));
+                    }
+                    netease::Report::State(state) => {
+                        if status.netease_signed_in != Some(state.signed_in) {
+                            status.netease_signed_in = Some(state.signed_in);
+                            (config.on_status)(&status);
+                        }
+                        netease_state = Some(state);
+                        state_changed = true;
+                    }
+                    netease::Report::SignInWindow(open) => {
+                        netease_window_open = open;
+                        status.netease_signing_in = netease_window_open || netease_confirming;
+                        (config.on_status)(&status);
+                        state_changed = true;
+                    }
+                    netease::Report::Answer(answer) => {
+                        let _ = webview.post_json(&netease::answer_message(&answer));
+                    }
+                    netease::Report::Playback(playback) => {
+                        let heard = playback.as_ref().map(|pb| play_log::Heard {
+                            doing: if pb.status == "playing" { play_log::Doing::Playing } else { play_log::Doing::Paused },
+                            track: Some(pb.title.as_str()),
+                            position: pb.position,
+                        });
+                        if let Some(line) = netease_log.heard(heard) {
+                            log!("{line}");
+                        }
+                        let message = netease::playback_message(playback.as_ref());
+                        let _ = webview.post_json(&message);
+                        netease_playback = Some(message);
+                    }
+                }
+            }
+            if state_changed {
+                let signing_in = netease_window_open || netease_confirming;
+                let _ = webview.post_json(&netease::state_message(netease_state.as_ref(), signing_in));
             }
         }
 
@@ -1413,81 +1497,7 @@ pub fn run(mut config: Config, stop: Arc<AtomicBool>) -> Result<(), Error> {
         }
 
         // What YouTube Music's page says, and its sign-in window, for the page; its WebView failing closes it.
-        if let Some(player) = &youtube_music {
-            if player.failed() || players_closing {
-                if players_closing {
-                    log!("[youtube music] closed with the game");
-                } else {
-                    log!("[youtube music] its browser failed: closed, the page opens it again");
-                }
-                if let Some(line) = youtube_music_log.heard(None) {
-                    log!("{line}");
-                }
-                if let Some(failed) = youtube_music.take() {
-                    failed.close(&stage);
-                }
-                youtube_music_state = None;
-                youtube_music_playback = None;
-                (youtube_music_window_open, youtube_music_confirming) = (false, false);
-                let _ = webview.post_json(&youtube_music::state_message(None, false));
-                let _ = webview.post_json(&youtube_music::playback_message(None));
-            } else {
-                let mut state_changed = false;
-                for report in player.take_reports() {
-                    match report {
-                        youtube_music::Report::Spectrum(bars) => {
-                            let _ = webview.post_json(&speakers::spectrum_message(&bars));
-                        }
-                        youtube_music::Report::State(state) => {
-                            // One sign-in for both: the companion hears it as YouTube's.
-                            if status.youtube_signed_in != Some(state.signed_in) {
-                                status.youtube_signed_in = Some(state.signed_in);
-                                (config.on_status)(&status);
-                            }
-                            youtube_music_state = Some(state);
-                            state_changed = true;
-                        }
-                        youtube_music::Report::SignInWindow(open) => {
-                            youtube_music_window_open = open;
-                            state_changed = true;
-                        }
-                        // The cab shows it signing in until the page here says it's signed in; YouTube (the same
-                        // sign-in) loads again too.
-                        youtube_music::Report::Confirming(confirming) => {
-                            if confirming && let Some(youtube) = &youtube {
-                                let _ = youtube.reload();
-                            }
-                            youtube_music_confirming = confirming;
-                            state_changed = true;
-                        }
-                        // Answers and what plays go straight on to the page (never logged).
-                        youtube_music::Report::Answer(answer) => {
-                            let _ = webview.post_json(&youtube_music::answer_message(&answer));
-                        }
-                        // Times only (never what played): for the log.
-                        youtube_music::Report::Timing(timing) => log!("{}", timing.line()),
-                        youtube_music::Report::Playback(playback) => {
-                            let heard = playback.as_deref().map(|playback| play_log::Heard {
-                                doing: play_log::doing(playback.loading, playback.playing),
-                                track: Some(playback.track.video.as_str()),
-                                position: playback.position,
-                            });
-                            if let Some(line) = youtube_music_log.heard(heard) {
-                                log!("{line}");
-                            }
-                            let message = youtube_music::playback_message(playback.as_deref());
-                            let _ = webview.post_json(&message);
-                            youtube_music_playback = Some(message);
-                        }
-                    }
-                }
-                if state_changed {
-                    let signing_in = youtube_music_window_open || youtube_music_confirming;
-                    let message = youtube_music::state_message(youtube_music_state.as_ref(), signing_in);
-                    let _ = webview.post_json(&message);
-                }
-            }
-        }
+
 
         // What the player typed on their own keyboard, and whether it types (the plugin decides: the truck
         // standing still, a field selected then).
@@ -1544,10 +1554,13 @@ pub fn run(mut config: Config, stop: Arc<AtomicBool>) -> Result<(), Error> {
             if let Some(player) = &apple_music {
                 let _ = player.cab(truck_speakers, head, outside, distance, equalizer, spectrum);
             }
-            if let Some(player) = &youtube_music {
+            if let Some(player) = &bilibili {
                 let _ = player.cab(truck_speakers, head, outside, distance, equalizer, spectrum);
             }
-            if let Some(player) = &spotify {
+            if let Some(player) = &ximalaya {
+                let _ = player.cab(truck_speakers, head, outside, distance, equalizer, spectrum);
+            }
+            if let Some(player) = &netease {
                 let _ = player.cab(truck_speakers, head, outside, distance, equalizer, spectrum);
             }
             if let Some(player) = &music_player {
@@ -2025,44 +2038,58 @@ fn start_music_player<'a>(
     music_player.as_ref()
 }
 
-/// YouTube Music's web player, started as the page first shows it (on the cabin page's profile, as YouTube's:
-/// they share the sign-in), or `None` if it couldn't start.
-fn start_youtube_music<'a>(
-    youtube_music: &'a mut Option<youtube_music::YouTubeMusic>,
+fn start_bilibili<'a>(
+    bilibili: &'a mut Option<bilibili::Bilibili>,
     stage: &Stage,
     config: &Config,
-) -> Option<&'a youtube_music::YouTubeMusic> {
-    if youtube_music.is_none() {
-        let user_data = config.data_dir.join("webview2");
-        match youtube_music::YouTubeMusic::start(stage, config.width, config.height, &user_data) {
+) -> Option<&'a bilibili::Bilibili> {
+    if bilibili.is_none() {
+        let user_data = config.data_dir.join("webview2-bilibili");
+        match bilibili::Bilibili::start(stage, config.width, config.height, &user_data) {
             Ok(started) => {
-                log!("[youtube music] opened");
-                *youtube_music = Some(started)
+                log!("[bilibili] opened");
+                *bilibili = Some(started)
             }
-            Err(e) => startup::mark(&format!("host: YouTube Music couldn't start: {e}")),
+            Err(e) => startup::mark(&format!("host: Bilibili couldn't start: {e}")),
         }
     }
-    youtube_music.as_ref()
+    bilibili.as_ref()
 }
 
-/// Spotify's web player, started as the page first shows it (on a WebView2 profile of its own: signing out
-/// of Spotify forgets nothing else), or `None` if it couldn't start.
-fn start_spotify<'a>(
-    spotify: &'a mut Option<spotify::Spotify>,
+fn start_ximalaya<'a>(
+    ximalaya: &'a mut Option<ximalaya::Ximalaya>,
     stage: &Stage,
     config: &Config,
-) -> Option<&'a spotify::Spotify> {
-    if spotify.is_none() {
-        let user_data = config.data_dir.join("webview2-spotify");
-        match spotify::Spotify::start(stage, config.width, config.height, &user_data) {
+) -> Option<&'a ximalaya::Ximalaya> {
+    if ximalaya.is_none() {
+        let user_data = config.data_dir.join("webview2-ximalaya");
+        match ximalaya::Ximalaya::start(stage, config.width, config.height, &user_data) {
             Ok(started) => {
-                log!("[spotify] opened");
-                *spotify = Some(started)
+                log!("[ximalaya] opened");
+                *ximalaya = Some(started)
             }
-            Err(e) => startup::mark(&format!("host: Spotify couldn't start: {e}")),
+            Err(e) => startup::mark(&format!("host: Ximalaya couldn't start: {e}")),
         }
     }
-    spotify.as_ref()
+    ximalaya.as_ref()
+}
+
+fn start_netease<'a>(
+    netease: &'a mut Option<netease::Netease>,
+    stage: &Stage,
+    config: &Config,
+) -> Option<&'a netease::Netease> {
+    if netease.is_none() {
+        let user_data = config.data_dir.join("webview2-netease");
+        match netease::Netease::start(stage, config.width, config.height, &user_data) {
+            Ok(started) => {
+                log!("[netease] opened");
+                *netease = Some(started)
+            }
+            Err(e) => startup::mark(&format!("host: NetEase couldn't start: {e}")),
+        }
+    }
+    netease.as_ref()
 }
 
 fn build_pipeline(
@@ -2155,12 +2182,14 @@ enum PageMessage {
     CursorArea { area: cursor::Area },
     /// A command for YouTube's player (`youtube`): what to play, where it shows, and so on.
     Youtube { command: youtube::Command },
-    /// A command for Spotify's web player (`spotify`): its sign-in, a question, its controls.
-    Spotify { command: spotify::Command },
     /// A command for Apple Music's web player (`appleMusic`): its sign-in, a question, its controls.
     AppleMusic { command: apple_music::Command },
-    /// A command for YouTube Music's web player (`youtubeMusic`): its sign-in, a question, its controls.
-    YoutubeMusic { command: youtube_music::Command },
+    /// A command for Bilibili (`bilibili`): its sign-in, a question, its controls.
+    Bilibili { command: bilibili::Command },
+    /// A command for Ximalaya (`ximalaya`): its sign-in, a question, its controls.
+    Ximalaya { command: ximalaya::Command },
+    /// A command for NetEase Cloud Music (`netease`): its sign-in, a question, its controls.
+    Netease { command: netease::Command },
     /// A command for Player's own player (`player`): what to play from the music folder, its controls.
     Player { command: music_folder::Command },
     /// The text field selected on the page, a number that changes with every selection (0: none), for the
@@ -2585,18 +2614,18 @@ mod tests {
         assert_eq!(requests.youtube.take(), None);
         requests.youtube.request(AccountAction::SignOut);
         requests.youtube.request(AccountAction::SignIn);
-        requests.spotify.request(AccountAction::Check);
+        requests.netease.request(AccountAction::Check);
         assert_eq!(requests.youtube.take(), Some(AccountAction::SignIn));
         assert_eq!(requests.youtube.take(), None);
-        assert_eq!(requests.spotify.take(), Some(AccountAction::Check));
-        assert_eq!(requests.spotify.take(), None);
+        assert_eq!(requests.netease.take(), Some(AccountAction::Check));
+        assert_eq!(requests.netease.take(), None);
         // The companion hears whether YouTube is signed in, and nothing more of the account.
         let status = super::Status { youtube_signed_in: Some(true), youtube_signing_in: false, ..Default::default() };
         let json = serde_json::to_value(&status).unwrap();
         assert_eq!((json["youtubeSignedIn"].as_bool(), json["youtubeSigningIn"].as_bool()), (Some(true), Some(false)));
-        let status = super::Status { spotify_signed_in: Some(false), spotify_signing_in: true, ..Default::default() };
+        let status = super::Status { netease_signed_in: Some(false), netease_signing_in: true, ..Default::default() };
         let json = serde_json::to_value(&status).unwrap();
-        assert_eq!((json["spotifySignedIn"].as_bool(), json["spotifySigningIn"].as_bool()), (Some(false), Some(true)));
+        assert_eq!((json["neteaseSignedIn"].as_bool(), json["neteaseSigningIn"].as_bool()), (Some(false), Some(true)));
         let status =
             super::Status { apple_music_signed_in: Some(true), apple_music_signing_in: true, ..Default::default() };
         let json = serde_json::to_value(&status).unwrap();

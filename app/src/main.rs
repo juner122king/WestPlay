@@ -91,22 +91,49 @@ fn youtube_check(accounts: State<Accounts>) {
     accounts.0.youtube.request(AccountAction::Check);
 }
 
-/// Opens Spotify's sign-in in a window on the desktop (the status then says when it's done).
 #[tauri::command]
-fn spotify_sign_in(accounts: State<Accounts>) {
-    accounts.0.spotify.request(AccountAction::SignIn);
+fn bilibili_sign_in(accounts: State<Accounts>) {
+    accounts.0.bilibili.request(AccountAction::SignIn);
 }
 
-/// Signs Spotify out.
 #[tauri::command]
-fn spotify_sign_out(accounts: State<Accounts>) {
-    accounts.0.spotify.request(AccountAction::SignOut);
+fn bilibili_sign_out(accounts: State<Accounts>) {
+    accounts.0.bilibili.request(AccountAction::SignOut);
 }
 
-/// Runs Spotify's web player (hidden), so the status says whether it's signed in.
 #[tauri::command]
-fn spotify_check(accounts: State<Accounts>) {
-    accounts.0.spotify.request(AccountAction::Check);
+fn bilibili_check(accounts: State<Accounts>) {
+    accounts.0.bilibili.request(AccountAction::Check);
+}
+
+#[tauri::command]
+fn ximalaya_sign_in(accounts: State<Accounts>) {
+    accounts.0.ximalaya.request(AccountAction::SignIn);
+}
+
+#[tauri::command]
+fn ximalaya_sign_out(accounts: State<Accounts>) {
+    accounts.0.ximalaya.request(AccountAction::SignOut);
+}
+
+#[tauri::command]
+fn ximalaya_check(accounts: State<Accounts>) {
+    accounts.0.ximalaya.request(AccountAction::Check);
+}
+
+#[tauri::command]
+fn netease_sign_in(accounts: State<Accounts>) {
+    accounts.0.netease.request(AccountAction::SignIn);
+}
+
+#[tauri::command]
+fn netease_sign_out(accounts: State<Accounts>) {
+    accounts.0.netease.request(AccountAction::SignOut);
+}
+
+#[tauri::command]
+fn netease_check(accounts: State<Accounts>) {
+    accounts.0.netease.request(AccountAction::Check);
 }
 
 /// Opens Apple's sign-in for Apple Music in a window on the desktop (the status then says when it's done).
@@ -217,9 +244,15 @@ fn main() {
             youtube_sign_in,
             youtube_sign_out,
             youtube_check,
-            spotify_sign_in,
-            spotify_sign_out,
-            spotify_check,
+            bilibili_sign_in,
+            bilibili_sign_out,
+            bilibili_check,
+            ximalaya_sign_in,
+            ximalaya_sign_out,
+            ximalaya_check,
+            netease_sign_in,
+            netease_sign_out,
+            netease_check,
             apple_music_sign_in,
             apple_music_sign_out,
             apple_music_check,

@@ -8,7 +8,6 @@ import { RETURN_BUTTON_SIZE, returnButtonCentre } from '../state/screen'
 import { textScale } from '../state/textSize'
 import { Player } from '../apps/youtube/Player'
 import { type Hole, useYouTube } from '../apps/youtube/youtube'
-import { useYouTubeMusic } from '../apps/youtubeMusic/youtubeMusic'
 import { Keyboard } from '../keyboard/Keyboard'
 import { useCabin, useLive } from '../state/store'
 import { Sidebar } from './Sidebar'
@@ -74,10 +73,7 @@ export function Shell({ children, overlay, entering = false }: ShellProps) {
   // in small (YouTube's Now playing): the CarPlay area is cut open where it shows.
   const watching = useYouTube((state) => state.open)
   const holdSidebar = useYouTube((state) => state.holdSidebar)
-  // YouTube Music's music video in its Now Playing, the same way.
-  const youtubeHole = useYouTube((state) => state.hole)
-  const musicHole = useYouTubeMusic((state) => state.hole)
-  const hole = youtubeHole ?? musicHole
+  const hole = useYouTube((state) => state.hole)
   // Over a video full screen, pointing at the left edge brings the sidebar back (shell/sidebarPeek.ts).
   const carplay = useRef<HTMLDivElement>(null)
   const peek = useSidebarPeek(watching, carplay)

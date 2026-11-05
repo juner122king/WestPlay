@@ -1,0 +1,479 @@
+.netease-app {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  width: 100%;
+  padding: 16px 24px;
+  box-sizing: border-box;
+  background: radial-gradient(circle at 10% 20%, rgba(230, 0, 38, 0.08) 0%, rgba(20, 20, 24, 0.95) 90%);
+  color: #fff;
+  user-select: none;
+  overflow: hidden;
+  position: relative;
+}
+
+.netease-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 14px;
+  flex-shrink: 0;
+}
+
+.netease-logo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.netease-badge {
+  background: #e60026;
+  color: #fff;
+  font-weight: 700;
+  font-size: 13px;
+  padding: 3px 8px;
+  border-radius: 6px;
+  letter-spacing: 0.5px;
+}
+
+.netease-title {
+  font-size: 24px;
+  font-weight: 600;
+  margin: 0;
+  color: #ffffff;
+}
+
+.netease-account {
+  display: flex;
+  align-items: center;
+}
+
+.netease-sign-in-btn {
+  background: #e60026;
+  color: #fff;
+  border: none;
+  font-size: 14px;
+  font-weight: 600;
+  padding: 8px 16px;
+  border-radius: 20px;
+  cursor: pointer;
+  transition: transform 0.15s, background 0.15s;
+}
+
+.netease-sign-in-btn:active {
+  transform: scale(0.96);
+  background: #c20c0c;
+}
+
+.netease-signed-in {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.netease-vip-tag {
+  background: rgba(230, 0, 38, 0.2);
+  color: #ff3a3a;
+  border: 1px solid rgba(230, 0, 38, 0.4);
+  font-size: 12px;
+  padding: 3px 8px;
+  border-radius: 12px;
+}
+
+.netease-action-btn {
+  background: rgba(255, 255, 255, 0.12);
+  color: #ddd;
+  border: none;
+  font-size: 12px;
+  padding: 4px 10px;
+  border-radius: 12px;
+  cursor: pointer;
+}
+
+.netease-status-signing-in {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: #ff3a3a;
+}
+
+.netease-spinner {
+  width: 14px;
+  height: 14px;
+  border: 2px solid rgba(230, 0, 38, 0.3);
+  border-top-color: #ff3a3a;
+  border-radius: 50%;
+  animation: netease-spin 0.8s linear infinite;
+}
+
+@keyframes netease-spin {
+  to { transform: rotate(360deg); }
+}
+
+.netease-qr-banner {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  background: rgba(230, 0, 38, 0.15);
+  border: 1px solid rgba(230, 0, 38, 0.4);
+  border-radius: 12px;
+  padding: 10px 16px;
+  margin-bottom: 12px;
+  flex-shrink: 0;
+}
+
+.netease-qr-banner-icon {
+  font-size: 28px;
+}
+
+.netease-qr-banner-text strong {
+  display: block;
+  font-size: 14px;
+  color: #ff3a3a;
+  margin-bottom: 2px;
+}
+
+.netease-qr-banner-text p {
+  margin: 0;
+  font-size: 12px;
+  color: #ffdbdb;
+}
+
+.netease-main {
+  flex: 1;
+  overflow-y: auto;
+  min-height: 0;
+  padding-right: 4px;
+}
+
+.netease-section-title {
+  font-size: 17px;
+  font-weight: 600;
+  margin: 0 0 12px 0;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.netease-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.netease-item {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  padding: 10px 14px;
+  cursor: pointer;
+  transition: transform 0.15s, background 0.15s;
+}
+
+.netease-item:active {
+  transform: scale(0.98);
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.netease-item-index {
+  font-size: 15px;
+  font-weight: 700;
+  color: #ff3a3a;
+  width: 20px;
+  text-align: center;
+}
+
+.netease-item-thumb {
+  width: 48px;
+  height: 48px;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.4);
+  overflow: hidden;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.netease-item-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.netease-thumb-fallback {
+  font-size: 22px;
+  opacity: 0.7;
+}
+
+.netease-item-body {
+  flex: 1;
+  overflow: hidden;
+}
+
+.netease-item-title {
+  font-size: 15px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: #fff;
+  margin-bottom: 4px;
+}
+
+.netease-item-sub {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.5);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.netease-item-play-btn {
+  background: rgba(230, 0, 38, 0.2);
+  color: #ff3a3a;
+  border: 1px solid rgba(230, 0, 38, 0.3);
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.netease-mini-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: rgba(30, 30, 36, 0.85);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 14px;
+  padding: 10px 16px;
+  margin-top: 10px;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.netease-mini-info {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.netease-mini-title {
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.netease-mini-author {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.netease-mini-btn {
+  background: #e60026;
+  color: #fff;
+  border: none;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+/* Now Playing */
+.netease-now-playing {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  width: 100%;
+}
+
+.netease-np-header {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.netease-back-btn {
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+  border: none;
+  font-size: 14px;
+  font-weight: 500;
+  padding: 6px 14px;
+  border-radius: 16px;
+  cursor: pointer;
+}
+
+.netease-np-brand {
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.netease-np-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  max-width: 480px;
+  margin: 0 auto;
+  width: 100%;
+}
+
+/* Vinyl rotation */
+.netease-vinyl {
+  width: 220px;
+  height: 220px;
+  border-radius: 50%;
+  background: radial-gradient(circle, #1a1a1a 40%, #0a0a0a 70%, #222 100%);
+  border: 6px solid #111;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 24px;
+  position: relative;
+}
+
+.netease-vinyl.playing {
+  animation: netease-spin-disc 20s linear infinite;
+}
+
+.netease-vinyl.paused {
+  animation: netease-spin-disc 20s linear infinite;
+  animation-play-state: paused;
+}
+
+@keyframes netease-spin-disc {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.netease-vinyl-disc {
+  width: 110px;
+  height: 110px;
+  border-radius: 50%;
+  overflow: hidden;
+  border: 3px solid rgba(255, 255, 255, 0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #2a2a2a;
+}
+
+.netease-vinyl-artwork {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.netease-vinyl-artwork img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.netease-np-placeholder {
+  font-size: 40px;
+  opacity: 0.6;
+}
+
+.netease-np-meta {
+  text-align: center;
+  margin-bottom: 20px;
+  width: 100%;
+}
+
+.netease-np-title {
+  font-size: 20px;
+  font-weight: 600;
+  margin: 0 0 6px 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.netease-np-author {
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.6);
+  margin: 0;
+}
+
+.netease-np-progress-bar {
+  width: 100%;
+  margin-bottom: 20px;
+}
+
+.netease-np-track {
+  width: 100%;
+  height: 6px;
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 3px;
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+}
+
+.netease-np-fill {
+  height: 100%;
+  background: #e60026;
+  border-radius: 3px;
+  transition: width 0.1s linear;
+}
+
+.netease-np-times {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.5);
+  margin-top: 6px;
+}
+
+.netease-np-controls {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 28px;
+}
+
+.netease-ctrl-btn {
+  background: none;
+  border: none;
+  color: #fff;
+  font-size: 26px;
+  cursor: pointer;
+  padding: 8px;
+  border-radius: 50%;
+  transition: transform 0.1s;
+}
+
+.netease-ctrl-btn:active {
+  transform: scale(0.9);
+}
+
+.netease-play-btn {
+  background: #e60026;
+  width: 58px;
+  height: 58px;
+  font-size: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}

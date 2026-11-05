@@ -29,9 +29,15 @@ export interface HostStatus {
    * window is open. Nothing else of the account. */
   youtubeSignedIn: boolean | null
   youtubeSigningIn: boolean
-  /** The same of Spotify: signed in or not (`null`: not known yet), and its sign-in window open. */
-  spotifySignedIn: boolean | null
-  spotifySigningIn: boolean
+  /** Whether Bilibili is signed in (`null`: not known yet), and whether its sign-in window is open. */
+  bilibiliSignedIn: boolean | null
+  bilibiliSigningIn: boolean
+  /** Whether Ximalaya is signed in (`null`: not known yet), and whether its sign-in window is open. */
+  ximalayaSignedIn: boolean | null
+  ximalayaSigningIn: boolean
+  /** Whether NetEase Cloud Music is signed in (`null`: not known yet), and whether its sign-in window is open. */
+  neteaseSignedIn: boolean | null
+  neteaseSigningIn: boolean
   /** The same of Apple Music: signed in or not (`null`: not known yet), and Apple's sign-in window open. */
   appleMusicSignedIn: boolean | null
   appleMusicSigningIn: boolean
@@ -115,19 +121,49 @@ export function youtubeCheck(): Promise<void> {
   return call('youtube_check')
 }
 
-/** Opens Spotify's sign-in in a window on the desktop. */
-export function spotifySignIn(): Promise<void> {
-  return call('spotify_sign_in')
+/** Opens Bilibili's sign-in in a window on the desktop. */
+export function bilibiliSignIn(): Promise<void> {
+  return call('bilibili_sign_in')
 }
 
-/** Signs Spotify out. */
-export function spotifySignOut(): Promise<void> {
-  return call('spotify_sign_out')
+/** Signs Bilibili out. */
+export function bilibiliSignOut(): Promise<void> {
+  return call('bilibili_sign_out')
 }
 
-/** Runs Spotify's web player (hidden), so the status says whether it's signed in. */
-export function spotifyCheck(): Promise<void> {
-  return call('spotify_check')
+/** Runs Bilibili's web player (hidden), so the status says whether it's signed in. */
+export function bilibiliCheck(): Promise<void> {
+  return call('bilibili_check')
+}
+
+/** Opens Ximalaya's sign-in in a window on the desktop. */
+export function ximalayaSignIn(): Promise<void> {
+  return call('ximalaya_sign_in')
+}
+
+/** Signs Ximalaya out. */
+export function ximalayaSignOut(): Promise<void> {
+  return call('ximalaya_sign_out')
+}
+
+/** Runs Ximalaya's web player (hidden), so the status says whether it's signed in. */
+export function ximalayaCheck(): Promise<void> {
+  return call('ximalaya_check')
+}
+
+/** Opens NetEase Cloud Music's sign-in in a window on the desktop. */
+export function neteaseSignIn(): Promise<void> {
+  return call('netease_sign_in')
+}
+
+/** Signs NetEase Cloud Music out. */
+export function neteaseSignOut(): Promise<void> {
+  return call('netease_sign_out')
+}
+
+/** Runs NetEase's web player (hidden), so the status says whether it's signed in. */
+export function neteaseCheck(): Promise<void> {
+  return call('netease_check')
 }
 
 /** Opens Apple's sign-in for Apple Music in a window on the desktop. */

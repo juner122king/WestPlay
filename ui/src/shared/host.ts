@@ -212,13 +212,18 @@ export type HostMessage =
   /** The map the cab shows: its folder in WestPlay's maps (served at `https://westplay.maps/`), and when it
    * was built; `null` for none (none built yet). */
   | { type: 'map'; folder: string | null; built: number | null }
-  /** Spotify's web player: whether it's signed in and playing (`null`: not running), and whether its sign-in
-   * window is open on the PC's desktop. Nothing else of the account. */
-  | { type: 'spotify'; signedIn: boolean | null; playing: boolean | null; signingIn: boolean }
-  /** Spotify's answer to the Spotify app's question `id` (`failed`: Spotify didn't answer). */
-  | ({ type: 'spotifyAnswer'; id: number; failed?: boolean } & Partial<SpotifyAnswers>)
-  /** What Spotify plays (on WestPlay, or elsewhere on the account through Spotify Connect); `null`: nothing. */
-  | { type: 'spotifyPlayback'; playback: SpotifyPlayback | null }
+  /** Bilibili: whether it's signed in and playing, and whether its sign-in QR window is open. */
+  | { type: 'bilibili'; signedIn: boolean | null; playing: boolean | null; signingIn: boolean }
+  | ({ type: 'bilibiliAnswer'; id: number; failed?: boolean; error?: string } & Partial<BilibiliAnswers>)
+  | { type: 'bilibiliPlayback'; playback: BilibiliPlayback | null }
+  /** Ximalaya: whether it's signed in and playing, and whether its sign-in QR window is open. */
+  | { type: 'ximalaya'; signedIn: boolean | null; playing: boolean | null; signingIn: boolean }
+  | ({ type: 'ximalayaAnswer'; id: number; failed?: boolean; error?: string } & Partial<XimalayaAnswers>)
+  | { type: 'ximalayaPlayback'; playback: XimalayaPlayback | null }
+  /** NetEase Cloud Music: whether it's signed in and playing, and whether its sign-in QR window is open. */
+  | { type: 'netease'; signedIn: boolean | null; playing: boolean | null; signingIn: boolean }
+  | ({ type: 'neteaseAnswer'; id: number; failed?: boolean; error?: string } & Partial<NeteaseAnswers>)
+  | { type: 'neteasePlayback'; playback: NeteasePlayback | null }
   /** Apple Music's web player: whether it's signed in and playing (`null`: not running), and whether its
    * sign-in window is open on the PC. */
   | {
@@ -237,19 +242,6 @@ export type HostMessage =
   | { type: 'musicFolder'; folder: string | null; songs: PlayerSong[] }
   /** What Player plays; `null`: nothing. */
   | { type: 'playerPlayback'; playback: PlayerPlayback | null }
-  /** YouTube Music's web player: whether it's signed in and playing (`null`: not running), whether its sign-in
-   * window is open on the PC, and the account's picture (Google's). YouTube's sign-in: they share it. */
-  | {
-      type: 'youtubeMusic'
-      signedIn: boolean | null
-      playing: boolean | null
-      signingIn: boolean
-      avatar: string | null
-    }
-  /** YouTube Music's answer to the app's question `id` (`failed`: YouTube Music didn't answer). */
-  | ({ type: 'youtubeMusicAnswer'; id: number; failed?: boolean } & Partial<YouTubeMusicAnswers>)
-  /** What YouTube Music plays; `null`: nothing. */
-  | { type: 'youtubeMusicPlayback'; playback: YouTubeMusicPlayback | null }
 
 /** The game's weather: the one there is and the one it's turning to (the same once it has); in game minutes,
  * how long until the game changes it next; and how wet the roads are, percent. Each of the last two `null`
@@ -327,13 +319,14 @@ export type PageMessage =
   | { type: 'typing'; selection: number }
   /** A command for YouTube's player, or a question for YouTube (answered with `youtubeAnswer`). */
   | { type: 'youtube'; command: YouTubeCommand }
-  /** A command for Spotify's web player (`westplay_host::spotify::Command`): `show` places it, in the frame's
-   * pixels, where the Spotify app cuts the page open. */
-  | { type: 'spotify'; command: SpotifyCommand }
+  /** A command for Bilibili's web player (`westplay_host::bilibili::Command`). */
+  | { type: 'bilibili'; command: BilibiliCommand }
+  /** A command for Ximalaya's web player (`westplay_host::ximalaya::Command`). */
+  | { type: 'ximalaya'; command: XimalayaCommand }
+  /** A command for NetEase Cloud Music's web player (`westplay_host::netease::Command`). */
+  | { type: 'netease'; command: NeteaseCommand }
   /** A command for Apple Music's web player (`westplay_host::apple_music::Command`). */
   | { type: 'appleMusic'; command: AppleMusicCommand }
-  /** A command for YouTube Music's web player (`westplay_host::youtube_music::Command`). */
-  | { type: 'youtubeMusic'; command: YouTubeMusicCommand }
   /** A command for Player's own player (`westplay_host::music_folder::Command`). */
   | { type: 'player'; command: PlayerCommand }
 
@@ -378,158 +371,139 @@ export type PlayerCommand =
   | { action: 'shuffle'; on: boolean }
   | { action: 'repeat'; mode: PlayerRepeat }
 
-/** What the Spotify app asks of Spotify's web player (`westplay_host::spotify::Command`), run hidden by the
- * host: its sign-in, a question (answered with `spotifyAnswer` and the same `id`), and the player's controls
- * (`play` with a context plays it, from `track`; without, it plays on). */
-export type SpotifyCommand =
-  /** Run (hidden), saying whether it's signed in (the Spotify app opened). */
+/** What the Bilibili app asks of Bilibili's web player (`westplay_host::bilibili::Command`). */
+export type BilibiliCommand =
   | { action: 'start' }
   | { action: 'signIn' }
-  | { action: 'signUp' }
   | { action: 'signOut' }
-  | { action: 'ask'; id: number; question: SpotifyQuestion }
-  | { action: 'play'; context?: string; track?: string }
+  | { action: 'play'; video?: BilibiliVideo }
   | { action: 'pause' }
   | { action: 'next' }
   | { action: 'previous' }
   | { action: 'seek'; seconds: number }
-  /** The playing device's volume (Spotify's own), 0 to 100. */
   | { action: 'volume'; percent: number }
-  /** The cab's fade, in the page's own player: its volume times `level` (0 to 1; 1, as Spotify has it). */
-  | { action: 'fade'; level: number }
-  | { action: 'shuffle'; on: boolean }
-  | { action: 'repeat'; mode: SpotifyRepeat }
-  /** Into Liked Songs or Your Library (`on`), or out of it. */
-  | { action: 'save'; uri: string; on: boolean }
+  | { action: 'ask'; id: number; question: BilibiliQuestion }
 
-export type SpotifyRepeat = 'off' | 'all' | 'one'
-
-/** What a row, a card or a shortcut shows: under its name, a card shows its description (or who it's by), a
- * row what it is and who it's by ("Playlist • Spotify", built in the cab's language). A song as a card (Home's
- * Trending songs) plays from its album (`context`). */
-export interface SpotifyItem {
-  uri: string
-  kind: 'playlist' | 'album' | 'artist' | 'show' | 'liked' | 'track'
-  name: string
-  /** The playlist's owner, the album's artists, the podcast's publisher, the song's artists ("" for an
-   * artist). */
-  by: string
-  description: string
-  /** Liked Songs' count (its row says it in place of an owner). */
-  songs?: number
-  image: string | null
-  /** The cover's own colour (Spotify extracts one for every image): pages and the player are washed in it. */
-  color: string
-  pinned?: boolean
-  downloaded?: boolean
-  /** In Your Library (Spotify says, signed in). */
-  saved?: boolean
-  /** A song's album. */
-  context?: string
-}
-
-export interface SpotifyArtistName {
-  uri: string
-  name: string
-}
-
-export interface SpotifyTrack {
-  uri: string
-  name: string
-  artists: SpotifyArtistName[]
-  album: { uri: string; name: string }
-  image: string | null
-  color: string
-  /** Seconds. */
-  duration: number
-  explicit: boolean
-  /** In Liked Songs (Spotify says, signed in). */
-  saved?: boolean
-}
-
-/** A playlist's or album's page. */
-export interface SpotifyCollection {
-  item: SpotifyItem
-  description: string
-  /** "Spotify", or the album's artist; and an album's year. */
-  owner: string
-  year: number | null
-  tracks: SpotifyTrack[]
-  /** Where its songs go on, while there are more than these: asked as the question's `more`. */
-  more?: string
-}
-
-export interface SpotifyArtist {
-  item: SpotifyItem
-  listeners: number
-  verified: boolean
-  popular: SpotifyTrack[]
-  releases: SpotifyItem[]
-}
-
-/** Home: Spotify's chips (each a facet of Home, its own words), its shortcuts, and its shelves. */
-export interface SpotifyHome {
-  chips: { id: string; label: string }[]
-  shortcuts: SpotifyItem[]
-  /** Its shelves; `recent`: Spotify's Recently played. */
-  sections: { title: string; items: SpotifyItem[]; recent?: boolean }[]
-}
-
-export interface SpotifyCategory {
-  name: string
-  color: string
-  /** A cover leaning in its corner, as Spotify's tiles have. */
-  cover: SpotifyItem | null
-}
-
-export interface SpotifyResults {
-  top: SpotifyItem | null
-  /** The top result when it's a song. */
-  topTrack: SpotifyTrack | null
-  tracks: SpotifyTrack[]
-  artists: SpotifyItem[]
-  playlists: SpotifyItem[]
-  albums: SpotifyItem[]
-}
-
-/** What the Spotify app asks Spotify: Home (a facet of it, `''` for all; the player's own signed in,
- * Spotify's public one otherwise), Your Library, Browse all, a search, a playlist's or album's page, an
- * artist's. */
-export type SpotifyQuestion =
-  | { ask: 'home'; facet: string; signedIn: boolean }
-  | { ask: 'lyrics'; uri: string }
-  | { ask: 'library' }
-  | { ask: 'browse' }
+export type BilibiliQuestion =
   | { ask: 'search'; query: string }
-  | { ask: 'collection'; uri: string; more?: string }
-  | { ask: 'artist'; uri: string }
+  | { ask: 'popular' }
+  | { ask: 'recommend' }
 
-/** Each question's answer, by the question. */
-export interface SpotifyAnswers {
-  home: SpotifyHome
-  library: SpotifyItem[]
-  browse: SpotifyCategory[]
-  search: SpotifyResults
-  collection: SpotifyCollection
-  artist: SpotifyArtist
-  lyrics: Lyrics
+export interface BilibiliVideo {
+  bvid: string
+  title: string
+  author: string
+  cid?: number
+  artwork?: string
+  duration?: number
+  url?: string
 }
 
-/** What Spotify plays: the song, where it plays from, how far (seconds, as the host said it), the options,
- * and the songs to come. */
-export interface SpotifyPlayback {
-  track: SpotifyTrack | null
-  context: { uri: string; name: string; kind: SpotifyItem['kind'] } | null
-  playing: boolean
-  position: number
+export interface BilibiliPlayback {
+  title: string
+  artist: string
+  artwork?: string
   duration: number
-  shuffle: boolean
-  repeat: SpotifyRepeat
-  /** The playing device's volume, 0 to 1 (`null`: none Spotify can set). */
-  volume: number | null
-  /** Playing on WestPlay's own device, not another of the account's (a phone); missing: taken as here. */
-  here?: boolean
-  next: SpotifyTrack[]
+  position: number
+  status: string
+}
+
+export interface BilibiliAnswers {
+  videos?: BilibiliVideo[]
+}
+
+/** What the Ximalaya app asks of Ximalaya's web player (`westplay_host::ximalaya::Command`). */
+export type XimalayaCommand =
+  | { action: 'start' }
+  | { action: 'signIn' }
+  | { action: 'signOut' }
+  | { action: 'play'; track?: XimalayaTrack }
+  | { action: 'pause' }
+  | { action: 'next' }
+  | { action: 'previous' }
+  | { action: 'seek'; seconds: number }
+  | { action: 'volume'; percent: number }
+  | { action: 'ask'; id: number; question: XimalayaQuestion }
+
+export type XimalayaQuestion =
+  | { ask: 'search'; query: string }
+  | { ask: 'recommend' }
+  | { ask: 'category'; category: string }
+  | { ask: 'albumTracks'; albumId: string }
+
+export interface XimalayaTrack {
+  id: string
+  title: string
+  artist: string
+  album?: string
+  artwork?: string
+  duration?: number
+  url?: string
+}
+
+export interface XimalayaAlbum {
+  id: string
+  title: string
+  artist: string
+  artwork?: string
+  description?: string
+}
+
+export interface XimalayaPlayback {
+  title: string
+  artist: string
+  artwork?: string
+  duration: number
+  position: number
+  status: string
+}
+
+export interface XimalayaAnswers {
+  tracks?: XimalayaTrack[]
+  albums?: XimalayaAlbum[]
+}
+
+/** What the NetEase Cloud Music app asks of NetEase's web player (`westplay_host::netease::Command`). */
+export type NeteaseCommand =
+  | { action: 'start' }
+  | { action: 'signIn' }
+  | { action: 'signOut' }
+  | { action: 'play'; track?: NeteaseTrack }
+  | { action: 'pause' }
+  | { action: 'next' }
+  | { action: 'previous' }
+  | { action: 'seek'; seconds: number }
+  | { action: 'volume'; percent: number }
+  | { action: 'ask'; id: number; question: NeteaseQuestion }
+
+export type NeteaseQuestion =
+  | { ask: 'search'; query: string }
+  | { ask: 'recommend' }
+  | { ask: 'top' }
+  | { ask: 'lyrics'; id: string }
+
+export interface NeteaseTrack {
+  id: string
+  title: string
+  artist: string
+  album?: string
+  artwork?: string
+  duration?: number
+  url?: string
+}
+
+export interface NeteasePlayback {
+  title: string
+  artist: string
+  artwork?: string
+  duration: number
+  position: number
+  status: string
+}
+
+export interface NeteaseAnswers {
+  songs?: NeteaseTrack[]
+  lyric?: string
 }
 
 /** What the Music app asks of Apple Music's web player (`westplay_host::apple_music::Command`), run hidden by
@@ -671,10 +645,9 @@ export interface AppleMusicAnswers {
   lyrics: Lyrics
 }
 
-/** A song's words, as Apple Music and Spotify answer them (`westplay_host::lyrics::Lyrics`): line by line with
- * when each is sung (`synced`; seconds, `end` 0: until the next), where a stanza starts, where they're from
- * (Spotify's provider, Apple Music's songwriters), Spotify's colours for them, and whether they're written
- * right to left. No lines: no words for the song. */
+/** A song's words, as answered by the music services (`westplay_host::lyrics::Lyrics`): line by line with
+ * when each is sung (`synced`; seconds, `end` 0: until the next), where a stanza starts, where they're from,
+ * their colours, and whether they're written right to left. No lines: no words for the song. */
 export interface Lyrics {
   synced: boolean
   lines: { start: number; end: number; text: string; stanza?: boolean }[]
@@ -702,212 +675,9 @@ export interface AppleMusicPlayback {
   next: AppleMusicTrack[]
 }
 
-/** What the YouTube Music app asks of YouTube Music's web player (`westplay_host::youtube_music::Command`), run
- * hidden by the host: its sign-in (Google's, YouTube's own: they share it), a question (answered with
- * `youtubeMusicAnswer` and the same `id`), the language it answers in, and the player's controls (`play` with
- * `watch` plays it; without, it plays on). */
-export type YouTubeMusicCommand =
-  | { action: 'start' }
-  | { action: 'signIn' }
-  | { action: 'signOut' }
-  | { action: 'ask'; id: number; question: YouTubeMusicQuestion }
-  | { action: 'language'; code: string }
-  | { action: 'play'; watch?: YouTubeMusicWatch }
-  | { action: 'pause' }
-  | { action: 'next' }
-  | { action: 'previous' }
-  | { action: 'seek'; seconds: number }
-  | { action: 'volume'; percent: number }
-  | { action: 'shuffle'; on: boolean }
-  | { action: 'repeat'; mode: YouTubeMusicRepeat }
-  /** The queue's song at `index` (its place in the whole queue). */
-  | { action: 'jump'; index: number }
-  | { action: 'like'; video: string; like: YouTubeMusicRating }
-  /** A song into the queue: right after the one playing (`next`), or at its end. */
-  | { action: 'queue'; video: string; next: boolean }
-  /** An album or playlist (its playlist id) saved to the Library, or taken out. */
-  | { action: 'save'; playlist: string; on: boolean }
-  /** The Song/Video switch: the music video's picture (`true`), or the song. */
-  | { action: 'video'; on: boolean }
-  /** The music video's picture placed at this rectangle of the frame (pixels), under the page; or none. */
-  | { action: 'show'; x: number; y: number; width: number; height: number }
-  | { action: 'hide' }
 
-export type YouTubeMusicRepeat = 'off' | 'all' | 'one'
-export type YouTubeMusicRating = 'like' | 'dislike' | 'none'
-export type YouTubeMusicShelf = 'playlists' | 'songs' | 'albums' | 'artists' | 'subscriptions' | 'history'
-export type YouTubeMusicKind =
-  'song' | 'video' | 'episode' | 'album' | 'playlist' | 'artist' | 'channel' | 'podcast' | 'mood'
 
-/** Playing something: a song (`video`), from a list (`playlist`, at `index`), with YouTube's own `params` (a
- * radio, a shuffle), as YouTube Music's answers give them. */
-export interface YouTubeMusicWatch {
-  video?: string
-  playlist?: string
-  params?: string
-  index?: number
-}
 
-/** A page of YouTube Music's: its id, and its params (a mood's, a chart's). */
-export interface YouTubeMusicBrowse {
-  id: string
-  params?: string
-}
-
-/** A card or a row: what it is, its title and YouTube Music's own line under it, its picture, its page,
- * playing it, a song's id, artist and album pages and length, a mood's colour, its place (a number). */
-export interface YouTubeMusicItem {
-  kind: YouTubeMusicKind
-  title: string
-  subtitle: string
-  image?: string
-  browse?: YouTubeMusicBrowse
-  play?: YouTubeMusicWatch
-  video?: string
-  artist?: YouTubeMusicBrowse
-  album?: YouTubeMusicBrowse
-  duration?: string
-  explicit?: boolean
-  color?: string
-  rank?: string
-}
-
-/** Square covers side by side; songs in columns of four (Quick picks); songs one under another; mood
- * buttons, all of them or in rows side by side; words. */
-export type YouTubeMusicStyle = 'shelf' | 'columns' | 'songs' | 'moods' | 'moodRows' | 'about'
-
-export interface YouTubeMusicSection {
-  title: string
-  strapline?: string
-  style: YouTubeMusicStyle
-  items: YouTubeMusicItem[]
-  text?: string
-  more?: YouTubeMusicBrowse
-}
-
-export interface YouTubeMusicChip {
-  label: string
-  params?: string
-  selected?: boolean
-}
-
-/** Home, Explore, a page, a song's Related, the Library's: its choices, shelves and the token for more. */
-export interface YouTubeMusicPage {
-  title?: string
-  /** The picture YouTube Music shows behind its top (Home's, as its mood is). */
-  background?: string
-  chips: YouTubeMusicChip[]
-  sections: YouTubeMusicSection[]
-  more?: string
-}
-
-export interface YouTubeMusicCollection {
-  kind: 'album' | 'playlist'
-  title: string
-  subtitle: string
-  second: string
-  by: string
-  byPage?: YouTubeMusicBrowse
-  image?: string
-  description: string
-  play?: YouTubeMusicWatch
-  shuffle?: YouTubeMusicWatch
-  radio?: YouTubeMusicWatch
-  playlist?: string
-  saved?: boolean
-  tracks: YouTubeMusicItem[]
-  sections: YouTubeMusicSection[]
-  more?: string
-}
-
-export interface YouTubeMusicArtist {
-  name: string
-  description: string
-  image?: string
-  subscribers: string
-  shuffle?: YouTubeMusicWatch
-  radio?: YouTubeMusicWatch
-  sections: YouTubeMusicSection[]
-}
-
-export interface YouTubeMusicResults {
-  top?: YouTubeMusicItem
-  topSongs: YouTubeMusicItem[]
-  chips: YouTubeMusicChip[]
-  items: YouTubeMusicItem[]
-  more?: string
-}
-
-export interface YouTubeMusicSuggestions {
-  texts: string[]
-  items: YouTubeMusicItem[]
-}
-
-export interface YouTubeMusicLyrics {
-  text: string
-  source: string
-}
-
-export type YouTubeMusicQuestion =
-  | { ask: 'home'; chip?: string; more?: string }
-  | { ask: 'explore' }
-  | { ask: 'browse'; page: YouTubeMusicBrowse }
-  | { ask: 'search'; query: string; filter?: string; more?: string }
-  | { ask: 'suggest'; query: string }
-  | { ask: 'collection'; id: string; more?: string }
-  | { ask: 'artist'; id: string }
-  | { ask: 'library'; shelf: YouTubeMusicShelf }
-  | { ask: 'lyrics'; video: string }
-  | { ask: 'related'; video: string }
-
-export interface YouTubeMusicAnswers {
-  home: YouTubeMusicPage
-  explore: YouTubeMusicPage
-  browse: YouTubeMusicPage
-  search: YouTubeMusicResults
-  suggest: YouTubeMusicSuggestions
-  collection: YouTubeMusicCollection
-  artist: YouTubeMusicArtist
-  library: YouTubeMusicPage
-  lyrics: YouTubeMusicLyrics
-  related: YouTubeMusicPage
-}
-
-/** The song playing: its id, title, artists (and their page), album (and its page), cover, length, kind, like,
- * and whether it has a music video to show. */
-export interface YouTubeMusicTrack {
-  video: string
-  title: string
-  artists: string
-  artist?: YouTubeMusicBrowse
-  album: string
-  albumPage?: YouTubeMusicBrowse
-  image?: string
-  duration: number
-  kind: YouTubeMusicKind
-  like: YouTubeMusicRating
-  hasVideo: boolean
-}
-
-/** What YouTube Music plays: the song, playing (and waiting for its sound), how far, the options, the volume,
- * the Song/Video switch, the queue around the song (`queue` from the whole queue's `start`; `index`: the
- * song's place in the whole queue), what it plays from, and whether an ad plays. */
-export interface YouTubeMusicPlayback {
-  track: YouTubeMusicTrack
-  playing: boolean
-  loading: boolean
-  position: number
-  duration: number
-  shuffle: boolean
-  repeat: YouTubeMusicRepeat
-  volume: number | null
-  video: boolean
-  queue: YouTubeMusicItem[]
-  start: number
-  index: number
-  from: string
-  ad: boolean
-}
 
 /** What the YouTube app asks of YouTube's player (hidden, under the page) or of YouTube (`westplay_host::
  * youtube::Command`). `show` places the video, in the frame's pixels. */

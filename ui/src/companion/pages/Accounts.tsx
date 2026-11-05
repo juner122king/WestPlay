@@ -9,8 +9,12 @@ import {
   type HostStatus,
   appleMusicSignIn,
   appleMusicSignOut,
-  spotifySignIn,
-  spotifySignOut,
+  bilibiliSignIn,
+  bilibiliSignOut,
+  ximalayaSignIn,
+  ximalayaSignOut,
+  neteaseSignIn,
+  neteaseSignOut,
   youtubeSignIn,
   youtubeSignOut,
 } from '../useHostStatus'
@@ -39,14 +43,32 @@ const SERVICES: Record<
     signingIn: (status) => status?.youtubeSigningIn ?? false,
     words: (words) => words.accounts,
   },
-  spotify: {
-    name: 'Spotify',
-    app: 'spotify',
-    glow: GLOW.spotify,
-    signIn: spotifySignIn,
-    signOut: spotifySignOut,
-    signingIn: (status) => status?.spotifySigningIn ?? false,
-    words: (words) => words.spotify,
+  bilibili: {
+    name: '哔哩哔哩',
+    app: 'bilibili',
+    glow: GLOW.bilibili,
+    signIn: bilibiliSignIn,
+    signOut: bilibiliSignOut,
+    signingIn: (status) => status?.bilibiliSigningIn ?? false,
+    words: (words) => words.accounts,
+  },
+  ximalaya: {
+    name: '喜马拉雅',
+    app: 'ximalaya',
+    glow: GLOW.ximalaya,
+    signIn: ximalayaSignIn,
+    signOut: ximalayaSignOut,
+    signingIn: (status) => status?.ximalayaSigningIn ?? false,
+    words: (words) => words.accounts,
+  },
+  netease: {
+    name: '网易云音乐',
+    app: 'netease',
+    glow: GLOW.netease,
+    signIn: neteaseSignIn,
+    signOut: neteaseSignOut,
+    signingIn: (status) => status?.neteaseSigningIn ?? false,
+    words: (words) => words.accounts,
   },
   appleMusic: {
     name: 'Apple Music',
@@ -59,7 +81,7 @@ const SERVICES: Record<
   },
 }
 
-const ORDER: Service[] = ['youtube', 'spotify', 'appleMusic']
+const ORDER: Service[] = ['youtube', 'netease', 'bilibili', 'ximalaya', 'appleMusic']
 
 /**
  * The services WestPlay plays from, each signed in (in its own window, on the desktop) or not. WestPlay only

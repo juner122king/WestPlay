@@ -17,7 +17,7 @@ import type { Language } from '../state/text'
  */
 
 /** The apps opened through a launch copy: those whose building held up their window's opening. */
-export const COPIED: readonly AppId[] = ['music', 'spotify', 'youtubeMusic']
+export const COPIED: readonly AppId[] = ['music', 'bilibili', 'ximalaya', 'netease']
 
 export function isCopied(app: AppId): boolean {
   return COPIED.includes(app)

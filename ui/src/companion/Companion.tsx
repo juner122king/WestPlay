@@ -423,9 +423,19 @@ function SectionList({
     controls: keyName,
     customize: '',
     accounts:
-      signedIn.youtube === null && signedIn.spotify === null && signedIn.appleMusic === null
+      signedIn.youtube === null &&
+      signedIn.appleMusic === null &&
+      signedIn.bilibili === null &&
+      signedIn.ximalaya === null &&
+      signedIn.netease === null
         ? ''
-        : [signedIn.youtube && 'YouTube', signedIn.spotify && 'Spotify', signedIn.appleMusic && 'Apple Music']
+        : [
+            signedIn.youtube && 'YouTube',
+            signedIn.appleMusic && 'Apple Music',
+            signedIn.bilibili && '哔哩哔哩',
+            signedIn.ximalaya && '喜马拉雅',
+            signedIn.netease && '网易云音乐',
+          ]
             .filter(Boolean)
             .join(', ') || cw.values.none,
     map: mapValue(status, mapProgress, cw, words),

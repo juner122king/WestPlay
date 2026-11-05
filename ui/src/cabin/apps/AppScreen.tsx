@@ -9,8 +9,9 @@ import { isCopied, noteOpened, openedBefore, saveCopy, savedCopy } from './launc
 import { MusicApp } from './music/MusicApp'
 import { PlayerApp } from './player/PlayerApp'
 import { SettingsApp } from './settings/SettingsApp'
-import { SpotifyApp } from './spotify/SpotifyApp'
-import { YouTubeMusicApp } from './youtubeMusic/YouTubeMusicApp'
+import { BilibiliApp } from './bilibili/BilibiliApp'
+import { XimalayaApp } from './ximalaya/XimalayaApp'
+import { NeteaseApp } from './netease/NeteaseApp'
 import { WeatherApp } from './weather/WeatherApp'
 import { YouTubeApp } from './youtube/YouTubeApp'
 import './apps.css'
@@ -79,12 +80,14 @@ function AppContent({ app }: { app: AppId }) {
       )
     case 'music':
       return <MusicApp />
+    case 'bilibili':
+      return <BilibiliApp />
+    case 'ximalaya':
+      return <XimalayaApp />
+    case 'netease':
+      return <NeteaseApp />
     case 'youtube':
       return <YouTubeApp />
-    case 'spotify':
-      return <SpotifyApp />
-    case 'youtubeMusic':
-      return <YouTubeMusicApp />
     case 'settings':
       return <SettingsApp />
     case 'weather':

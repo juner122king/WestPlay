@@ -17,9 +17,6 @@ import {
   appleMusicCheck,
   appleMusicSignIn,
   appleMusicSignOut,
-  spotifyCheck,
-  spotifySignIn,
-  spotifySignOut,
   youtubeCheck,
   youtubeSignIn,
   youtubeSignOut,
@@ -77,7 +74,6 @@ const STEPS = [
   'map',
   'controls',
   'accounts',
-  'spotify',
   'appleMusic',
   'tutorial',
 ] as const
@@ -91,7 +87,6 @@ const POSES: Record<StepId, Pose> = {
   map: 'side',
   controls: 'side',
   accounts: 'side',
-  spotify: 'side',
   appleMusic: 'side',
   tutorial: 'final',
 }
@@ -297,7 +292,6 @@ export function Onboarding({
             {step === 'map' && <MapStep status={status} next={next} back={back} />}
             {step === 'controls' && <Controls settings={settings} next={next} back={back} />}
             {step === 'accounts' && <Accounts status={status} next={next} back={back} />}
-            {step === 'spotify' && <ServiceSignIn service="spotify" status={status} next={next} back={back} />}
             {step === 'appleMusic' && <ServiceSignIn service="appleMusic" status={status} next={next} back={back} />}
             {step === 'tutorial' && <TutorialIntro code={code} finish={finish} back={back} />}
           </ScreenContext.Provider>
@@ -922,20 +916,10 @@ function Accounts({ status, next, back }: { status: HostStatus | null; next(): v
   )
 }
 
-/** Spotify's and Apple Music's sign-ins, as YouTube's: the service's own page in a window on the desktop, its
+/** Apple Music's sign-in, as YouTube's: the service's own page in a window on the desktop, its
  * app on the screen meanwhile. Their buttons and states are YouTube's step's words; their own say what each
  * is for. */
 const SERVICE_STEPS = {
-  spotify: {
-    name: 'Spotify',
-    app: 'spotify',
-    glow: GLOW.spotify,
-    signedIn: (status: HostStatus | null) => status?.spotifySignedIn,
-    signingIn: (status: HostStatus | null) => status?.spotifySigningIn ?? false,
-    check: spotifyCheck,
-    signIn: spotifySignIn,
-    signOut: spotifySignOut,
-  },
   appleMusic: {
     name: 'Apple Music',
     app: 'music',

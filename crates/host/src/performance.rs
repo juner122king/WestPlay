@@ -48,10 +48,12 @@ const PAGE: &str = "\u{1}page\u{1}";
 /// A WebView2 profile WestPlay runs, its processes counted under its name.
 #[derive(Clone, Copy)]
 pub enum Profile {
-    /// The cab's own, which YouTube and YouTube Music share.
+    /// The cab's own, which YouTube shares.
     Cab,
-    Spotify,
     AppleMusic,
+    Bilibili,
+    Ximalaya,
+    NetEase,
 }
 
 /// What the host knows each second while the game runs.
@@ -289,7 +291,9 @@ fn parts_of(
             let info = unsafe { infos.GetValueAtIndex(index) }.ok()?;
             let (pid, kind) = process_of(&info)?;
             let part = match profile {
-                Profile::Spotify => "Spotify",
+                Profile::Bilibili => "Bilibili",
+                Profile::Ximalaya => "Ximalaya",
+                Profile::NetEase => "NetEase",
                 Profile::AppleMusic => "Apple Music",
                 Profile::Cab => match kind {
                     COREWEBVIEW2_PROCESS_KIND_BROWSER => "browser",

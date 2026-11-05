@@ -4,7 +4,6 @@ import { VideoWidget } from '../apps/youtube/VideoWidget'
 import { NextGlyph, NoteGlyph, PauseGlyph, PlayGlyph, PreviousGlyph } from '../apps/music/glyphs'
 import { TrackSlide } from '../apps/music/TrackSlide'
 import { useTrackTransition } from '../apps/music/useTrackTransition'
-import { playOrPause, skip, useSpotify, useSpotifySource } from '../apps/spotify/spotify'
 import {
   playOrPause as playOrPauseAppleMusic,
   skip as skipAppleMusic,
@@ -12,11 +11,23 @@ import {
   useAppleMusicSource,
 } from '../apps/music/appleMusic'
 import {
-  playOrPause as playOrPauseYouTubeMusic,
-  skip as skipYouTubeMusic,
-  useYouTubeMusic,
-  useYouTubeMusicSource,
-} from '../apps/youtubeMusic/youtubeMusic'
+  playOrPause as playOrPauseBilibili,
+  skip as skipBilibili,
+  useBilibili,
+  useBilibiliSource,
+} from '../apps/bilibili/bilibili'
+import {
+  playOrPause as playOrPauseXimalaya,
+  skip as skipXimalaya,
+  useXimalaya,
+  useXimalayaSource,
+} from '../apps/ximalaya/ximalaya'
+import {
+  playOrPause as playOrPauseNetease,
+  skip as skipNetease,
+  useNetease,
+  useNeteaseSource,
+} from '../apps/netease/netease'
 import { playOrPause as playOrPausePlayer, skip as skipPlayer, usePlayer, usePlayerSource } from '../apps/player/player'
 import type { MediaAction, MediaSource } from '../../shared/media'
 import { useLook } from '../state/hooks'
@@ -32,19 +43,20 @@ import { EMPTY, useDestinationView, useGuided } from './widgetState'
 import { cabClock } from '../../shared/host'
 
 /**
- * Now Playing: what plays, the video YouTube plays first (VideoWidget), then the Spotify app's music, then
- * Apple Music's (the Music app), then YouTube Music's, then Player's; nothing playing, what played last
+ * Now Playing: what plays, the video YouTube plays first (VideoWidget), then domestic music/audio apps, then
+ * Apple Music's (the Music app), then Player's; nothing playing, what played last
  * (nowPlaying.ts); none of them with anything, Not Playing. Turned off in Settings, its room goes to the others.
  */
 export function NowPlayingWidget() {
   const shown = useCabin((state) => state.dashboardWidgets.nowPlaying)
-  const { showing, spotify, appleMusic, youtubeMusic, player } = useNowPlaying()
+  const { showing, bilibili, ximalaya, netease, appleMusic, player } = useNowPlaying()
   return (
     <div className={`widget-slot${shown ? ' open' : ''}`}>
       {shown && showing === 'video' && <VideoWidget />}
-      {shown && showing === 'spotify' && spotify && <SpotifyWidget spotify={spotify} />}
+      {shown && showing === 'bilibili' && bilibili && <BilibiliWidget bilibili={bilibili} />}
+      {shown && showing === 'ximalaya' && ximalaya && <XimalayaWidget ximalaya={ximalaya} />}
+      {shown && showing === 'netease' && netease && <NeteaseWidget netease={netease} />}
       {shown && showing === 'appleMusic' && appleMusic && <AppleMusicWidget appleMusic={appleMusic} />}
-      {shown && showing === 'youtubeMusic' && youtubeMusic && <YouTubeMusicWidget youtubeMusic={youtubeMusic} />}
       {shown && showing === 'player' && player && <PlayerWidget player={player} />}
       {shown && showing === null && <MusicWidget source={null} artwork={null} onControl={() => {}} />}
     </div>
@@ -70,20 +82,58 @@ function AppleMusicWidget({ appleMusic }: { appleMusic: NonNullable<ReturnType<t
   )
 }
 
-/** YouTube Music's music: what plays, its controls, opening YouTube Music on Now Playing. */
-function YouTubeMusicWidget({ youtubeMusic }: { youtubeMusic: NonNullable<ReturnType<typeof useYouTubeMusicSource>> }) {
+/** Bilibili video audio: what plays, its controls, opening Bilibili on Now Playing. */
+function BilibiliWidget({ bilibili }: { bilibili: NonNullable<ReturnType<typeof useBilibiliSource>> }) {
   return (
     <MusicWidget
-      source={youtubeMusic.source}
-      artwork={youtubeMusic.artwork}
+      source={bilibili.source}
+      artwork={bilibili.artwork}
       onOpen={() => {
-        useYouTubeMusic.setState({ nowPlaying: true })
-        go({ type: 'openApp', app: 'youtubeMusic' })
+        useBilibili.setState({ nowPlaying: true })
+        go({ type: 'openApp', app: 'bilibili' })
       }}
       onControl={(action) => {
-        if (action === 'playPause') playOrPauseYouTubeMusic()
-        else if (action === 'next') skipYouTubeMusic(1)
-        else if (action === 'previous') skipYouTubeMusic(-1)
+        if (action === 'playPause') playOrPauseBilibili()
+        else if (action === 'next') skipBilibili(1)
+        else if (action === 'previous') skipBilibili(-1)
+      }}
+    />
+  )
+}
+
+/** Ximalaya audio: what plays, its controls, opening Ximalaya on Now Playing. */
+function XimalayaWidget({ ximalaya }: { ximalaya: NonNullable<ReturnType<typeof useXimalayaSource>> }) {
+  return (
+    <MusicWidget
+      source={ximalaya.source}
+      artwork={ximalaya.artwork}
+      onOpen={() => {
+        useXimalaya.setState({ nowPlaying: true })
+        go({ type: 'openApp', app: 'ximalaya' })
+      }}
+      onControl={(action) => {
+        if (action === 'playPause') playOrPauseXimalaya()
+        else if (action === 'next') skipXimalaya(1)
+        else if (action === 'previous') skipXimalaya(-1)
+      }}
+    />
+  )
+}
+
+/** NetEase Cloud Music: what plays, its controls, opening NetEase on Now Playing. */
+function NeteaseWidget({ netease }: { netease: NonNullable<ReturnType<typeof useNeteaseSource>> }) {
+  return (
+    <MusicWidget
+      source={netease.source}
+      artwork={netease.artwork}
+      onOpen={() => {
+        useNetease.setState({ nowPlaying: true })
+        go({ type: 'openApp', app: 'netease' })
+      }}
+      onControl={(action) => {
+        if (action === 'playPause') playOrPauseNetease()
+        else if (action === 'next') skipNetease(1)
+        else if (action === 'previous') skipNetease(-1)
       }}
     />
   )
@@ -103,25 +153,6 @@ function PlayerWidget({ player }: { player: NonNullable<ReturnType<typeof usePla
         if (action === 'playPause') playOrPausePlayer()
         else if (action === 'next') skipPlayer(1)
         else if (action === 'previous') skipPlayer(-1)
-      }}
-    />
-  )
-}
-
-/** The Spotify app's music: what Spotify plays, its controls, opening the Spotify app on Now Playing. */
-function SpotifyWidget({ spotify }: { spotify: NonNullable<ReturnType<typeof useSpotifySource>> }) {
-  return (
-    <MusicWidget
-      source={spotify.source}
-      artwork={spotify.artwork}
-      onOpen={() => {
-        useSpotify.setState({ nowPlaying: true })
-        go({ type: 'openApp', app: 'spotify' })
-      }}
-      onControl={(action) => {
-        if (action === 'playPause') playOrPause()
-        else if (action === 'next') skip(1)
-        else if (action === 'previous') skip(-1)
       }}
     />
   )
