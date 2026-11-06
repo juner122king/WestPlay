@@ -9,6 +9,64 @@
   let currentVideo = null
   let isPlaying = false
 
+  // Inject full-bleed video styles and strip site chrome
+  const style = document.createElement('style')
+  style.id = 'westplay-bilibili-style'
+  style.textContent = `
+    html, body {
+      background: #000 !important;
+      overflow: hidden !important;
+      margin: 0 !important;
+      padding: 0 !important;
+      width: 100vw !important;
+      height: 100vh !important;
+    }
+    body * {
+      visibility: hidden !important;
+    }
+    #bilibili-player,
+    .bpx-player-container,
+    .bpx-player-video-wrap,
+    .bpx-player-video-area,
+    video,
+    #wp-bilibili-video {
+      visibility: visible !important;
+      position: fixed !important;
+      inset: 0 !important;
+      width: 100vw !important;
+      height: 100vh !important;
+      left: 0 !important;
+      top: 0 !important;
+      z-index: 2147483647 !important;
+      background: #000 !important;
+      object-fit: contain !important;
+    }
+    html.westplay-crop video,
+    html.westplay-crop #wp-bilibili-video {
+      object-fit: cover !important;
+    }
+    .bili-header,
+    .bpx-player-dm-wrap,
+    .bpx-player-control-wrap,
+    .login-dialog-wrapper,
+    .bili-mini-mask,
+    .van-popover,
+    .bpx-player-toast-wrap,
+    .bili-guide-box {
+      display: none !important;
+      visibility: hidden !important;
+    }
+  `
+
+  const addStyle = () => {
+    const parent = document.head || document.documentElement
+    if (parent && !document.getElementById('westplay-bilibili-style')) {
+      parent.appendChild(style)
+    }
+  }
+  addStyle()
+  document.addEventListener('DOMContentLoaded', addStyle)
+
   const hookMedia = (el) => {
     if (!el || el === currentMedia) return
     currentMedia = el
@@ -35,9 +93,46 @@
     })
   }
 
+  const ensurePlaying = () => {
+    const v = document.querySelector('video')
+    if (v) {
+      hookMedia(v)
+      if (v.paused) {
+        v.play().catch(() => {})
+      }
+    }
+    const playBtn = document.querySelector('.bpx-player-ctrl-play')
+    if (playBtn && playBtn.getAttribute('aria-label') === '播放') {
+      try { playBtn.click() } catch {}
+    }
+  }
+
+  const extractActiveInfo = () => {
+    if (!location.pathname.includes('/video/')) return
+    const titleEl = document.querySelector('.video-title, h1[title], .video-info-title-inner')
+    const authorEl = document.querySelector('.up-name, .username, .up-detail-top .name')
+    const imgEl = document.querySelector('meta[property="og:image"]')
+    const title = titleEl?.textContent?.trim()
+    const author = authorEl?.textContent?.trim()
+    const artwork = imgEl?.content || null
+    if (title && (!currentVideo || currentVideo.title !== title)) {
+      currentVideo = {
+        bvid: location.pathname.split('/video/')[1]?.split('/')[0]?.split('?')[0] || '',
+        title,
+        author: author || 'UP主',
+        artwork,
+        duration: currentMedia ? currentMedia.duration || 0 : 0,
+      }
+      sendPlayback()
+    }
+  }
+
   setInterval(() => {
+    addStyle()
     const videos = document.querySelectorAll('video, audio')
     videos.forEach(hookMedia)
+    extractActiveInfo()
+    ensurePlaying()
     checkStatus()
   }, 1000)
 
@@ -72,6 +167,15 @@
     handleHost(cmd)
   }
 
+  window.chrome?.webview?.addEventListener('message', (event) => {
+    try {
+      const data = event.data
+      handleHost(typeof data === 'string' ? JSON.parse(data) : data)
+    } catch (e) {
+      console.error('Bilibili IPC parse error', e)
+    }
+  })
+
   const handleHost = async (cmd) => {
     if (!cmd || typeof cmd !== 'object') return
     const { action } = cmd
@@ -79,40 +183,22 @@
     if (action === 'play') {
       if (cmd.video) {
         currentVideo = cmd.video
-        if (!currentMedia) {
-          const created = document.createElement('video')
-          created.id = 'wp-bilibili-video'
-          created.playsInline = true
-          created.style.position = 'fixed'
-          created.style.top = '0'
-          created.style.left = '0'
-          created.style.width = '100%'
-          created.style.height = '100%'
-          created.style.zIndex = '9999'
-          document.body.appendChild(created)
-          hookMedia(created)
-        }
         if (cmd.video.url) {
+          if (!currentMedia) {
+            const created = document.createElement('video')
+            created.id = 'wp-bilibili-video'
+            created.playsInline = true
+            document.body.appendChild(created)
+            hookMedia(created)
+          }
           currentMedia.src = cmd.video.url
           currentMedia.play().catch(() => {})
         } else if (cmd.video.bvid) {
-          // Resolve video playurl
-          try {
-            // Get cid first
-            const infoRes = await fetch(`https://api.bilibili.com/x/web-interface/view?bvid=${cmd.video.bvid}`)
-            const infoData = await infoRes.json()
-            const cid = infoData?.data?.cid || cmd.video.cid
-            if (cid) {
-              const playRes = await fetch(`https://api.bilibili.com/x/player/playurl?bvid=${cmd.video.bvid}&cid=${cid}&qn=64&fnval=1`)
-              const playData = await playRes.json()
-              const durl = playData?.data?.durl?.[0]?.url
-              if (durl) {
-                currentMedia.src = durl
-                currentMedia.play().catch(() => {})
-              }
-            }
-          } catch (e) {
-            console.error('Bilibili resolve error', e)
+          if (!location.pathname.includes(cmd.video.bvid)) {
+            location.href = `https://www.bilibili.com/video/${cmd.video.bvid}`
+            return
+          } else if (currentMedia) {
+            currentMedia.play().catch(() => {})
           }
         }
       } else if (currentMedia) {
@@ -120,6 +206,12 @@
       }
     } else if (action === 'pause') {
       if (currentMedia) currentMedia.pause()
+    } else if (action === 'crop') {
+      if (cmd.on) {
+        document.documentElement.classList.add('westplay-crop')
+      } else {
+        document.documentElement.classList.remove('westplay-crop')
+      }
     } else if (action === 'seek') {
       if (currentMedia && typeof cmd.seconds === 'number') {
         currentMedia.currentTime = cmd.seconds
@@ -153,7 +245,7 @@
           bvid: v.bvid,
           title: v.title,
           author: v.owner?.name,
-          artwork: v.pic,
+          artwork: v.pic ? (v.pic.startsWith('//') ? 'https:' + v.pic : v.pic) : null,
           duration: v.duration || 0
         }))
         post({ type: 'answer', answer: { id, videos } })
@@ -171,5 +263,25 @@
     return 0
   }
 
+  const fetchPopularVideos = async () => {
+    try {
+      const res = await fetch(`https://api.bilibili.com/x/web-interface/popular?ps=20&pn=1`)
+      const data = await res.json()
+      const videos = (data?.data?.list || []).map(v => ({
+        bvid: v.bvid,
+        title: v.title,
+        author: v.owner?.name,
+        artwork: v.pic,
+        duration: v.duration || 0
+      }))
+      if (videos.length > 0) {
+        post({ type: 'answer', answer: { id: 1, videos } })
+      }
+    } catch (e) {
+      console.error('[bilibili] auto fetch popular error', e)
+    }
+  }
+
   checkStatus()
+  fetchPopularVideos()
 })()

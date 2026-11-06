@@ -1,13 +1,5 @@
 import { useEffect } from 'react'
-import {
-  play,
-  playOrPause,
-  sendSignIn,
-  sendSignOut,
-  sendStart,
-  setNowPlaying,
-  useXimalaya,
-} from './ximalaya'
+import { play, playOrPause, sendSignIn, sendSignOut, sendStart, setNowPlaying, useXimalaya } from './ximalaya'
 import { NowPlaying } from './NowPlaying'
 import './ximalaya.css'
 
@@ -72,16 +64,10 @@ export function XimalayaApp() {
             <div className="xima-empty">正在加载喜马拉雅声音节目...</div>
           ) : (
             tracks.map((track) => (
-              <div
-                key={track.id}
-                className="xima-item"
-                onClick={() => play(track)}
-                role="button"
-                tabIndex={0}
-              >
+              <div key={track.id} className="xima-item" onClick={() => play(track)} role="button" tabIndex={0}>
                 <div className="xima-item-thumb">
                   {track.artwork ? (
-                    <img src={track.artwork} alt={track.title} />
+                    <img src={track.artwork} alt={track.title} referrerPolicy="no-referrer" />
                   ) : (
                     <div className="xima-thumb-fallback">🎙️</div>
                   )}

@@ -17,25 +17,65 @@ export interface BilibiliState {
   playback: (BilibiliPlayback & { at: number }) | null
   nowPlaying: boolean
   volume: number
+  hole: { x: number; y: number; width: number; height: number; radius: number } | null
 }
 
 const IN_HOST = typeof window !== 'undefined' && isInHost()
 
 const MOCK_VIDEOS: BilibiliVideo[] = [
-  { bvid: 'BV1xx411c7mD', title: '【经典】甩葱歌 初音未来 高清重制', author: '初音未来官方', duration: 154 },
-  { bvid: 'BV1GJ411x7h7', title: '【卡车司机的一天】驾驶斯堪尼亚穿越阿尔卑斯山脉', author: '欧卡达人', duration: 840 },
-  { bvid: 'BV185411r7Kd', title: '周杰伦 经典金曲串烧 4K 60帧 车载无损', author: '音乐车道', duration: 1200 },
-  { bvid: 'BV1t4411v7r5', title: '【4K沉浸式】雨夜长途驾驶 欧洲卡车模拟2 真实视听', author: 'SimDriver', duration: 1800 },
+  {
+    bvid: 'BV1xx411c7mD',
+    title: '【经典】甩葱歌 初音未来 高清重制',
+    author: '初音未来官方',
+    duration: 154,
+    artwork: 'https://i0.hdslb.com/bfs/archive/478a846c4fce45be5d120a1dbde86b72f10b7776.jpg',
+  },
+  {
+    bvid: 'BV1GJ411x7h7',
+    title: '【卡车司机的一天】驾驶斯堪尼亚穿越阿尔卑斯山脉',
+    author: '欧卡达人',
+    duration: 840,
+    artwork: 'https://i1.hdslb.com/bfs/archive/4d7a8d5e89d18bce5a79bbda441c9aaebfd618a8.jpg',
+  },
+  {
+    bvid: 'BV185411r7Kd',
+    title: '周杰伦 经典金曲串烧 4K 60帧 车载无损',
+    author: '音乐车道',
+    duration: 1200,
+    artwork: 'https://i2.hdslb.com/bfs/archive/c44415510da89658742ba32e3505bf779e959ec2.jpg',
+  },
+  {
+    bvid: 'BV1t4411v7r5',
+    title: '【4K沉浸式】雨夜长途驾驶 欧洲卡车模拟2 真实视听',
+    author: 'SimDriver',
+    duration: 1800,
+    artwork: 'https://i0.hdslb.com/bfs/archive/522501a3000b2184aa330fcddbf29f939e6a9284.jpg',
+  },
+  {
+    bvid: 'BV1uT4y1P7cx',
+    title: '【4K60帧】中国高铁驾驶视角 穿越大好河山',
+    author: '铁道视界',
+    duration: 960,
+    artwork: 'https://i1.hdslb.com/bfs/archive/844781604a8b75249c3ce3882756885df1aeb6c4.jpg',
+  },
+  {
+    bvid: 'BV1QK4y1d7Ng',
+    title: '欧卡2 超重特种货物运输 挑战极限弯道',
+    author: '重卡领航员',
+    duration: 720,
+    artwork: 'https://i2.hdslb.com/bfs/archive/a64a377d61247d51fce8ba0722cb54c414e049bf.jpg',
+  },
 ]
 
 export const useBilibili = create<BilibiliState>(() => ({
   signedIn: IN_HOST ? null : false,
   signingIn: false,
   playing: false,
-  videos: IN_HOST ? [] : MOCK_VIDEOS,
+  videos: MOCK_VIDEOS,
   playback: null,
   nowPlaying: false,
   volume: 1,
+  hole: null,
 }))
 
 function send(command: BilibiliCommand): void {
@@ -57,6 +97,9 @@ export function sendSignOut(): void {
 
 export function receiveState(signedIn: boolean | null, playing: boolean | null, signingIn: boolean): void {
   useBilibili.setState({ signedIn, playing, signingIn })
+  if (useBilibili.getState().videos.length <= 6) {
+    send({ action: 'ask', id: 1, question: { ask: 'popular' } })
+  }
 }
 
 export function receiveAnswer(_id: number, failed?: boolean, _error?: string, videos?: BilibiliVideo[]): void {

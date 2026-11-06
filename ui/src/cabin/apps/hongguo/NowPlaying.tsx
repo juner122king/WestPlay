@@ -1,13 +1,6 @@
 import { useEffect, useState } from 'react'
-import {
-  playOrPause,
-  positionOf,
-  seek,
-  setNowPlaying,
-  setSpeed,
-  skip,
-  useHongguo,
-} from './hongguo'
+import { VideoHole } from '../youtube/VideoHole'
+import { playOrPause, positionOf, seek, setNowPlaying, setSpeed, skip, useHongguo } from './hongguo'
 
 function formatSeconds(secs: number): string {
   if (!Number.isFinite(secs) || secs < 0) return '0:00'
@@ -44,12 +37,7 @@ export function NowPlaying() {
   return (
     <div className="hongguo-now-playing">
       <div className="hongguo-np-header">
-        <button
-          type="button"
-          className="hongguo-back-btn"
-          onClick={() => setNowPlaying(false)}
-          aria-label="Back"
-        >
+        <button type="button" className="hongguo-back-btn" onClick={() => setNowPlaying(false)} aria-label="Back">
           ‹ 返回
         </button>
         <span className="hongguo-np-brand">红果短剧 · 剧场模式</span>
@@ -57,24 +45,14 @@ export function NowPlaying() {
 
       <div className="hongguo-np-content">
         <div className="hongguo-np-artwork">
-          {playback.artwork ? (
-            <img src={playback.artwork} alt={playback.title} />
-          ) : (
-            <div className="hongguo-np-placeholder">
-              <span className="hongguo-badge-icon">🎬</span>
-            </div>
-          )}
+          <VideoHole app="hongguo" className="hongguo-np-video-hole" crop />
         </div>
 
         <div className="hongguo-np-meta">
           <h2 className="hongguo-np-title">{playback.title}</h2>
           <div className="hongguo-np-tags">
             <span className="hongguo-np-tag">短剧</span>
-            {playback.episode && playback.totalEpisodes && (
-              <span className="hongguo-np-tag ep">
-                第 {playback.episode} / {playback.totalEpisodes} 集
-              </span>
-            )}
+            {playback.episode && <span className="hongguo-np-tag ep">第 {playback.episode} 集</span>}
             {autoNext && <span className="hongguo-np-tag auto">自动连播</span>}
           </div>
         </div>
@@ -97,12 +75,7 @@ export function NowPlaying() {
         </div>
 
         <div className="hongguo-np-controls">
-          <button
-            type="button"
-            className="hongguo-ctrl-btn"
-            onClick={() => skip(-1)}
-            aria-label="Previous Episode"
-          >
+          <button type="button" className="hongguo-ctrl-btn" onClick={() => skip(-1)} aria-label="Previous Episode">
             ⏮
           </button>
           <button
@@ -113,19 +86,14 @@ export function NowPlaying() {
           >
             {playing ? '⏸' : '▶'}
           </button>
-          <button
-            type="button"
-            className="hongguo-ctrl-btn"
-            onClick={() => skip(1)}
-            aria-label="Next Episode"
-          >
+          <button type="button" className="hongguo-ctrl-btn" onClick={() => skip(1)} aria-label="Next Episode">
             ⏭
           </button>
           <button
             type="button"
             className="hongguo-ctrl-btn hongguo-speed-btn"
             onClick={() => setSpeed(nextSpeed)}
-            aria-label={`Speed ${speed}x`}
+            aria-label="Speed"
           >
             {speed}x
           </button>

@@ -1,12 +1,5 @@
 import { useEffect, useState } from 'react'
-import {
-  playOrPause,
-  positionOf,
-  seek,
-  setNowPlaying,
-  skip,
-  useXimalaya,
-} from './ximalaya'
+import { playOrPause, positionOf, seek, setNowPlaying, skip, useXimalaya } from './ximalaya'
 
 function formatSeconds(secs: number): string {
   if (!Number.isFinite(secs) || secs < 0) return '0:00'
@@ -37,12 +30,7 @@ export function NowPlaying() {
   return (
     <div className="xima-now-playing">
       <div className="xima-np-header">
-        <button
-          type="button"
-          className="xima-back-btn"
-          onClick={() => setNowPlaying(false)}
-          aria-label="Back"
-        >
+        <button type="button" className="xima-back-btn" onClick={() => setNowPlaying(false)} aria-label="Back">
           ‹ 返回
         </button>
         <span className="xima-np-brand">喜马拉雅 播放中</span>
@@ -51,7 +39,7 @@ export function NowPlaying() {
       <div className="xima-np-content">
         <div className="xima-np-artwork">
           {playback.artwork ? (
-            <img src={playback.artwork} alt={playback.title} />
+            <img src={playback.artwork} alt={playback.title} referrerPolicy="no-referrer" />
           ) : (
             <div className="xima-np-placeholder">🎙️</div>
           )}
@@ -63,11 +51,14 @@ export function NowPlaying() {
         </div>
 
         <div className="xima-np-progress-bar">
-          <div className="xima-np-track" onClick={(e) => {
-            const rect = e.currentTarget.getBoundingClientRect()
-            const pct = (e.clientX - rect.left) / rect.width
-            seek(pct * duration)
-          }}>
+          <div
+            className="xima-np-track"
+            onClick={(e) => {
+              const rect = e.currentTarget.getBoundingClientRect()
+              const pct = (e.clientX - rect.left) / rect.width
+              seek(pct * duration)
+            }}
+          >
             <div className="xima-np-fill" style={{ width: `${progressPercent}%` }} />
           </div>
           <div className="xima-np-times">
@@ -77,12 +68,7 @@ export function NowPlaying() {
         </div>
 
         <div className="xima-np-controls">
-          <button
-            type="button"
-            className="xima-ctrl-btn"
-            onClick={() => skip(-1)}
-            aria-label="Previous"
-          >
+          <button type="button" className="xima-ctrl-btn" onClick={() => skip(-1)} aria-label="Previous">
             ⏮
           </button>
           <button
@@ -93,12 +79,7 @@ export function NowPlaying() {
           >
             {playing ? '⏸' : '▶'}
           </button>
-          <button
-            type="button"
-            className="xima-ctrl-btn"
-            onClick={() => skip(1)}
-            aria-label="Next"
-          >
+          <button type="button" className="xima-ctrl-btn" onClick={() => skip(1)} aria-label="Next">
             ⏭
           </button>
         </div>

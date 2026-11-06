@@ -1,12 +1,6 @@
 import { useEffect, useState } from 'react'
-import {
-  playOrPause,
-  positionOf,
-  seek,
-  setNowPlaying,
-  skip,
-  useBilibili,
-} from './bilibili'
+import { VideoHole } from '../youtube/VideoHole'
+import { playOrPause, positionOf, seek, setNowPlaying, skip, useBilibili } from './bilibili'
 
 function formatSeconds(secs: number): string {
   if (!Number.isFinite(secs) || secs < 0) return '0:00'
@@ -37,12 +31,7 @@ export function NowPlaying() {
   return (
     <div className="bili-now-playing">
       <div className="bili-np-header">
-        <button
-          type="button"
-          className="bili-back-btn"
-          onClick={() => setNowPlaying(false)}
-          aria-label="Back"
-        >
+        <button type="button" className="bili-back-btn" onClick={() => setNowPlaying(false)} aria-label="Back">
           ‹ 返回
         </button>
         <span className="bili-np-brand">哔哩哔哩 播放中</span>
@@ -50,11 +39,7 @@ export function NowPlaying() {
 
       <div className="bili-np-content">
         <div className="bili-np-artwork">
-          {playback.artwork ? (
-            <img src={playback.artwork} alt={playback.title} />
-          ) : (
-            <div className="bili-np-placeholder">📺</div>
-          )}
+          <VideoHole app="bilibili" className="bili-np-video-hole" crop />
         </div>
 
         <div className="bili-np-meta">
@@ -63,11 +48,14 @@ export function NowPlaying() {
         </div>
 
         <div className="bili-np-progress-bar">
-          <div className="bili-np-track" onClick={(e) => {
-            const rect = e.currentTarget.getBoundingClientRect()
-            const pct = (e.clientX - rect.left) / rect.width
-            seek(pct * duration)
-          }}>
+          <div
+            className="bili-np-track"
+            onClick={(e) => {
+              const rect = e.currentTarget.getBoundingClientRect()
+              const pct = (e.clientX - rect.left) / rect.width
+              seek(pct * duration)
+            }}
+          >
             <div className="bili-np-fill" style={{ width: `${progressPercent}%` }} />
           </div>
           <div className="bili-np-times">
@@ -77,12 +65,7 @@ export function NowPlaying() {
         </div>
 
         <div className="bili-np-controls">
-          <button
-            type="button"
-            className="bili-ctrl-btn"
-            onClick={() => skip(-1)}
-            aria-label="Previous"
-          >
+          <button type="button" className="bili-ctrl-btn" onClick={() => skip(-1)} aria-label="Previous">
             ⏮
           </button>
           <button
@@ -93,12 +76,7 @@ export function NowPlaying() {
           >
             {playing ? '⏸' : '▶'}
           </button>
-          <button
-            type="button"
-            className="bili-ctrl-btn"
-            onClick={() => skip(1)}
-            aria-label="Next"
-          >
+          <button type="button" className="bili-ctrl-btn" onClick={() => skip(1)} aria-label="Next">
             ⏭
           </button>
         </div>

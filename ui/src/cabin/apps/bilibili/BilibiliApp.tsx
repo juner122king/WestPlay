@@ -1,13 +1,5 @@
 import { useEffect } from 'react'
-import {
-  play,
-  playOrPause,
-  sendSignIn,
-  sendSignOut,
-  sendStart,
-  setNowPlaying,
-  useBilibili,
-} from './bilibili'
+import { play, playOrPause, sendSignIn, sendSignOut, sendStart, setNowPlaying, useBilibili } from './bilibili'
 import { NowPlaying } from './NowPlaying'
 import './bilibili.css'
 
@@ -72,16 +64,10 @@ export function BilibiliApp() {
             <div className="bili-empty">正在加载哔哩哔哩热门视频...</div>
           ) : (
             videos.map((video) => (
-              <div
-                key={video.bvid}
-                className="bili-card"
-                onClick={() => play(video)}
-                role="button"
-                tabIndex={0}
-              >
+              <div key={video.bvid} className="bili-card" onClick={() => play(video)} role="button" tabIndex={0}>
                 <div className="bili-card-thumb">
                   {video.artwork ? (
-                    <img src={video.artwork} alt={video.title} />
+                    <img src={video.artwork} alt={video.title} referrerPolicy="no-referrer" />
                   ) : (
                     <div className="bili-thumb-fallback">📺</div>
                   )}

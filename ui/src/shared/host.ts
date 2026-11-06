@@ -394,12 +394,12 @@ export type BilibiliCommand =
   | { action: 'previous' }
   | { action: 'seek'; seconds: number }
   | { action: 'volume'; percent: number }
+  | { action: 'show'; x: number; y: number; width: number; height: number; crop?: boolean }
+  | { action: 'crop'; on: boolean }
+  | { action: 'hide' }
   | { action: 'ask'; id: number; question: BilibiliQuestion }
 
-export type BilibiliQuestion =
-  | { ask: 'search'; query: string }
-  | { ask: 'popular' }
-  | { ask: 'recommend' }
+export type BilibiliQuestion = { ask: 'search'; query: string } | { ask: 'popular' } | { ask: 'recommend' }
 
 export interface BilibiliVideo {
   bvid: string
@@ -492,7 +492,17 @@ export type NeteaseQuestion =
   | { ask: 'search'; query: string }
   | { ask: 'recommend' }
   | { ask: 'top' }
+  | { ask: 'chart'; id: string }
+  | { ask: 'userPlaylists' }
+  | { ask: 'playlistTracks'; playlistId: string }
   | { ask: 'lyrics'; id: string }
+
+export interface NeteasePlaylist {
+  id: string
+  name: string
+  coverImgUrl?: string
+  trackCount: number
+}
 
 export interface NeteaseTrack {
   id: string
@@ -515,6 +525,7 @@ export interface NeteasePlayback {
 
 export interface NeteaseAnswers {
   songs?: NeteaseTrack[]
+  playlists?: NeteasePlaylist[]
   lyric?: string
 }
 
@@ -531,11 +542,12 @@ export type DouyinCommand =
   | { action: 'seek'; seconds: number }
   | { action: 'volume'; percent: number }
   | { action: 'like'; id?: string }
+  | { action: 'show'; x: number; y: number; width: number; height: number; crop?: boolean }
+  | { action: 'crop'; on: boolean }
+  | { action: 'hide' }
   | { action: 'ask'; id: number; question: DouyinQuestion }
 
-export type DouyinQuestion =
-  | { ask: 'feed' }
-  | { ask: 'search'; query: string }
+export type DouyinQuestion = { ask: 'feed' } | { ask: 'search'; query: string }
 
 export interface DouyinVideo {
   id: string
@@ -582,13 +594,13 @@ export type HongguoCommand =
   | { action: 'selectEpisode'; episode: number }
   | { action: 'setSpeed'; speed: number }
   | { action: 'toggleAutoNext' }
+  | { action: 'show'; x: number; y: number; width: number; height: number; crop?: boolean }
+  | { action: 'crop'; on: boolean }
+  | { action: 'hide' }
   | { action: 'ask'; id: number; question: HongguoQuestion }
 
 export type HongguoQuestion =
-  | { ask: 'catalog' }
-  | { ask: 'featured' }
-  | { ask: 'search'; query: string }
-  | { ask: 'episodes'; dramaId: string }
+  { ask: 'catalog' } | { ask: 'featured' } | { ask: 'search'; query: string } | { ask: 'episodes'; dramaId: string }
 
 export interface HongguoDrama {
   id: string
@@ -800,10 +812,6 @@ export interface AppleMusicPlayback {
   volume: number | null
   next: AppleMusicTrack[]
 }
-
-
-
-
 
 /** What the YouTube app asks of YouTube's player (hidden, under the page) or of YouTube (`westplay_host::
  * youtube::Command`). `show` places the video, in the frame's pixels. */

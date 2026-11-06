@@ -136,7 +136,14 @@ interface CabinState {
 /** What survives a restart of the app: where you were and your choices, never the power state. */
 type Persisted = Pick<
   CabinState,
-  'navigation' | 'appearanceMode' | 'wallpaperId' | 'dashboardWidgets' | 'albumArt' | 'mapGrows' | 'hours24' | 'textSize'
+  | 'navigation'
+  | 'appearanceMode'
+  | 'wallpaperId'
+  | 'dashboardWidgets'
+  | 'albumArt'
+  | 'mapGrows'
+  | 'hours24'
+  | 'textSize'
 >
 
 const ALL_WIDGETS: Record<DashboardWidget, boolean> = { nowPlaying: true, destination: true, weather: true }
@@ -359,7 +366,7 @@ export const useLive = create<LiveState>()(() => ({
   routeNext: 0,
   routeStops: [],
   offeredLines: null,
-weather: null,
+  weather: null,
   gameShown: true,
   menuGone: false,
   keybind: null,
@@ -632,7 +639,7 @@ function receiveHostMessage(now: () => number): (message: HostMessage) => void {
         receiveNeteaseState(message.signedIn, message.playing, message.signingIn)
         break
       case 'neteaseAnswer':
-        receiveNeteaseAnswer(message.id, message.failed, message.error, message.songs, message.lyric)
+        receiveNeteaseAnswer(message.id, message.failed, message.error, message.songs, message.playlists, message.lyric)
         break
       case 'neteasePlayback':
         receiveNeteasePlayback(message.playback)

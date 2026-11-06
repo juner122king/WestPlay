@@ -1,12 +1,12 @@
 //! Bilibili (bilibili.com) in a hidden WebView2.
 //! Controlled by WestPlay's cabin UI (ui/src/cabin/apps/bilibili).
 
-use std::cell::RefCell;
+use std::cell::{Cell, RefCell};
 use std::path::Path;
 
 use crate::signin::{self, Progress, SignInWindow};
 use crate::speakers::{self, Equalizer, Head, Speaker};
-use crate::webview::{self, OffscreenWebView, Stage};
+use crate::webview::{self, OffscreenWebView, PageSize, Stage};
 
 pub const HOME: &str = "https://www.bilibili.com/";
 
@@ -29,6 +29,18 @@ pub enum Command {
     Volume {
         percent: f64,
     },
+    Show {
+        x: f32,
+        y: f32,
+        width: u32,
+        height: u32,
+        #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+        crop: bool,
+    },
+    Crop {
+        on: bool,
+    },
+    Hide,
     Ask {
         id: u32,
         question: Question,
@@ -101,8 +113,10 @@ pub enum Report {
 
 pub struct Bilibili {
     view: OffscreenWebView,
+    frame: PageSize,
     sign_in: RefCell<Option<SignInWindow>>,
     pending: RefCell<Vec<Report>>,
+    checked_initial_cookie: Cell<bool>,
 }
 
 impl Bilibili {
@@ -113,7 +127,14 @@ impl Bilibili {
         stage.add(&view, false)?;
         view.add_startup_script(concat!(include_str!("cab_sound.js"), "\n", include_str!("bilibili.js")))?;
         view.navigate(HOME)?;
-        Ok(Self { view, sign_in: RefCell::new(None), pending: RefCell::new(Vec::new()) })
+        let frame = stage.page_size();
+        Ok(Self {
+            view,
+            frame,
+            sign_in: RefCell::new(None),
+            pending: RefCell::new(Vec::new()),
+            checked_initial_cookie: Cell::new(false),
+        })
     }
 
     pub fn view(&self) -> &OffscreenWebView {
@@ -130,19 +151,39 @@ impl Bilibili {
         let _ = stage.remove(&self.view);
     }
 
-    pub fn command(&self, command: &Command) {
-        if matches!(command, Command::SignIn) {
-            self.sign_in();
-            return;
+    pub fn command(&self, command: &Command) -> windows::core::Result<()> {
+        match command {
+            Command::Show { x, y, width, height, crop } => {
+                let _ = self.pass(&Command::Crop { on: *crop });
+                let page = self.frame.get();
+                let (x, y, width, height) = crate::youtube::within(page, *x, *y, *width, *height);
+                if width * 2 < page.0 {
+                    self.view.fit(page, x, y, width, height)?;
+                } else {
+                    self.view.place(x, y, width, height)?;
+                }
+                self.view.show(true)
+            }
+            Command::Hide => self.view.show(false),
+            Command::SignIn => {
+                self.sign_in();
+                Ok(())
+            }
+            Command::SignOut => {
+                let _ = self.view.delete_cookies();
+                let _ = self.view.navigate(HOME);
+                self.pending.borrow_mut().push(Report::State(State { signed_in: false, playing: false }));
+                Ok(())
+            }
+            other => self.pass(other),
         }
-        if matches!(command, Command::SignOut) {
-            let _ = self.view.delete_cookies();
-            let _ = self.view.navigate(HOME);
-            return;
-        }
+    }
+
+    fn pass(&self, command: &Command) -> windows::core::Result<()> {
         if let Ok(json) = serde_json::to_string(command) {
-            let _ = self.view.post_json(&json);
+            self.view.post_json(&json)?;
         }
+        Ok(())
     }
 
     pub fn sign_in(&self) {
@@ -166,13 +207,22 @@ impl Bilibili {
     pub fn take_reports(&self) -> Vec<Report> {
         let mut reports = std::mem::take(&mut *self.pending.borrow_mut());
 
+        if !self.checked_initial_cookie.get() {
+            self.checked_initial_cookie.set(true);
+            let signed_in = self.view.has_cookie(HOME, &["DedeUserID", "bili_jct", "SESSDATA"]);
+            if signed_in {
+                reports.push(Report::State(State { signed_in: true, playing: false }));
+            }
+        }
+
         let progress = self.sign_in.borrow().as_ref().map(SignInWindow::progress);
-        if let Some(progress @ (Progress::SignedIn | Progress::Closed)) = progress {
+        if let Some(p @ (Progress::SignedIn | Progress::Closed)) = progress {
             self.sign_in.borrow_mut().take();
             reports.push(Report::SignInWindow(false));
-            if progress == Progress::SignedIn {
-                let _ = self.view.navigate(HOME);
-            }
+            let _ = self.view.navigate(HOME);
+            let signed_in =
+                p == Progress::SignedIn || self.view.has_cookie(HOME, &["DedeUserID", "bili_jct", "SESSDATA"]);
+            reports.push(Report::State(State { signed_in, playing: false }));
         }
 
         for message in self.view.take_page_messages() {

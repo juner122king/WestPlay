@@ -57,7 +57,9 @@
   padding: 8px 16px;
   border-radius: 20px;
   cursor: pointer;
-  transition: transform 0.15s, background 0.15s;
+  transition:
+    transform 0.15s,
+    background 0.15s;
 }
 
 .netease-sign-in-btn:active {
@@ -108,7 +110,9 @@
 }
 
 @keyframes netease-spin {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .netease-qr-banner {
@@ -169,7 +173,9 @@
   border-radius: 12px;
   padding: 10px 14px;
   cursor: pointer;
-  transition: transform 0.15s, background 0.15s;
+  transition:
+    transform 0.15s,
+    background 0.15s;
 }
 
 .netease-item:active {
@@ -360,8 +366,12 @@
 }
 
 @keyframes netease-spin-disc {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .netease-vinyl-disc {
@@ -476,4 +486,172 @@
   display: flex;
   align-items: center;
   justify-content: center;
+}
+
+/* Tabs */
+.netease-tabs {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+  overflow-x: auto;
+  flex-shrink: 0;
+  padding-bottom: 2px;
+}
+
+.netease-tab-btn {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: rgba(255, 255, 255, 0.75);
+  font-size: 13px;
+  font-weight: 500;
+  padding: 6px 14px;
+  border-radius: 16px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.15s ease;
+}
+
+.netease-tab-btn:hover {
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+}
+
+.netease-tab-btn.active {
+  background: #e60026;
+  border-color: #e60026;
+  color: #fff;
+  font-weight: 600;
+  box-shadow: 0 2px 10px rgba(230, 0, 38, 0.35);
+}
+
+/* Search Bar */
+.netease-search-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 14px;
+  flex-shrink: 0;
+}
+
+.netease-search-input-wrap {
+  flex: 1;
+}
+
+.netease-search-btn {
+  background: #e60026;
+  color: #fff;
+  border: none;
+  border-radius: 12px;
+  padding: 8px 18px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    transform 0.15s,
+    background 0.15s;
+}
+
+.netease-search-btn:active {
+  transform: scale(0.96);
+  background: #c20c0c;
+}
+
+/* User Playlists Grid */
+.netease-playlists-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+  gap: 14px;
+}
+
+.netease-playlist-card {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 14px;
+  padding: 10px;
+  cursor: pointer;
+  transition:
+    transform 0.15s,
+    background 0.15s;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.netease-playlist-card:active {
+  transform: scale(0.97);
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.netease-pl-thumb {
+  width: 100%;
+  aspect-ratio: 1;
+  border-radius: 10px;
+  overflow: hidden;
+  background: rgba(0, 0, 0, 0.4);
+}
+
+.netease-pl-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.netease-pl-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: #fff;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.netease-pl-count {
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+/* Playlist Detail Header */
+.netease-playlist-header {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 12px;
+}
+
+.netease-playlist-header .netease-section-title {
+  margin: 0;
+}
+
+/* My Library Empty State */
+.netease-my-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 40px 20px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px dashed rgba(255, 255, 255, 0.12);
+  border-radius: 16px;
+  margin-top: 10px;
+}
+
+.netease-my-empty-icon {
+  font-size: 48px;
+  margin-bottom: 12px;
+}
+
+.netease-my-empty h3 {
+  font-size: 18px;
+  margin: 0 0 8px 0;
+  color: #fff;
+}
+
+.netease-my-empty p {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.6);
+  max-width: 320px;
+  margin: 0 0 20px 0;
+  line-height: 1.5;
 }

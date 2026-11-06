@@ -1,14 +1,14 @@
 import { useEffect } from 'react'
+import { VideoHole } from '../youtube/VideoHole'
 import {
   play,
-  playOrPause,
+  selectEpisode,
   sendSignIn,
   sendSignOut,
   sendStart,
   setAutoNext,
   setNowPlaying,
   setSpeed,
-  skip,
   useHongguo,
 } from './hongguo'
 import { NowPlaying } from './NowPlaying'
@@ -41,10 +41,8 @@ export function HongguoApp() {
   }
 
   const activeDrama = dramas.find((d) => d.id === currentDramaId) ?? dramas[0] ?? null
-  const episodes = Array.from(
-    { length: Math.min(activeDrama ? activeDrama.totalEpisodes : 20, 40) },
-    (_, i) => i + 1,
-  )
+  const totalEps = activeDrama ? activeDrama.totalEpisodes || 80 : 80
+  const episodes = Array.from({ length: Math.min(totalEps, 40) }, (_, i) => i + 1)
 
   const SPEEDS = [1.0, 1.25, 1.5, 2.0]
   const nextSpeedIndex = (SPEEDS.indexOf(speed) + 1) % SPEEDS.length
@@ -67,11 +65,7 @@ export function HongguoApp() {
           >
             {autoNext ? '✓ 自动连播' : '连播: 关'}
           </button>
-          <button
-            type="button"
-            className="hongguo-chip-btn"
-            onClick={() => setSpeed(nextSpeed)}
-          >
+          <button type="button" className="hongguo-chip-btn" onClick={() => setSpeed(nextSpeed)}>
             {speed}x
           </button>
 
@@ -110,6 +104,10 @@ export function HongguoApp() {
       <main className="hongguo-main">
         {activeDrama && (
           <div className="hongguo-hero-panel">
+            <div className="hongguo-video-canvas">
+              <VideoHole app="hongguo" className="hongguo-video-hole" crop />
+            </div>
+
             <div className="hongguo-hero-info">
               <div className="hongguo-hero-meta">
                 <span className="hongguo-category">{activeDrama.category}</span>
@@ -123,11 +121,17 @@ export function HongguoApp() {
                   className="hongguo-primary-play-btn"
                   onClick={() => play(activeDrama, currentEpisodeNumber)}
                 >
-                  {playing && playback?.dramaId === activeDrama.id ? '⏸ 暂停' : '▶ 播放'}
+                  {playing ? '⏸ 暂停' : '▶ 播放'}
                 </button>
-                <span className="hongguo-active-ep-label">
-                  当前选中: 第 {currentEpisodeNumber} 集
-                </span>
+                <span className="hongguo-active-ep-label">当前集数: 第 {currentEpisodeNumber} 集</span>
+                <button
+                  type="button"
+                  className="hongguo-action-btn"
+                  onClick={() => setNowPlaying(true)}
+                  style={{ marginLeft: 'auto' }}
+                >
+                  全屏播放 ›
+                </button>
               </div>
             </div>
 
@@ -139,11 +143,9 @@ export function HongguoApp() {
                     key={ep}
                     type="button"
                     className={`hongguo-ep-btn ${ep === currentEpisodeNumber ? 'selected' : ''} ${
-                      playing && playback?.dramaId === activeDrama.id && playback?.episode === ep
-                        ? 'playing'
-                        : ''
+                      playing && playback?.episode === ep ? 'playing' : ''
                     }`}
-                    onClick={() => play(activeDrama, ep)}
+                    onClick={() => selectEpisode(ep)}
                   >
                     {ep}
                   </button>
@@ -163,68 +165,26 @@ export function HongguoApp() {
                 <div
                   key={drama.id}
                   className={`hongguo-drama-card ${drama.id === currentDramaId ? 'active' : ''}`}
-                  onClick={() => {
-                    useHongguo.setState({ currentDramaId: drama.id, currentEpisodeNumber: 1 })
-                  }}
-                  role="button"
-                  tabIndex={0}
+                  onClick={() => play(drama, 1)}
                 >
                   <div className="hongguo-drama-cover">
-                    <span className="hongguo-cover-icon">🎬</span>
+                    {drama.cover ? (
+                      <img src={drama.cover} alt={drama.title} referrerPolicy="no-referrer" />
+                    ) : (
+                      <div className="hongguo-cover-fallback">🎬</div>
+                    )}
+                    <span className="hongguo-card-tag">{drama.category || '热剧'}</span>
                   </div>
-                  <div className="hongguo-drama-body">
-                    <div className="hongguo-drama-name">{drama.title}</div>
-                    <div className="hongguo-drama-sub">
-                      <span>{drama.category}</span> · <span>{drama.totalEpisodes}集</span>
-                    </div>
+                  <div className="hongguo-drama-meta">
+                    <h3 className="hongguo-drama-title">{drama.title}</h3>
+                    <p className="hongguo-drama-episodes">全 {drama.totalEpisodes} 集</p>
                   </div>
-                  <button
-                    type="button"
-                    className="hongguo-play-icon-btn"
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      play(drama, 1)
-                    }}
-                    title="立即播放第1集"
-                  >
-                    ▶
-                  </button>
                 </div>
               ))
             )}
           </div>
         </div>
       </main>
-
-      {playback && (
-        <footer className="hongguo-mini-bar" onClick={() => setNowPlaying(true)}>
-          <div className="hongguo-mini-info">
-            <span className="hongguo-mini-icon">🎬</span>
-            <div className="hongguo-mini-meta">
-              <span className="hongguo-mini-title">{playback.title}</span>
-              <span className="hongguo-mini-artist">@{playback.author}</span>
-            </div>
-          </div>
-          <div className="hongguo-mini-controls" onClick={(e) => e.stopPropagation()}>
-            <button
-              type="button"
-              className="hongguo-mini-btn"
-              onClick={playOrPause}
-              aria-label={playing ? 'Pause' : 'Play'}
-            >
-              {playing ? '⏸' : '▶'}
-            </button>
-            <button
-              type="button"
-              className="hongguo-mini-btn"
-              onClick={() => skip(1)}
-              aria-label="Next Episode"
-            >
-              ⏭
-            </button>
-          </div>
-        </footer>
-      )}
     </section>
   )
 }

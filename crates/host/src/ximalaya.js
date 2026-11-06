@@ -71,6 +71,14 @@
   window.westplayXimalayaCommand = (cmd) => {
     handleHost(cmd)
   }
+  window.chrome?.webview?.addEventListener('message', (event) => {
+    try {
+      const data = event.data
+      handleHost(typeof data === 'string' ? JSON.parse(data) : data)
+    } catch (e) {
+      console.error('Ximalaya IPC parse error', e)
+    }
+  })
 
   const handleHost = async (cmd) => {
     if (!cmd || typeof cmd !== 'object') return

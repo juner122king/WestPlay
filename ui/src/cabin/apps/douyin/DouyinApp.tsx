@@ -1,29 +1,11 @@
 import { useEffect } from 'react'
-import {
-  play,
-  playOrPause,
-  sendSignIn,
-  sendSignOut,
-  sendStart,
-  setNowPlaying,
-  skip,
-  toggleLike,
-  useDouyin,
-} from './douyin'
+import { VideoHole } from '../youtube/VideoHole'
+import { play, playOrPause, sendSignIn, sendSignOut, sendStart, skip, toggleLike, useDouyin } from './douyin'
 import { NowPlaying } from './NowPlaying'
 import './douyin.css'
 
 export function DouyinApp() {
-  const {
-    signedIn,
-    signingIn,
-    playing,
-    videos,
-    currentVideoIndex,
-    playback,
-    nowPlaying,
-    liked,
-  } = useDouyin()
+  const { signedIn, signingIn, playing, videos, currentVideoIndex, playback, nowPlaying, liked } = useDouyin()
 
   useEffect(() => {
     sendStart()
@@ -38,6 +20,9 @@ export function DouyinApp() {
   }
 
   const activeVideo = videos[currentVideoIndex] ?? videos[0] ?? null
+  const displayTitle = playback?.title || activeVideo?.title || '抖音精选短视频'
+  const displayAuthor = playback?.author || playback?.artist || activeVideo?.author || '抖音创作者'
+  const isLiked = playback?.id ? Boolean(liked[playback.id]) : Boolean(activeVideo?.id && liked[activeVideo.id])
 
   return (
     <section className="app-panel douyin-app" aria-label="抖音">
@@ -79,74 +64,50 @@ export function DouyinApp() {
       )}
 
       <main className="douyin-main">
-        {activeVideo && (
-          <div className="douyin-stage">
-            <div className="douyin-card-hero">
-              <div className="douyin-video-canvas">
-                <div className="douyin-video-fallback">
-                  <div className="douyin-brand-symbol">♪</div>
-                  <div className="douyin-playing-indicator">
-                    {playing && playback?.id === activeVideo.id ? '播放中' : '点击播放'}
-                  </div>
-                </div>
+        <div className="douyin-stage">
+          <div className="douyin-card-hero">
+            <div className="douyin-video-canvas">
+              <VideoHole app="douyin" className="douyin-video-hole" crop />
+            </div>
+
+            {/* Douyin overlay info */}
+            <div className="douyin-overlay-bottom">
+              <div className="douyin-author-row">
+                <span className="douyin-author-avatar">👤</span>
+                <span className="douyin-author-name">@{displayAuthor}</span>
               </div>
+              <p className="douyin-video-desc">{displayTitle}</p>
+            </div>
 
-              {/* Douyin overlay info */}
-              <div className="douyin-overlay-bottom">
-                <div className="douyin-author-row">
-                  <span className="douyin-author-avatar">👤</span>
-                  <span className="douyin-author-name">@{activeVideo.author}</span>
-                </div>
-                <p className="douyin-video-desc">{activeVideo.title}</p>
-                {activeVideo.music && (
-                  <div className="douyin-music-pill">
-                    <span className="douyin-disc-icon">💿</span>
-                    <span className="douyin-music-name">{activeVideo.music}</span>
-                  </div>
-                )}
-              </div>
+            {/* Douyin vertical action rail */}
+            <div className="douyin-rail">
+              <button
+                type="button"
+                className={`douyin-rail-btn ${isLiked ? 'liked' : ''}`}
+                onClick={() => toggleLike(playback?.id ?? activeVideo?.id)}
+                aria-label="Like"
+              >
+                <span className="douyin-rail-icon">{isLiked ? '❤️' : '🤍'}</span>
+                <span className="douyin-rail-label">赞</span>
+              </button>
 
-              {/* Douyin vertical action rail */}
-              <div className="douyin-rail">
-                <button
-                  type="button"
-                  className={`douyin-rail-btn ${liked[activeVideo.id] ? 'liked' : ''}`}
-                  onClick={() => toggleLike(activeVideo.id)}
-                  aria-label="Like"
-                >
-                  <span className="douyin-rail-icon">{liked[activeVideo.id] ? '❤️' : '🤍'}</span>
-                  <span className="douyin-rail-label">
-                    {activeVideo.likes
-                      ? `${Math.round((activeVideo.likes + (liked[activeVideo.id] ? 1 : 0)) / 1000)}k`
-                      : '赞'}
-                  </span>
-                </button>
+              <button type="button" className="douyin-rail-btn" onClick={playOrPause} aria-label="Play / Pause">
+                <span className="douyin-rail-icon">{playing ? '⏸' : '▶'}</span>
+                <span className="douyin-rail-label">{playing ? '暂停' : '播放'}</span>
+              </button>
 
-                <button
-                  type="button"
-                  className="douyin-rail-btn"
-                  onClick={() => play(activeVideo, currentVideoIndex)}
-                  aria-label="Play"
-                >
-                  <span className="douyin-rail-icon">
-                    {playing && playback?.id === activeVideo.id ? '⏸' : '▶'}
-                  </span>
-                  <span className="douyin-rail-label">播放</span>
-                </button>
+              <button type="button" className="douyin-rail-btn" onClick={() => skip(1)} aria-label="Next">
+                <span className="douyin-rail-icon">⬇</span>
+                <span className="douyin-rail-label">下一个</span>
+              </button>
 
-                <button
-                  type="button"
-                  className="douyin-rail-btn"
-                  onClick={() => skip(1)}
-                  aria-label="Next"
-                >
-                  <span className="douyin-rail-icon">⬇</span>
-                  <span className="douyin-rail-label">下一个</span>
-                </button>
-              </div>
+              <button type="button" className="douyin-rail-btn" onClick={() => skip(-1)} aria-label="Previous">
+                <span className="douyin-rail-icon">⬆</span>
+                <span className="douyin-rail-label">上一个</span>
+              </button>
             </div>
           </div>
-        )}
+        </div>
 
         <div className="douyin-feed-column">
           <h2 className="douyin-section-title">推荐视频流</h2>
@@ -159,18 +120,21 @@ export function DouyinApp() {
                   key={video.id}
                   className={`douyin-feed-item ${idx === currentVideoIndex ? 'active' : ''}`}
                   onClick={() => play(video, idx)}
-                  role="button"
-                  tabIndex={0}
                 >
                   <div className="douyin-feed-thumb">
-                    <span className="douyin-feed-idx">#{idx + 1}</span>
+                    {video.artwork ? (
+                      <img src={video.artwork} alt={video.title} referrerPolicy="no-referrer" />
+                    ) : (
+                      <div className="douyin-feed-thumb-fallback">♪</div>
+                    )}
+                    {idx === currentVideoIndex && playing && <div className="douyin-mini-playing-badge">播放中</div>}
                   </div>
-                  <div className="douyin-feed-meta">
-                    <div className="douyin-feed-title">{video.title}</div>
-                    <div className="douyin-feed-author">@{video.author}</div>
-                  </div>
-                  <div className="douyin-feed-action">
-                    {playing && playback?.id === video.id ? '▶ 播中' : '▶'}
+                  <div className="douyin-feed-info">
+                    <h3 className="douyin-feed-title">{video.title}</h3>
+                    <p className="douyin-feed-author">@{video.author}</p>
+                    <div className="douyin-feed-meta">
+                      <span>❤️ {video.likes ? `${Math.round(video.likes / 1000)}k` : '热门'}</span>
+                    </div>
                   </div>
                 </div>
               ))
@@ -178,36 +142,6 @@ export function DouyinApp() {
           </div>
         </div>
       </main>
-
-      {playback && (
-        <footer className="douyin-mini-bar" onClick={() => setNowPlaying(true)}>
-          <div className="douyin-mini-info">
-            <span className="douyin-mini-icon">🎵</span>
-            <div className="douyin-mini-meta">
-              <span className="douyin-mini-title">{playback.title}</span>
-              <span className="douyin-mini-artist">@{playback.author}</span>
-            </div>
-          </div>
-          <div className="douyin-mini-controls" onClick={(e) => e.stopPropagation()}>
-            <button
-              type="button"
-              className="douyin-mini-btn"
-              onClick={playOrPause}
-              aria-label={playing ? 'Pause' : 'Play'}
-            >
-              {playing ? '⏸' : '▶'}
-            </button>
-            <button
-              type="button"
-              className="douyin-mini-btn"
-              onClick={() => skip(1)}
-              aria-label="Next"
-            >
-              ⏭
-            </button>
-          </div>
-        </footer>
-      )}
     </section>
   )
 }

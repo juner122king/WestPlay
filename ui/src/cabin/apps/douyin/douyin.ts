@@ -1,13 +1,15 @@
 import { useMemo } from 'react'
 import { create } from 'zustand'
-import {
-  type DouyinCommand,
-  type DouyinPlayback,
-  type DouyinVideo,
-  isInHost,
-  postToHost,
-} from '../../../shared/host'
+import { type DouyinCommand, type DouyinPlayback, type DouyinVideo, isInHost, postToHost } from '../../../shared/host'
 import type { MediaSource } from '../../../shared/media'
+
+export interface Hole {
+  x: number
+  y: number
+  width: number
+  height: number
+  radius: number
+}
 
 export interface DouyinState {
   signedIn: boolean | null
@@ -19,6 +21,7 @@ export interface DouyinState {
   nowPlaying: boolean
   volume: number
   liked: Record<string, boolean>
+  hole: Hole | null
 }
 
 const IN_HOST = typeof window !== 'undefined' && isInHost()
@@ -28,6 +31,7 @@ export const MOCK_DOUYIN_VIDEOS: DouyinVideo[] = [
     id: 'dy_01',
     title: '【川藏线纪实】开着重卡翻越折多山，这就是卡车司机的浪漫！',
     author: '老张聊重卡',
+    artwork: 'https://images.unsplash.com/photo-1601584115197-04ecc0da31d7?auto=format&fit=crop&w=600&q=80',
     duration: 180,
     likes: 45200,
     comments: 2890,
@@ -37,6 +41,7 @@ export const MOCK_DOUYIN_VIDEOS: DouyinVideo[] = [
     id: 'dy_02',
     title: '卡车司机夜间行车必备提神神曲！听完精力充沛，一路平安！',
     author: '车载DJ音乐坊',
+    artwork: 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?auto=format&fit=crop&w=600&q=80',
     duration: 240,
     likes: 128000,
     comments: 8520,
@@ -46,6 +51,7 @@ export const MOCK_DOUYIN_VIDEOS: DouyinVideo[] = [
     id: 'dy_03',
     title: '【沉浸式驾驶】雨夜斯堪尼亚V8长途货运，窗外雨声好治愈',
     author: '欧卡漫游指南',
+    artwork: 'https://images.unsplash.com/photo-1519003722824-194d4455a60c?auto=format&fit=crop&w=600&q=80',
     duration: 420,
     likes: 89300,
     comments: 3410,
@@ -55,6 +61,7 @@ export const MOCK_DOUYIN_VIDEOS: DouyinVideo[] = [
     id: 'dy_04',
     title: '新疆独库公路重卡实拍，沿途大好河山美到窒息！',
     author: '西域老司机',
+    artwork: 'https://images.unsplash.com/photo-1469854523086-cc02fe5d8800?auto=format&fit=crop&w=600&q=80',
     duration: 210,
     likes: 96400,
     comments: 4120,
@@ -72,6 +79,7 @@ export const useDouyin = create<DouyinState>(() => ({
   nowPlaying: false,
   volume: 1,
   liked: {},
+  hole: null,
 }))
 
 function send(command: DouyinCommand): void {
@@ -167,10 +175,19 @@ export function playOrPause(): void {
 }
 
 export function skip(direction: 1 | -1): void {
-  const { videos, currentVideoIndex } = useDouyin.getState()
-  if (videos.length === 0) return
-  const nextIndex = (currentVideoIndex + direction + videos.length) % videos.length
-  play(videos[nextIndex], nextIndex)
+  if (direction === 1) {
+    send({ action: 'next' })
+  } else {
+    send({ action: 'previous' })
+  }
+}
+
+export function nextVideo(): void {
+  send({ action: 'next' })
+}
+
+export function previousVideo(): void {
+  send({ action: 'previous' })
 }
 
 export function seek(seconds: number): void {

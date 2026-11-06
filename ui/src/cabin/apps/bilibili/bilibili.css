@@ -57,7 +57,9 @@
   padding: 8px 16px;
   border-radius: 20px;
   cursor: pointer;
-  transition: transform 0.15s, background 0.15s;
+  transition:
+    transform 0.15s,
+    background 0.15s;
 }
 
 .bili-sign-in-btn:active {
@@ -108,7 +110,9 @@
 }
 
 @keyframes bili-spin {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .bili-qr-banner {
@@ -166,7 +170,9 @@
   border-radius: 12px;
   overflow: hidden;
   cursor: pointer;
-  transition: transform 0.15s, background 0.15s;
+  transition:
+    transform 0.15s,
+    background 0.15s;
 }
 
 .bili-card:active {
@@ -325,8 +331,9 @@
 }
 
 .bili-np-artwork {
-  width: 220px;
-  height: 220px;
+  position: relative;
+  width: 320px;
+  height: 180px;
   border-radius: 16px;
   overflow: hidden;
   box-shadow: 0 12px 36px rgba(0, 0, 0, 0.6);
@@ -337,7 +344,17 @@
   justify-content: center;
 }
 
-.bili-np-artwork img {
+.bili-np-video-hole {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border-radius: inherit;
+  overflow: hidden;
+  display: block;
+}
+
+.bili-np-video-hole img {
   width: 100%;
   height: 100%;
   object-fit: cover;

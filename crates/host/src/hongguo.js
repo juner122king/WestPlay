@@ -12,6 +12,70 @@
   let isPlaying = false
   let autoNext = true
 
+  // Inject full-bleed video styles and strip all site chrome
+  const style = document.createElement('style')
+  style.id = 'westplay-hongguo-style'
+  style.textContent = `
+    html, body {
+      background: #000 !important;
+      overflow: hidden !important;
+      margin: 0 !important;
+      padding: 0 !important;
+      width: 100vw !important;
+      height: 100vh !important;
+    }
+    body * {
+      visibility: hidden !important;
+    }
+    /* Force player container and video element visible and full-bleed */
+    .player-container,
+    [class*="player-wrapper"],
+    [class*="player-box"],
+    [class*="video-player"],
+    video {
+      visibility: visible !important;
+      position: fixed !important;
+      inset: 0 !important;
+      width: 100vw !important;
+      height: 100vh !important;
+      left: 0 !important;
+      top: 0 !important;
+      z-index: 2147483647 !important;
+      background: #000 !important;
+      object-fit: contain !important;
+    }
+    html.westplay-crop .player-container,
+    html.westplay-crop [class*="player-wrapper"],
+    html.westplay-crop [class*="player-box"],
+    html.westplay-crop [class*="video-player"],
+    html.westplay-crop video {
+      object-fit: cover !important;
+    }
+    /* Hide all modals, login dialogs, headers, footers */
+    [class*="modal"],
+    [class*="login"],
+    [class*="header"],
+    [class*="footer"],
+    [class*="side-bar"],
+    [class*="recommend"] {
+      display: none !important;
+      visibility: hidden !important;
+    }
+  `
+
+  const addStyle = () => {
+    const parent = document.head || document.documentElement
+    if (parent) {
+      if (!document.getElementById('westplay-hongguo-style')) {
+        parent.appendChild(style)
+      }
+    } else {
+      requestAnimationFrame(addStyle)
+    }
+  }
+  addStyle()
+
+  // Hook HTML5 video to truck sound system & monitor playback
   const hookMedia = (el) => {
     if (!el || el === currentMedia) return
     currentMedia = el
@@ -35,18 +99,22 @@
     el.addEventListener('ended', () => {
       isPlaying = false
       sendPlayback()
-      if (autoNext && currentDrama) {
-        const nextEp = currentEpisode + 1
-        if (nextEp <= (currentDrama.totalEpisodes || 80)) {
-          handleHost({ action: 'play', drama: currentDrama, episode: nextEp })
-        }
+      if (autoNext) {
+        goToNextEpisode()
       }
     })
   }
 
+  const findActiveVideo = () => {
+    const all = Array.from(document.querySelectorAll('video'))
+    const playing = all.find((v) => !v.paused && v.currentTime > 0)
+    if (playing) return playing
+    return all[0] || null
+  }
+
   setInterval(() => {
-    const mediaElements = document.querySelectorAll('video, audio')
-    mediaElements.forEach(hookMedia)
+    const v = findActiveVideo()
+    if (v) hookMedia(v)
     checkStatus()
   }, 1000)
 
@@ -72,23 +140,40 @@
     }
   }
 
+  const parseEpisodeFromPage = () => {
+    const epMatch = document.title?.match(/第\s*(\d+)\s*集/) || location.pathname?.match(/(\d+)$/)
+    return epMatch ? parseInt(epMatch[1], 10) : currentEpisode
+  }
+
+  let lastPlaybackTime = 0
   const sendPlayback = () => {
-    if (!currentDrama) return
+    const now = performance.now()
+    if (now - lastPlaybackTime < 250 && isPlaying) return
+    lastPlaybackTime = now
+
+    const ep = parseEpisodeFromPage()
+    const pageTitle =
+      document.querySelector('[class*="drama-title"], h1, .title')?.textContent?.trim() ||
+      currentDrama?.title ||
+      '红果热门短剧'
+    const duration = currentMedia ? currentMedia.duration || 120 : 120
+    const position = currentMedia ? currentMedia.currentTime || 0 : 0
+
     post({
       type: 'playback',
       playback: {
-        dramaId: currentDrama.id,
-        title: `${currentDrama.title} · 第${currentEpisode}集`,
-        dramaTitle: currentDrama.title,
-        episodeTitle: `第${currentEpisode}集`,
-        artist: currentDrama.author || '红果短剧',
-        author: currentDrama.author || '红果短剧',
-        artwork: currentDrama.cover || null,
-        episode: currentEpisode,
-        episodeNumber: currentEpisode,
-        totalEpisodes: currentDrama.totalEpisodes || 80,
-        duration: currentMedia ? currentMedia.duration || 120 : 120,
-        position: currentMedia ? currentMedia.currentTime || 0 : 0,
+        dramaId: currentDrama?.id || 'hg_drama',
+        title: `${pageTitle} · 第${ep}集`,
+        dramaTitle: pageTitle,
+        episodeTitle: `第${ep}集`,
+        artist: currentDrama?.author || '红果短剧',
+        author: currentDrama?.author || '红果短剧',
+        artwork: currentDrama?.cover || null,
+        episode: ep,
+        episodeNumber: ep,
+        totalEpisodes: currentDrama?.totalEpisodes || 80,
+        duration: Number.isFinite(duration) ? duration : 120,
+        position: Number.isFinite(position) ? position : 0,
         status: isPlaying ? 'playing' : 'paused',
         speed: currentSpeed,
         autoNext
@@ -96,50 +181,106 @@
     })
   }
 
+  const goToNextEpisode = () => {
+    const nextEp = parseEpisodeFromPage() + 1
+    selectEpisode(nextEp)
+  }
+
+  const selectEpisode = (epNumber) => {
+    currentEpisode = epNumber
+    // Look for episode button in page drawer / anthology list
+    const epBtns = Array.from(
+      document.querySelectorAll(
+        '[class*="episode-item"], [class*="anthology-item"], [data-episode], button, [class*="item"]'
+      )
+    )
+    const target = epBtns.find((el) => {
+      const text = el.textContent?.trim() || ''
+      return (
+        el.getAttribute('data-episode') === String(epNumber) ||
+        text === String(epNumber) ||
+        text === `第${epNumber}集`
+      )
+    })
+
+    if (target && typeof target.click === 'function') {
+      target.click()
+    } else {
+      // If direct element not found, navigate if drama URL pattern known
+      if (currentDrama?.id) {
+        location.href = `/play/${currentDrama.id}/${epNumber}`
+      }
+    }
+
+    setTimeout(() => {
+      const v = findActiveVideo()
+      if (v) {
+        hookMedia(v)
+        v.playbackRate = currentSpeed
+        v.play().catch(() => {})
+      }
+      sendPlayback()
+    }, 500)
+  }
+
   window.westplayHongguoCommand = (cmd) => {
     handleHost(cmd)
   }
+
+  const handleMessage = (data) => {
+    try {
+      const cmd = typeof data === 'string' ? JSON.parse(data) : data
+      handleHost(cmd)
+    } catch (e) {
+      console.error('[hongguo] handleMessage error', e)
+    }
+  }
+
+  window.chrome?.webview?.addEventListener('message', (event) => handleMessage(event.data))
+  window.addEventListener('message', (event) => handleMessage(event.data))
+  window.chrome?.webview?.postMessage({ ready: true })
 
   const handleHost = async (cmd) => {
     if (!cmd || typeof cmd !== 'object') return
     const { action } = cmd
 
-    if (action === 'play') {
+    if (action === 'crop') {
+      document.documentElement.classList.toggle('westplay-crop', Boolean(cmd.on))
+    } else if (action === 'play') {
       if (cmd.drama) {
+        const dramaChanged = currentDrama?.id !== cmd.drama.id
         currentDrama = cmd.drama
-        currentEpisode = cmd.episode || 1
-        if (!currentMedia) {
-          const created = document.createElement('video')
-          created.id = 'wp-hongguo-video'
-          created.playsInline = true
-          created.style.position = 'fixed'
-          created.style.top = '0'
-          created.style.left = '0'
-          created.style.width = '100%'
-          created.style.height = '100%'
-          created.style.zIndex = '9999'
-          document.body.appendChild(created)
-          hookMedia(created)
+        if (cmd.episode) currentEpisode = cmd.episode
+
+        if (dramaChanged && cmd.drama.id) {
+          // Navigate to drama page if needed
+          const targetUrl = cmd.drama.id.startsWith('http')
+            ? cmd.drama.id
+            : `/play/${cmd.drama.id}/${currentEpisode}`
+          if (!location.href.includes(cmd.drama.id)) {
+            location.href = targetUrl
+            return
+          }
         }
-        // In WebView, if the page has interactive episode elements, click them:
-        const epButtons = document.querySelectorAll('.episode-item, .anthology-item, [data-episode]')
-        if (epButtons.length >= currentEpisode) {
-          epButtons[currentEpisode - 1]?.click()
-        } else if (currentMedia) {
-          currentMedia.play().catch(() => {})
+        if (cmd.episode) {
+          selectEpisode(cmd.episode)
         }
-      } else if (currentMedia) {
-        currentMedia.play().catch(() => {})
+      }
+      const v = findActiveVideo()
+      if (v) {
+        hookMedia(v)
+        v.play().catch(() => {})
       }
     } else if (action === 'pause') {
       if (currentMedia) currentMedia.pause()
-    } else if (action === 'seek') {
-      if (currentMedia && typeof cmd.seconds === 'number') {
-        currentMedia.currentTime = cmd.seconds
-      }
-    } else if (action === 'volume') {
-      if (currentMedia && typeof cmd.percent === 'number') {
-        currentMedia.volume = Math.max(0, Math.min(1, cmd.percent / 100))
+    } else if (action === 'next') {
+      goToNextEpisode()
+    } else if (action === 'previous') {
+      const prevEp = Math.max(1, parseEpisodeFromPage() - 1)
+      selectEpisode(prevEp)
+    } else if (action === 'selectEpisode') {
+      if (typeof cmd.episode === 'number') {
+        selectEpisode(cmd.episode)
       }
     } else if (action === 'setSpeed') {
       if (typeof cmd.speed === 'number') {
@@ -150,6 +291,14 @@
     } else if (action === 'toggleAutoNext') {
       autoNext = !autoNext
       sendPlayback()
+    } else if (action === 'seek') {
+      if (currentMedia && typeof cmd.seconds === 'number') {
+        currentMedia.currentTime = cmd.seconds
+      }
+    } else if (action === 'volume') {
+      if (currentMedia && typeof cmd.percent === 'number') {
+        currentMedia.volume = Math.max(0, Math.min(1, cmd.percent / 100))
+      }
     } else if (action === 'ask') {
       handleAsk(cmd.id, cmd.question)
     }
@@ -157,17 +306,44 @@
 
   const handleAsk = async (id, question) => {
     try {
-      if (question.ask === 'catalog' || question.ask === 'featured') {
-        const dramaCards = Array.from(document.querySelectorAll('.drama-card, .album-item'))
-        const dramas = dramaCards.slice(0, 10).map((card, idx) => ({
-          id: `hg_${Date.now()}_${idx}`,
-          title: card.querySelector('.title, h3')?.textContent?.trim() || `精选热播剧集 #${idx + 1}`,
-          category: '都市逆袭',
-          author: '红果短剧',
-          cover: card.querySelector('img')?.src || null,
-          totalEpisodes: 80
-        }))
+      if (question.ask === 'catalog' || question.ask === 'featured' || question.ask === 'search') {
+        const cardEls = Array.from(
+          document.querySelectorAll(
+            'a[href*="/drama/"], a[href*="/play/"], [class*="drama-card"], [class*="book-item"], [class*="card"]'
+          )
+        )
+        const dramas = cardEls.slice(0, 12).map((card, idx) => {
+          const href = card.getAttribute('href') || ''
+          const dramaIdMatch = href.match(/(?:drama|play)\/([a-zA-Z0-9_-]+)/)
+          const dramaId = dramaIdMatch ? dramaIdMatch[1] : `hg_drama_${idx + 1}`
+          const title =
+            card.querySelector('[class*="title"], h2, h3, .name')?.textContent?.trim() ||
+            `热门精选短剧 #${idx + 1}`
+          const cover = card.querySelector('img')?.src || null
+          const tag = card.querySelector('[class*="tag"], [class*="category"]')?.textContent?.trim() || '热血·逆袭'
+          const countMatch = card.textContent?.match(/(\d+)\s*集/)
+          const totalEpisodes = countMatch ? parseInt(countMatch[1], 10) : 80
+
+          return {
+            id: dramaId,
+            title,
+            cover,
+            category: tag,
+            author: '红果剧场',
+            totalEpisodes,
+            synopsis: `全本 ${totalEpisodes} 集高清短剧在线播放`
+          }
+        })
         post({ type: 'answer', answer: { id, dramas } })
+      } else if (question.ask === 'episodes') {
+        // Return 1..N episodes list
+        const total = currentDrama?.totalEpisodes || 80
+        const episodes = Array.from({ length: total }, (_, i) => ({
+          episode: i + 1,
+          title: `第 ${i + 1} 集`,
+          duration: 120
+        }))
+        post({ type: 'answer', answer: { id, episodes } })
       }
     } catch (err) {
       post({ type: 'answer', answer: { id, failed: true, error: String(err) } })

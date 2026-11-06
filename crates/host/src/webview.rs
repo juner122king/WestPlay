@@ -157,6 +157,14 @@ impl Stage {
         self.root.cast()
     }
 
+    pub fn compositor(&self) -> &Compositor {
+        &self.compositor
+    }
+
+    pub fn root(&self) -> &ContainerVisual {
+        &self.root
+    }
+
     /// Puts a WebView's visual on the frame: over the rest, or under it.
     pub fn add(&self, view: &OffscreenWebView, on_top: bool) -> windows::core::Result<()> {
         let children = self.page.Children()?;
@@ -561,6 +569,7 @@ impl OffscreenWebView {
 
     /// Tests: the page's picture, as WebView2 draws it, written to `path` as a PNG (to see what a page shows).
     #[cfg(test)]
+    #[allow(dead_code)]
     pub fn capture_png(&self, path: &Path) -> Result<(), Error> {
         use webview2_com::CapturePreviewCompletedHandler;
         use webview2_com::Microsoft::Web::WebView2::Win32::COREWEBVIEW2_CAPTURE_PREVIEW_IMAGE_FORMAT_PNG;
@@ -690,6 +699,19 @@ impl OffscreenWebView {
     ) -> windows::core::Result<()> {
         // SAFETY: the composition controller is alive as long as `self`; plain values only.
         unsafe { self.composition.SendMouseInput(kind, keys, data, point) }
+    }
+
+    #[allow(dead_code)]
+    pub fn open_dev_tools(&self) -> windows::core::Result<()> {
+        unsafe { self.webview.OpenDevToolsWindow() }
+    }
+
+    pub fn composition(&self) -> &ICoreWebView2CompositionController {
+        &self.composition
+    }
+
+    pub fn webview(&self) -> &ICoreWebView2 {
+        &self.webview
     }
 }
 

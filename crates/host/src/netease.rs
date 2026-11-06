@@ -41,7 +41,21 @@ pub enum Question {
     Search { query: String },
     Recommend,
     Top,
+    Chart { id: String },
+    UserPlaylists,
+    PlaylistTracks { playlist_id: String },
     Lyrics { id: String },
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, serde::Deserialize, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Playlist {
+    pub id: String,
+    pub name: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cover_img_url: Option<String>,
+    #[serde(default)]
+    pub track_count: u32,
 }
 
 #[derive(Clone, Debug, PartialEq, serde::Deserialize, serde::Serialize)]
@@ -89,6 +103,8 @@ pub struct Answer {
     pub error: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub songs: Option<Vec<Track>>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub playlists: Option<Vec<Playlist>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub lyric: Option<String>,
 }
@@ -277,6 +293,7 @@ pub fn answer_message(answer: &Answer) -> String {
         "failed": answer.failed,
         "error": answer.error,
         "songs": answer.songs,
+        "playlists": answer.playlists,
         "lyric": answer.lyric,
     })
     .to_string()

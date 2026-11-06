@@ -6,28 +6,29 @@
 #[macro_use]
 pub mod log;
 mod apple_music;
+mod bilibili;
 pub mod browser;
 mod camera;
 mod capture;
 mod cursor;
 pub mod customize;
+mod dev_window;
+mod douyin;
 pub mod fitted;
 mod game_settings;
 mod gpu;
 pub mod graphics;
 mod handover;
+mod hongguo;
 mod lyrics;
-mod music_folder;
 pub mod maps;
+mod music_folder;
+mod netease;
 mod performance;
 mod planner;
 mod play_log;
 mod player;
 mod pointer;
-mod bilibili;
-mod douyin;
-mod hongguo;
-mod netease;
 pub mod route;
 mod route_change;
 pub mod settings;
@@ -264,6 +265,22 @@ pub fn run(mut config: Config, stop: Arc<AtomicBool>) -> Result<(), Error> {
     let webview = OffscreenWebView::new(&stage, config.width, config.height, &config.data_dir.join("webview2"))?;
     stage.add(&webview, true)?;
     startup::mark("host: cabin browser (WebView2) ready");
+
+    // Open a live synchronized desktop window for UI development and real-time testing.
+    let _dev_window = if cfg!(debug_assertions) || std::env::var("WESTPLAY_DEV_WINDOW").is_ok() {
+        match dev_window::DevWindow::open(&stage, &webview, config.width, config.height) {
+            Ok(window) => {
+                log!("live cabin dev window opened on desktop (F12: DevTools, F5: Reload)");
+                Some(window)
+            }
+            Err(e) => {
+                log!("couldn't open live cabin dev window: {e}");
+                None
+            }
+        }
+    } else {
+        None
+    };
     match &config.content {
         Content::Url(url) => webview.navigate(url)?,
         Content::Html(html) => webview.navigate_to_string(html)?,
@@ -525,7 +542,7 @@ pub fn run(mut config: Config, stop: Arc<AtomicBool>) -> Result<(), Error> {
         if let Some(action) = config.accounts.bilibili.take()
             && let Some(player) = start_bilibili(&mut bilibili, &stage, &config)
         {
-            player.command(&match action {
+            let _ = player.command(&match action {
                 AccountAction::SignIn => bilibili::Command::SignIn,
                 AccountAction::SignOut => bilibili::Command::SignOut,
                 AccountAction::Check => bilibili::Command::Start,
@@ -543,7 +560,7 @@ pub fn run(mut config: Config, stop: Arc<AtomicBool>) -> Result<(), Error> {
         if let Some(action) = config.accounts.douyin.take()
             && let Some(player) = start_douyin(&mut douyin, &stage, &config)
         {
-            player.command(&match action {
+            let _ = player.command(&match action {
                 AccountAction::SignIn => douyin::Command::SignIn,
                 AccountAction::SignOut => douyin::Command::SignOut,
                 AccountAction::Check => douyin::Command::Start,
@@ -552,7 +569,7 @@ pub fn run(mut config: Config, stop: Arc<AtomicBool>) -> Result<(), Error> {
         if let Some(action) = config.accounts.hongguo.take()
             && let Some(player) = start_hongguo(&mut hongguo, &stage, &config)
         {
-            player.command(&match action {
+            let _ = player.command(&match action {
                 AccountAction::SignIn => hongguo::Command::SignIn,
                 AccountAction::SignOut => hongguo::Command::SignOut,
                 AccountAction::Check => hongguo::Command::Start,
@@ -1001,7 +1018,7 @@ pub fn run(mut config: Config, stop: Arc<AtomicBool>) -> Result<(), Error> {
                     if bilibili.is_none() && matches!(command, bilibili::Command::Pause) {
                         // Nothing to pause.
                     } else if let Some(player) = start_bilibili(&mut bilibili, &stage, &config) {
-                        player.command(&command);
+                        let _ = player.command(&command);
                     }
                 }
                 Some(PageMessage::Ximalaya { command }) => {
@@ -1012,17 +1029,17 @@ pub fn run(mut config: Config, stop: Arc<AtomicBool>) -> Result<(), Error> {
                     }
                 }
                 Some(PageMessage::Douyin { command }) => {
-                    if douyin.is_none() && matches!(command, douyin::Command::Pause) {
-                        // Nothing to pause.
+                    if douyin.is_none() && matches!(command, douyin::Command::Pause | douyin::Command::Hide) {
+                        // Nothing to pause or hide.
                     } else if let Some(player) = start_douyin(&mut douyin, &stage, &config) {
-                        player.command(&command);
+                        let _ = player.command(&command);
                     }
                 }
                 Some(PageMessage::Hongguo { command }) => {
-                    if hongguo.is_none() && matches!(command, hongguo::Command::Pause) {
-                        // Nothing to pause.
+                    if hongguo.is_none() && matches!(command, hongguo::Command::Pause | hongguo::Command::Hide) {
+                        // Nothing to pause or hide.
                     } else if let Some(player) = start_hongguo(&mut hongguo, &stage, &config) {
-                        player.command(&command);
+                        let _ = player.command(&command);
                     }
                 }
                 Some(PageMessage::Netease { command }) => {
@@ -1035,7 +1052,9 @@ pub fn run(mut config: Config, stop: Arc<AtomicBool>) -> Result<(), Error> {
                 Some(PageMessage::Player { command }) => {
                     if music_player.is_none() && matches!(command, music_folder::Command::Pause) {
                         // Nothing to pause: Player's player isn't running.
-                    } else if let Some(player) = start_music_player(&mut music_player, &stage, &config, music_dir.as_deref()) {
+                    } else if let Some(player) =
+                        start_music_player(&mut music_player, &stage, &config, music_dir.as_deref())
+                    {
                         let _ = player.command(&command);
                     }
                 }
@@ -1338,7 +1357,11 @@ pub fn run(mut config: Config, stop: Arc<AtomicBool>) -> Result<(), Error> {
                     }
                     bilibili::Report::Playback(playback) => {
                         let heard = playback.as_ref().map(|pb| play_log::Heard {
-                            doing: if pb.status == "playing" { play_log::Doing::Playing } else { play_log::Doing::Paused },
+                            doing: if pb.status == "playing" {
+                                play_log::Doing::Playing
+                            } else {
+                                play_log::Doing::Paused
+                            },
                             track: Some(pb.title.as_str()),
                             position: pb.position,
                         });
@@ -1384,7 +1407,11 @@ pub fn run(mut config: Config, stop: Arc<AtomicBool>) -> Result<(), Error> {
                     }
                     ximalaya::Report::Playback(playback) => {
                         let heard = playback.as_ref().map(|pb| play_log::Heard {
-                            doing: if pb.status == "playing" { play_log::Doing::Playing } else { play_log::Doing::Paused },
+                            doing: if pb.status == "playing" {
+                                play_log::Doing::Playing
+                            } else {
+                                play_log::Doing::Paused
+                            },
                             track: Some(pb.title.as_str()),
                             position: pb.position,
                         });
@@ -1430,7 +1457,11 @@ pub fn run(mut config: Config, stop: Arc<AtomicBool>) -> Result<(), Error> {
                     }
                     douyin::Report::Playback(playback) => {
                         let heard = playback.as_ref().map(|pb| play_log::Heard {
-                            doing: if pb.status == "playing" { play_log::Doing::Playing } else { play_log::Doing::Paused },
+                            doing: if pb.status == "playing" {
+                                play_log::Doing::Playing
+                            } else {
+                                play_log::Doing::Paused
+                            },
                             track: Some(pb.title.as_str()),
                             position: pb.position,
                         });
@@ -1476,7 +1507,11 @@ pub fn run(mut config: Config, stop: Arc<AtomicBool>) -> Result<(), Error> {
                     }
                     hongguo::Report::Playback(playback) => {
                         let heard = playback.as_ref().map(|pb| play_log::Heard {
-                            doing: if pb.status == "playing" { play_log::Doing::Playing } else { play_log::Doing::Paused },
+                            doing: if pb.status == "playing" {
+                                play_log::Doing::Playing
+                            } else {
+                                play_log::Doing::Paused
+                            },
                             track: Some(pb.title.as_str()),
                             position: pb.position,
                         });
@@ -1522,7 +1557,11 @@ pub fn run(mut config: Config, stop: Arc<AtomicBool>) -> Result<(), Error> {
                     }
                     netease::Report::Playback(playback) => {
                         let heard = playback.as_ref().map(|pb| play_log::Heard {
-                            doing: if pb.status == "playing" { play_log::Doing::Playing } else { play_log::Doing::Paused },
+                            doing: if pb.status == "playing" {
+                                play_log::Doing::Playing
+                            } else {
+                                play_log::Doing::Paused
+                            },
                             track: Some(pb.title.as_str()),
                             position: pb.position,
                         });
@@ -1663,7 +1702,6 @@ pub fn run(mut config: Config, stop: Arc<AtomicBool>) -> Result<(), Error> {
         }
 
         // What YouTube Music's page says, and its sign-in window, for the page; its WebView failing closes it.
-
 
         // What the player typed on their own keyboard, and whether it types (the plugin decides: the truck
         // standing still, a field selected then).

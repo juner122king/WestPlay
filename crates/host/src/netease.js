@@ -44,8 +44,12 @@
   }, 1000)
 
   let lastSignedIn = null
+  let currentUserId = null
   let checkingAccount = false
   const checkStatus = async () => {
+    if (window.GUser && window.GUser.userId > 0) {
+      currentUserId = window.GUser.userId
+    }
     let signedIn = Boolean(
       (window.GUser && window.GUser.userId > 0) ||
       document.querySelector('a[href*="/user/home"]') ||
@@ -62,6 +66,7 @@
           const data = await res.json()
           if (data && data.code === 200 && data.account && data.account.id) {
             signedIn = true
+            currentUserId = data.account.id
           }
         }
       } catch (e) {
@@ -96,9 +101,18 @@
   }
 
   // Handle messages from host
-  window.addEventListener('message', (event) => {
-    handleHost(event.data)
-  })
+  const handleMessage = (data) => {
+    try {
+      const cmd = typeof data === 'string' ? JSON.parse(data) : data
+      handleHost(cmd)
+    } catch (e) {
+      console.error('[netease] handleMessage error', e)
+    }
+  }
+
+  window.chrome?.webview?.addEventListener('message', (event) => handleMessage(event.data))
+  window.addEventListener('message', (event) => handleMessage(event.data))
+  window.chrome?.webview?.postMessage({ ready: true })
 
   // Also listen through custom dispatch if host injects directly
   window.westplayNeteaseCommand = (cmd) => {
@@ -122,17 +136,18 @@
           currentAudio.src = cmd.track.url
           currentAudio.play().catch(() => {})
         } else if (cmd.track.id) {
-          // Resolve standard playback url
-          try {
-            const res = await fetch(`https://music.163.com/api/song/enhance/player/url?id=${cmd.track.id}&ids=[${cmd.track.id}]&br=320000`)
-            const data = await res.json()
-            if (data.data && data.data[0] && data.data[0].url) {
-              currentAudio.src = data.data[0].url
-              currentAudio.play().catch(() => {})
-            }
-          } catch (e) {
-            console.error('Netease play failed', e)
-          }
+          // Play via standard NetEase media outer URL with API fallback
+          currentAudio.src = `https://music.163.com/song/media/outer/url?id=${cmd.track.id}.mp3`
+          currentAudio.play().catch(async () => {
+            try {
+              const res = await fetch(`https://music.163.com/api/song/enhance/player/url?id=${cmd.track.id}&ids=[${cmd.track.id}]&br=320000`)
+              const data = await res.json()
+              if (data.data && data.data[0] && data.data[0].url) {
+                currentAudio.src = data.data[0].url
+                currentAudio.play().catch(() => {})
+              }
+            } catch {}
+          })
         }
       } else if (currentAudio) {
         currentAudio.play().catch(() => {})
@@ -169,7 +184,57 @@
       } else if (question.ask === 'recommend' || question.ask === 'top') {
         const res = await fetch(`https://music.163.com/api/playlist/detail?id=3778678`) // Hot Playlist
         const data = await res.json()
-        const songs = (data?.result?.tracks || []).slice(0, 30).map(s => ({
+        const songs = (data?.result?.tracks || []).slice(0, 50).map(s => ({
+          id: String(s.id),
+          title: s.name,
+          artist: (s.artists || []).map(a => a.name).join(', '),
+          album: s.album?.name,
+          artwork: s.album?.picUrl || null,
+          duration: (s.duration || 0) / 1000
+        }))
+        post({ type: 'answer', answer: { id, songs } })
+      } else if (question.ask === 'chart') {
+        const chartId = question.id || '3778678'
+        const res = await fetch(`https://music.163.com/api/playlist/detail?id=${chartId}`)
+        const data = await res.json()
+        const songs = (data?.result?.tracks || []).slice(0, 50).map(s => ({
+          id: String(s.id),
+          title: s.name,
+          artist: (s.artists || []).map(a => a.name).join(', '),
+          album: s.album?.name,
+          artwork: s.album?.picUrl || null,
+          duration: (s.duration || 0) / 1000
+        }))
+        post({ type: 'answer', answer: { id, songs } })
+      } else if (question.ask === 'userPlaylists') {
+        let uid = currentUserId
+        if (!uid) {
+          try {
+            const uRes = await fetch('https://music.163.com/api/nuser/account/get', { credentials: 'include' })
+            const uData = await uRes.json()
+            if (uData?.account?.id) {
+              uid = uData.account.id
+              currentUserId = uid
+            }
+          } catch {}
+        }
+        if (uid) {
+          const plRes = await fetch(`https://music.163.com/api/user/playlist?uid=${uid}&limit=30&offset=0`, { credentials: 'include' })
+          const plData = await plRes.json()
+          const playlists = (plData?.playlist || []).map(p => ({
+            id: String(p.id),
+            name: p.name,
+            coverImgUrl: p.coverImgUrl,
+            trackCount: p.trackCount || 0
+          }))
+          post({ type: 'answer', answer: { id, playlists } })
+        } else {
+          post({ type: 'answer', answer: { id, playlists: [] } })
+        }
+      } else if (question.ask === 'playlistTracks') {
+        const res = await fetch(`https://music.163.com/api/playlist/detail?id=${question.playlistId}`, { credentials: 'include' })
+        const data = await res.json()
+        const songs = (data?.result?.tracks || []).slice(0, 100).map(s => ({
           id: String(s.id),
           title: s.name,
           artist: (s.artists || []).map(a => a.name).join(', '),
@@ -188,6 +253,27 @@
     }
   }
 
-  // Tell host initial state
+  const fetchTopTracks = async () => {
+    try {
+      const res = await fetch(`https://music.163.com/api/playlist/detail?id=3778678`)
+      const data = await res.json()
+      const songs = (data?.result?.tracks || []).slice(0, 30).map(s => ({
+        id: String(s.id),
+        title: s.name,
+        artist: (s.artists || []).map(a => a.name).join(', '),
+        album: s.album?.name,
+        artwork: s.album?.picUrl || null,
+        duration: (s.duration || 0) / 1000
+      }))
+      if (songs.length > 0) {
+        post({ type: 'answer', answer: { id: 1, songs } })
+      }
+    } catch (e) {
+      console.error('[netease] auto fetch top tracks error', e)
+    }
+  }
+
+  // Tell host initial state and fetch real online songs
   checkStatus()
+  fetchTopTracks()
 })()

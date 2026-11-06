@@ -1,12 +1,5 @@
 import { useEffect, useState } from 'react'
-import {
-  playOrPause,
-  positionOf,
-  seek,
-  setNowPlaying,
-  skip,
-  useNetease,
-} from './netease'
+import { playOrPause, positionOf, seek, setNowPlaying, skip, useNetease } from './netease'
 
 function formatSeconds(secs: number): string {
   if (!Number.isFinite(secs) || secs < 0) return '0:00'
@@ -37,12 +30,7 @@ export function NowPlaying() {
   return (
     <div className="netease-now-playing">
       <div className="netease-np-header">
-        <button
-          type="button"
-          className="netease-back-btn"
-          onClick={() => setNowPlaying(false)}
-          aria-label="Back"
-        >
+        <button type="button" className="netease-back-btn" onClick={() => setNowPlaying(false)} aria-label="Back">
           ‹ 返回
         </button>
         <span className="netease-np-brand">网易云音乐 播放中</span>
@@ -53,7 +41,7 @@ export function NowPlaying() {
           <div className="netease-vinyl-disc">
             <div className="netease-vinyl-artwork">
               {playback.artwork ? (
-                <img src={playback.artwork} alt={playback.title} />
+                <img src={playback.artwork} alt={playback.title} referrerPolicy="no-referrer" />
               ) : (
                 <div className="netease-np-placeholder">🎵</div>
               )}
@@ -67,11 +55,14 @@ export function NowPlaying() {
         </div>
 
         <div className="netease-np-progress-bar">
-          <div className="netease-np-track" onClick={(e) => {
-            const rect = e.currentTarget.getBoundingClientRect()
-            const pct = (e.clientX - rect.left) / rect.width
-            seek(pct * duration)
-          }}>
+          <div
+            className="netease-np-track"
+            onClick={(e) => {
+              const rect = e.currentTarget.getBoundingClientRect()
+              const pct = (e.clientX - rect.left) / rect.width
+              seek(pct * duration)
+            }}
+          >
             <div className="netease-np-fill" style={{ width: `${progressPercent}%` }} />
           </div>
           <div className="netease-np-times">
@@ -81,12 +72,7 @@ export function NowPlaying() {
         </div>
 
         <div className="netease-np-controls">
-          <button
-            type="button"
-            className="netease-ctrl-btn"
-            onClick={() => skip(-1)}
-            aria-label="Previous"
-          >
+          <button type="button" className="netease-ctrl-btn" onClick={() => skip(-1)} aria-label="Previous">
             ⏮
           </button>
           <button
@@ -97,12 +83,7 @@ export function NowPlaying() {
           >
             {playing ? '⏸' : '▶'}
           </button>
-          <button
-            type="button"
-            className="netease-ctrl-btn"
-            onClick={() => skip(1)}
-            aria-label="Next"
-          >
+          <button type="button" className="netease-ctrl-btn" onClick={() => skip(1)} aria-label="Next">
             ⏭
           </button>
         </div>

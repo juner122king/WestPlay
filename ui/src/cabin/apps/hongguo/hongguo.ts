@@ -9,6 +9,14 @@ import {
 } from '../../../shared/host'
 import type { MediaSource } from '../../../shared/media'
 
+export interface Hole {
+  x: number
+  y: number
+  width: number
+  height: number
+  radius: number
+}
+
 export interface HongguoState {
   signedIn: boolean | null
   signingIn: boolean
@@ -21,6 +29,7 @@ export interface HongguoState {
   playback: (HongguoPlayback & { at: number }) | null
   nowPlaying: boolean
   volume: number
+  hole: Hole | null
 }
 
 const IN_HOST = typeof window !== 'undefined' && isInHost()
@@ -31,6 +40,7 @@ export const MOCK_HONGGUO_DRAMAS: HongguoDrama[] = [
     title: '绝品狂飙：重卡车神的逆袭',
     category: '都市热血',
     author: '红果短剧',
+    cover: 'https://images.unsplash.com/photo-1544620347-c4fd4a3d5957?auto=format&fit=crop&w=600&q=80',
     totalEpisodes: 80,
     synopsis: '一代传奇车神隐退江湖成为普通货运司机，为守护车队再次握紧方向盘！',
   },
@@ -39,6 +49,7 @@ export const MOCK_HONGGUO_DRAMAS: HongguoDrama[] = [
     title: '重生之我是物流大亨',
     category: '商战逆袭',
     author: '星火短剧',
+    cover: 'https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?auto=format&fit=crop&w=600&q=80',
     totalEpisodes: 60,
     synopsis: '重回三十年前，看穷小子如何从一辆破卡车起步，打造全球货运商业帝国！',
   },
@@ -47,6 +58,7 @@ export const MOCK_HONGGUO_DRAMAS: HongguoDrama[] = [
     title: '公路之王：八百里秦川传奇',
     category: '公路冒险',
     author: '风驰影视',
+    cover: 'https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=600&q=80',
     totalEpisodes: 50,
     synopsis: '陕汽重卡穿行三秦大地，车轮滚滚书写货运男儿的豪情与坚守！',
   },
@@ -55,6 +67,7 @@ export const MOCK_HONGGUO_DRAMAS: HongguoDrama[] = [
     title: '龙腾万里：重型挂车风云',
     category: '现代传奇',
     author: '极速传媒',
+    cover: 'https://images.unsplash.com/photo-1508974239320-0a029497e820?auto=format&fit=crop&w=600&q=80',
     totalEpisodes: 72,
     synopsis: '十轮重卡纵横南北干线，面对重重阻难，誓保千万货品按时送达！',
   },
@@ -72,6 +85,7 @@ export const useHongguo = create<HongguoState>(() => ({
   playback: null,
   nowPlaying: false,
   volume: 1,
+  hole: null,
 }))
 
 function send(command: HongguoCommand): void {
@@ -130,8 +144,7 @@ function show(change: Partial<HongguoPlayback>): void {
 export function play(drama?: HongguoDrama, episodeNumber?: number): void {
   const currentDramas = useHongguo.getState().dramas
   const targetDrama =
-    drama ??
-    (currentDramas.find((d) => d.id === useHongguo.getState().currentDramaId) || currentDramas[0])
+    drama ?? (currentDramas.find((d) => d.id === useHongguo.getState().currentDramaId) || currentDramas[0])
   const ep = episodeNumber ?? useHongguo.getState().currentEpisodeNumber ?? 1
 
   send({ action: 'play', drama: targetDrama, episode: ep })
@@ -176,11 +189,16 @@ export function playOrPause(): void {
 }
 
 export function skip(direction: 1 | -1): void {
-  const { currentDramaId, currentEpisodeNumber, dramas } = useHongguo.getState()
-  const drama = dramas.find((d) => d.id === currentDramaId) || dramas[0]
-  if (!drama) return
-  const nextEp = Math.min(drama.totalEpisodes, Math.max(1, currentEpisodeNumber + direction))
-  play(drama, nextEp)
+  if (direction === 1) {
+    send({ action: 'next' })
+  } else {
+    send({ action: 'previous' })
+  }
+}
+
+export function selectEpisode(episode: number): void {
+  send({ action: 'selectEpisode', episode })
+  useHongguo.setState({ currentEpisodeNumber: episode })
 }
 
 export function seek(seconds: number): void {

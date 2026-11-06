@@ -1,13 +1,6 @@
 import { useEffect, useState } from 'react'
-import {
-  playOrPause,
-  positionOf,
-  seek,
-  setNowPlaying,
-  skip,
-  toggleLike,
-  useDouyin,
-} from './douyin'
+import { VideoHole } from '../youtube/VideoHole'
+import { playOrPause, positionOf, seek, setNowPlaying, skip, toggleLike, useDouyin } from './douyin'
 
 function formatSeconds(secs: number): string {
   if (!Number.isFinite(secs) || secs < 0) return '0:00'
@@ -39,12 +32,7 @@ export function NowPlaying() {
   return (
     <div className="douyin-now-playing">
       <div className="douyin-np-header">
-        <button
-          type="button"
-          className="douyin-back-btn"
-          onClick={() => setNowPlaying(false)}
-          aria-label="Back"
-        >
+        <button type="button" className="douyin-back-btn" onClick={() => setNowPlaying(false)} aria-label="Back">
           ‹ 返回
         </button>
         <span className="douyin-np-brand">抖音 · 正在播放</span>
@@ -52,13 +40,7 @@ export function NowPlaying() {
 
       <div className="douyin-np-content">
         <div className="douyin-np-artwork">
-          {playback.artwork ? (
-            <img src={playback.artwork} alt={playback.title} />
-          ) : (
-            <div className="douyin-np-placeholder">
-              <span className="douyin-glitch-icon">🎵</span>
-            </div>
-          )}
+          <VideoHole app="douyin" className="douyin-np-video-hole" crop />
         </div>
 
         <div className="douyin-np-meta">
@@ -84,12 +66,7 @@ export function NowPlaying() {
         </div>
 
         <div className="douyin-np-controls">
-          <button
-            type="button"
-            className="douyin-ctrl-btn"
-            onClick={() => skip(-1)}
-            aria-label="Previous Video"
-          >
+          <button type="button" className="douyin-ctrl-btn" onClick={() => skip(-1)} aria-label="Previous Video">
             ⏮
           </button>
           <button
@@ -100,18 +77,13 @@ export function NowPlaying() {
           >
             {playing ? '⏸' : '▶'}
           </button>
-          <button
-            type="button"
-            className="douyin-ctrl-btn"
-            onClick={() => skip(1)}
-            aria-label="Next Video"
-          >
+          <button type="button" className="douyin-ctrl-btn" onClick={() => skip(1)} aria-label="Next Video">
             ⏭
           </button>
           <button
             type="button"
             className={`douyin-ctrl-btn douyin-like-btn ${liked ? 'liked' : ''}`}
-            onClick={() => toggleLike(playback.id)}
+            onClick={() => toggleLike()}
             aria-label="Like"
           >
             {liked ? '❤️' : '🤍'}

@@ -6,7 +6,7 @@ use std::path::Path;
 
 use crate::signin::{self, Progress, SignInWindow};
 use crate::speakers::{self, Equalizer, Head, Speaker};
-use crate::webview::{self, OffscreenWebView, Stage};
+use crate::webview::{self, OffscreenWebView, PageSize, Stage};
 
 pub const HOME: &str = "https://www.douyin.com/";
 
@@ -33,6 +33,18 @@ pub enum Command {
         #[serde(default, skip_serializing_if = "Option::is_none")]
         id: Option<String>,
     },
+    Show {
+        x: f32,
+        y: f32,
+        width: u32,
+        height: u32,
+        #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+        crop: bool,
+    },
+    Crop {
+        on: bool,
+    },
+    Hide,
     Ask {
         id: u32,
         question: Question,
@@ -110,6 +122,7 @@ pub enum Report {
 
 pub struct Douyin {
     view: OffscreenWebView,
+    frame: PageSize,
     sign_in: RefCell<Option<SignInWindow>>,
     pending: RefCell<Vec<Report>>,
     checked_initial_cookie: Cell<bool>,
@@ -123,8 +136,10 @@ impl Douyin {
         stage.add(&view, false)?;
         view.add_startup_script(concat!(include_str!("cab_sound.js"), "\n", include_str!("douyin.js")))?;
         view.navigate(HOME)?;
+        let frame = stage.page_size();
         Ok(Self {
             view,
+            frame,
             sign_in: RefCell::new(None),
             pending: RefCell::new(Vec::new()),
             checked_initial_cookie: Cell::new(false),
@@ -145,20 +160,39 @@ impl Douyin {
         let _ = stage.remove(&self.view);
     }
 
-    pub fn command(&self, command: &Command) {
-        if matches!(command, Command::SignIn) {
-            self.sign_in();
-            return;
+    pub fn command(&self, command: &Command) -> windows::core::Result<()> {
+        match command {
+            Command::Show { x, y, width, height, crop } => {
+                let _ = self.pass(&Command::Crop { on: *crop });
+                let page = self.frame.get();
+                let (x, y, width, height) = crate::youtube::within(page, *x, *y, *width, *height);
+                if width * 2 < page.0 {
+                    self.view.fit(page, x, y, width, height)?;
+                } else {
+                    self.view.place(x, y, width, height)?;
+                }
+                self.view.show(true)
+            }
+            Command::Hide => self.view.show(false),
+            Command::SignIn => {
+                self.sign_in();
+                Ok(())
+            }
+            Command::SignOut => {
+                let _ = self.view.delete_cookies();
+                let _ = self.view.navigate(HOME);
+                self.pending.borrow_mut().push(Report::State(State { signed_in: false, playing: false }));
+                Ok(())
+            }
+            other => self.pass(other),
         }
-        if matches!(command, Command::SignOut) {
-            let _ = self.view.delete_cookies();
-            let _ = self.view.navigate(HOME);
-            self.pending.borrow_mut().push(Report::State(State { signed_in: false, playing: false }));
-            return;
-        }
+    }
+
+    fn pass(&self, command: &Command) -> windows::core::Result<()> {
         if let Ok(json) = serde_json::to_string(command) {
-            let _ = self.view.post_json(&json);
+            self.view.post_json(&json)?;
         }
+        Ok(())
     }
 
     pub fn sign_in(&self) {
@@ -195,7 +229,8 @@ impl Douyin {
             self.sign_in.borrow_mut().take();
             reports.push(Report::SignInWindow(false));
             let _ = self.view.navigate(HOME);
-            let signed_in = p == Progress::SignedIn || self.view.has_cookie(HOME, &["sessionid", "sessionid_ss", "sid_tt"]);
+            let signed_in =
+                p == Progress::SignedIn || self.view.has_cookie(HOME, &["sessionid", "sessionid_ss", "sid_tt"]);
             reports.push(Report::State(State { signed_in, playing: false }));
         }
 
