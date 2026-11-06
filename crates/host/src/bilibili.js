@@ -8,6 +8,7 @@
   let currentMedia = null
   let currentVideo = null
   let isPlaying = false
+  let wantedPlaying = false
 
   // Inject full-bleed video styles and strip site chrome
   const style = document.createElement('style')
@@ -94,6 +95,7 @@
   }
 
   const ensurePlaying = () => {
+    if (!wantedPlaying) return
     const v = document.querySelector('video')
     if (v) {
       hookMedia(v)
@@ -105,6 +107,25 @@
     if (playBtn && playBtn.getAttribute('aria-label') === '播放') {
       try { playBtn.click() } catch {}
     }
+  }
+
+  const capResolution = () => {
+    try {
+      const profile = JSON.parse(localStorage.getItem('bpx_player_profile') || '{}')
+      if (!profile.media || profile.media.quality > 64) {
+        profile.media = profile.media || {}
+        profile.media.quality = 64 // 720P 高清 (saves memory & GPU buffer)
+        localStorage.setItem('bpx_player_profile', JSON.stringify(profile))
+      }
+    } catch {}
+    try {
+      const activeQ = document.querySelector('.bpx-player-ctrl-quality-result')
+      if (activeQ && (activeQ.textContent.includes('1080') || activeQ.textContent.includes('4K'))) {
+        const items = Array.from(document.querySelectorAll('.bpx-player-ctrl-quality-item'))
+        const q720 = items.find(el => el.textContent.includes('720P') || el.textContent.includes('高清'))
+        if (q720 && typeof q720.click === 'function') q720.click()
+      }
+    } catch {}
   }
 
   const extractActiveInfo = () => {
@@ -133,6 +154,7 @@
     videos.forEach(hookMedia)
     extractActiveInfo()
     ensurePlaying()
+    capResolution()
     checkStatus()
   }, 1000)
 
@@ -181,6 +203,7 @@
     const { action } = cmd
 
     if (action === 'play') {
+      wantedPlaying = true
       if (cmd.video) {
         currentVideo = cmd.video
         if (cmd.video.url) {
@@ -205,7 +228,12 @@
         currentMedia.play().catch(() => {})
       }
     } else if (action === 'pause') {
+      wantedPlaying = false
       if (currentMedia) currentMedia.pause()
+      const playBtn = document.querySelector('.bpx-player-ctrl-play')
+      if (playBtn && playBtn.getAttribute('aria-label') === '暂停') {
+        try { playBtn.click() } catch {}
+      }
     } else if (action === 'crop') {
       if (cmd.on) {
         document.documentElement.classList.add('westplay-crop')

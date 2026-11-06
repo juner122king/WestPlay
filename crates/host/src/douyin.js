@@ -7,6 +7,7 @@
   let sound = null
   let currentMedia = null
   let isPlaying = false
+  let wantedPlaying = false
   let autoScroll = true
 
   // Inject full-bleed video styles and strip all site chrome
@@ -130,6 +131,7 @@
   }
 
   const ensurePlaying = () => {
+    if (!wantedPlaying) return
     const v = findActiveVideo()
     if (v) {
       hookMedia(v)
@@ -246,7 +248,9 @@
       const activeVideo = findActiveVideo()
       if (activeVideo) {
         hookMedia(activeVideo)
-        activeVideo.play().catch(() => {})
+        if (wantedPlaying) {
+          activeVideo.play().catch(() => {})
+        }
       }
       sendPlayback()
     }, 400)
@@ -276,13 +280,19 @@
     if (action === 'crop') {
       document.documentElement.classList.toggle('westplay-crop', Boolean(cmd.on))
     } else if (action === 'play') {
+      wantedPlaying = true
       const activeVideo = findActiveVideo()
       if (activeVideo) {
         hookMedia(activeVideo)
         activeVideo.play().catch(() => {})
       }
     } else if (action === 'pause') {
+      wantedPlaying = false
       if (currentMedia) currentMedia.pause()
+      const pauseBtn = document.querySelector('[data-e2e="feed-active-video"] .xgplayer-pause, .xgplayer-pause')
+      if (pauseBtn && typeof pauseBtn.click === 'function') {
+        try { pauseBtn.click() } catch {}
+      }
     } else if (action === 'next') {
       switchVideo('next')
     } else if (action === 'previous') {

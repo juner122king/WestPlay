@@ -140,8 +140,10 @@ export function VideoHole({
       area?.removeEventListener('transitionend', grew)
       clearTimeout(grown)
       settling.forEach(clearTimeout)
-      if (!following) return
-      following()
+      if (following) {
+        following()
+        following = null
+      }
       if (app === 'douyin') {
         useDouyin.setState({ hole: null })
         postToHost({ type: 'douyin', command: { action: 'hide' } })

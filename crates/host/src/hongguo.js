@@ -10,6 +10,7 @@
   let currentEpisode = 1
   let currentSpeed = 1.0
   let isPlaying = false
+  let wantedPlaying = false
   let autoNext = true
 
   // Inject full-bleed video styles and strip all site chrome
@@ -99,7 +100,7 @@
     el.addEventListener('ended', () => {
       isPlaying = false
       sendPlayback()
-      if (autoNext) {
+      if (autoNext && wantedPlaying) {
         goToNextEpisode()
       }
     })
@@ -217,7 +218,9 @@
       if (v) {
         hookMedia(v)
         v.playbackRate = currentSpeed
-        v.play().catch(() => {})
+        if (wantedPlaying) {
+          v.play().catch(() => {})
+        }
       }
       sendPlayback()
     }, 500)
@@ -247,6 +250,7 @@
     if (action === 'crop') {
       document.documentElement.classList.toggle('westplay-crop', Boolean(cmd.on))
     } else if (action === 'play') {
+      wantedPlaying = true
       if (cmd.drama) {
         const dramaChanged = currentDrama?.id !== cmd.drama.id
         currentDrama = cmd.drama
@@ -272,6 +276,7 @@
         v.play().catch(() => {})
       }
     } else if (action === 'pause') {
+      wantedPlaying = false
       if (currentMedia) currentMedia.pause()
     } else if (action === 'next') {
       goToNextEpisode()

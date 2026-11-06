@@ -1015,8 +1015,8 @@ pub fn run(mut config: Config, stop: Arc<AtomicBool>) -> Result<(), Error> {
                     }
                 }
                 Some(PageMessage::Bilibili { command }) => {
-                    if bilibili.is_none() && matches!(command, bilibili::Command::Pause) {
-                        // Nothing to pause.
+                    if bilibili.is_none() && matches!(command, bilibili::Command::Pause | bilibili::Command::Hide) {
+                        // Nothing to pause or hide.
                     } else if let Some(player) = start_bilibili(&mut bilibili, &stage, &config) {
                         let _ = player.command(&command);
                     }
@@ -2254,7 +2254,7 @@ fn start_bilibili<'a>(
     config: &Config,
 ) -> Option<&'a bilibili::Bilibili> {
     if bilibili.is_none() {
-        let user_data = config.data_dir.join("webview2-bilibili");
+        let user_data = config.data_dir.join("webview2");
         match bilibili::Bilibili::start(stage, config.width, config.height, &user_data) {
             Ok(started) => {
                 log!("[bilibili] opened");
@@ -2272,7 +2272,7 @@ fn start_ximalaya<'a>(
     config: &Config,
 ) -> Option<&'a ximalaya::Ximalaya> {
     if ximalaya.is_none() {
-        let user_data = config.data_dir.join("webview2-ximalaya");
+        let user_data = config.data_dir.join("webview2");
         match ximalaya::Ximalaya::start(stage, config.width, config.height, &user_data) {
             Ok(started) => {
                 log!("[ximalaya] opened");
@@ -2290,7 +2290,7 @@ fn start_douyin<'a>(
     config: &Config,
 ) -> Option<&'a douyin::Douyin> {
     if douyin.is_none() {
-        let user_data = config.data_dir.join("webview2-douyin");
+        let user_data = config.data_dir.join("webview2");
         match douyin::Douyin::start(stage, config.width, config.height, &user_data) {
             Ok(started) => {
                 log!("[douyin] opened");
@@ -2308,7 +2308,7 @@ fn start_hongguo<'a>(
     config: &Config,
 ) -> Option<&'a hongguo::Hongguo> {
     if hongguo.is_none() {
-        let user_data = config.data_dir.join("webview2-hongguo");
+        let user_data = config.data_dir.join("webview2");
         match hongguo::Hongguo::start(stage, config.width, config.height, &user_data) {
             Ok(started) => {
                 log!("[hongguo] opened");
@@ -2326,7 +2326,7 @@ fn start_netease<'a>(
     config: &Config,
 ) -> Option<&'a netease::Netease> {
     if netease.is_none() {
-        let user_data = config.data_dir.join("webview2-netease");
+        let user_data = config.data_dir.join("webview2");
         match netease::Netease::start(stage, config.width, config.height, &user_data) {
             Ok(started) => {
                 log!("[netease] opened");

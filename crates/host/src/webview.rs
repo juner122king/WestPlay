@@ -793,8 +793,10 @@ fn process_failure(kind: COREWEBVIEW2_PROCESS_FAILED_KIND) -> String {
 fn create_environment(user_data: &Path) -> Result<ICoreWebView2Environment, Error> {
     let options = CoreWebView2EnvironmentOptions::default();
     // Chromium throttles or stops rendering for hidden or occluded windows; ours is never shown.
+    // Configure memory constraints and process limits to prevent excessive memory consumption.
     let mut arguments = "--disable-features=CalculateNativeWinOcclusion --disable-background-timer-throttling \
-                         --disable-renderer-backgrounding --disable-backgrounding-occluded-windows \
+                         --renderer-process-limit=4 --js-flags=--max-old-space-size=256 \
+                         --disable-gpu-memory-buffer-video-frames \
                          --autoplay-policy=no-user-gesture-required"
         .to_string();
     // The GPU it draws on (graphics.rs).
