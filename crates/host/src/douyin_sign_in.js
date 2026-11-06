@@ -1,49 +1,31 @@
 ;(() => {
   const post = (message) => window.chrome?.webview?.postMessage(message)
   let autoClicked = false
-  let checkingAccount = false
 
-  const check = async () => {
+  const check = () => {
     // 1. Check DOM for logged-in user avatar or profile elements
     const avatar = document.querySelector(
-      '[data-e2e="profile-avatar"], a[href*="/user/MS4wLjAB"], .avatar-component, img[class*="avatar"]'
+      '[data-e2e="user-avatar"], [data-e2e="user-info"], a[href^="/user/"], [data-e2e="user-detail"], img[class*="avatar"], div[class*="avatar"]'
     )
-    const loginBtn = document.querySelector('[data-e2e="header-login-button"]')
+    const hasUserCookies =
+      document.cookie.includes('sessionid') ||
+      document.cookie.includes('sid_tt') ||
+      document.cookie.includes('uid_tt')
 
-    if (avatar && !loginBtn) {
+    const loginBtn = Array.from(document.querySelectorAll('button, a, div[role="button"]')).find((el) => {
+      const text = el.textContent?.trim()
+      return (text === '登录' || text === '立即登录' || el.getAttribute('data-e2e') === 'login-button') && el.offsetParent !== null
+    })
+
+    if (avatar || hasUserCookies || (!loginBtn && document.querySelector('video'))) {
       post({ signedIn: true })
       return
     }
 
-    // 2. Cookie check for explicit login status
-    if (document.cookie.includes('LOGIN_STATUS=1')) {
-      post({ signedIn: true })
-      return
-    }
-
-    // 3. Douyin passport account verification API
-    if (!checkingAccount) {
-      checkingAccount = true
-      try {
-        const res = await fetch('/passport/web/account/info/', { credentials: 'include' })
-        if (res.ok) {
-          const data = await res.json()
-          if (data && (data.message === 'success' || data?.data?.error_code === 0)) {
-            post({ signedIn: true })
-            return
-          }
-        }
-      } catch (e) {
-        // network or parse error, ignore and retry
-      } finally {
-        checkingAccount = false
-      }
-    }
-
-    // 4. If not logged in and login button is visible, auto-click to pop up QR login modal
+    // 2. Auto click login button if QR modal is not open yet
     if (!autoClicked && loginBtn) {
       const qrModal = document.querySelector(
-        '[class*="login-guide"], [class*="login-panel"], [class*="login-mask"], [id*="login"]'
+        '[class*="login-guide"], [class*="login-panel"], [class*="login-mask"], [id*="login"], [class*="qrcode"]'
       )
       if (!qrModal) {
         autoClicked = true
@@ -51,7 +33,7 @@
       }
     }
 
-    setTimeout(check, 800)
+    setTimeout(check, 600)
   }
 
   check()

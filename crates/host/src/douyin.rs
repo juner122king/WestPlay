@@ -1,7 +1,7 @@
 //! Douyin (douyin.com) in a hidden WebView2.
 //! Controlled by WestPlay's cabin UI (ui/src/cabin/apps/douyin).
 
-use std::cell::RefCell;
+use std::cell::{Cell, RefCell};
 use std::path::Path;
 
 use crate::signin::{self, Progress, SignInWindow};
@@ -112,6 +112,7 @@ pub struct Douyin {
     view: OffscreenWebView,
     sign_in: RefCell<Option<SignInWindow>>,
     pending: RefCell<Vec<Report>>,
+    checked_initial_cookie: Cell<bool>,
 }
 
 impl Douyin {
@@ -122,7 +123,12 @@ impl Douyin {
         stage.add(&view, false)?;
         view.add_startup_script(concat!(include_str!("cab_sound.js"), "\n", include_str!("douyin.js")))?;
         view.navigate(HOME)?;
-        Ok(Self { view, sign_in: RefCell::new(None), pending: RefCell::new(Vec::new()) })
+        Ok(Self {
+            view,
+            sign_in: RefCell::new(None),
+            pending: RefCell::new(Vec::new()),
+            checked_initial_cookie: Cell::new(false),
+        })
     }
 
     pub fn view(&self) -> &OffscreenWebView {
@@ -147,6 +153,7 @@ impl Douyin {
         if matches!(command, Command::SignOut) {
             let _ = self.view.delete_cookies();
             let _ = self.view.navigate(HOME);
+            self.pending.borrow_mut().push(Report::State(State { signed_in: false, playing: false }));
             return;
         }
         if let Ok(json) = serde_json::to_string(command) {
@@ -175,11 +182,21 @@ impl Douyin {
     pub fn take_reports(&self) -> Vec<Report> {
         let mut reports = std::mem::take(&mut *self.pending.borrow_mut());
 
+        if !self.checked_initial_cookie.get() {
+            self.checked_initial_cookie.set(true);
+            let signed_in = self.view.has_cookie(HOME, &["sessionid", "sessionid_ss", "sid_tt"]);
+            if signed_in {
+                reports.push(Report::State(State { signed_in: true, playing: false }));
+            }
+        }
+
         let progress = self.sign_in.borrow().as_ref().map(SignInWindow::progress);
-        if let Some(Progress::SignedIn | Progress::Closed) = progress {
+        if let Some(p @ (Progress::SignedIn | Progress::Closed)) = progress {
             self.sign_in.borrow_mut().take();
             reports.push(Report::SignInWindow(false));
             let _ = self.view.navigate(HOME);
+            let signed_in = p == Progress::SignedIn || self.view.has_cookie(HOME, &["sessionid", "sessionid_ss", "sid_tt"]);
+            reports.push(Report::State(State { signed_in, playing: false }));
         }
 
         for message in self.view.take_page_messages() {

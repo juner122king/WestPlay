@@ -53,14 +53,16 @@
   let lastSignedIn = null
   const checkStatus = () => {
     const avatar = document.querySelector(
-      'img[class*="avatar"], div[class*="avatar"], [class*="user-info"], [class*="user-header"], a[href*="/user"]'
+      'img[class*="avatar"], div[class*="avatar"], a[href*="/user"], [class*="user-info"], [class*="user-header"]'
     )
-    const loginButtons = Array.from(document.querySelectorAll('button, a, span')).filter(
+    const hasUserCookies =
+      document.cookie.includes('sessionid') ||
+      document.cookie.includes('sid_tt') ||
+      document.cookie.includes('uid_tt')
+    const loginBtn = Array.from(document.querySelectorAll('button, a')).find(
       (el) => el.textContent?.trim() === '登录' && el.offsetParent !== null
     )
-    const signedIn =
-      (Boolean(avatar) && loginButtons.length === 0) ||
-      document.cookie.includes('LOGIN_STATUS=1')
+    const signedIn = Boolean(avatar) || Boolean(hasUserCookies) || (!loginBtn && document.querySelectorAll('video').length > 0)
     if (signedIn !== lastSignedIn) {
       lastSignedIn = signedIn
       post({

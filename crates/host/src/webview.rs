@@ -491,6 +491,44 @@ impl OffscreenWebView {
         Ok(())
     }
 
+    /// Whether this WebView has any cookie whose name matches any of `names`.
+    pub fn has_cookie(&self, url: &str, names: &[&str]) -> bool {
+        use webview2_com::GetCookiesCompletedHandler;
+        use webview2_com::Microsoft::Web::WebView2::Win32::ICoreWebView2_2;
+        let Ok(webview2) = self.webview.cast::<ICoreWebView2_2>() else { return false };
+        let Ok(manager) = (unsafe { webview2.CookieManager() }) else { return false };
+        let asked = manager.clone();
+        let uri = HSTRING::from(url);
+        let wanted: Vec<String> = names.iter().map(|s| s.to_string()).collect();
+        let found = Rc::new(Cell::new(false));
+        let seen = found.clone();
+        let _ = GetCookiesCompletedHandler::wait_for_async_operation(
+            Box::new(move |handler| unsafe {
+                asked.GetCookies(&uri, &handler).map_err(webview2_com::Error::WindowsError)
+            }),
+            Box::new(move |error, list| {
+                error?;
+                let Some(list) = list else { return Ok(()) };
+                let mut count = 0;
+                unsafe {
+                    list.Count(&mut count)?;
+                    for index in 0..count {
+                        let cookie = list.GetValueAtIndex(index)?;
+                        let mut named = PWSTR::null();
+                        cookie.Name(&mut named)?;
+                        let name_str = webview2_com::take_pwstr(named);
+                        if wanted.iter().any(|w| &name_str == w || name_str.starts_with(w)) {
+                            seen.set(true);
+                            break;
+                        }
+                    }
+                }
+                Ok(())
+            }),
+        );
+        found.get()
+    }
+
     /// Whether the WebView shows on the stage (hidden, its page runs on: a video still plays its sound).
     pub fn show(&self, shown: bool) -> windows::core::Result<()> {
         self.root.SetIsVisible(shown)

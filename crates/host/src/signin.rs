@@ -56,6 +56,7 @@ pub struct Site {
     pub home: &'static str,
     pub not_yet: Option<&'static str>,
     pub page_says: Option<&'static str>,
+    pub cookie: Option<&'static str>,
 }
 
 /// Google's sign-in for YouTube, coming back to YouTube once signed in (through YouTube's own `/signin`, which
@@ -66,6 +67,7 @@ pub const YOUTUBE: Site = Site {
     home: "https://www.youtube.com/",
     not_yet: Some("signin"),
     page_says: None,
+    cookie: None,
 };
 
 /// Bilibili's sign-in with desktop QR code, coming back to Bilibili once signed in.
@@ -75,6 +77,7 @@ pub const BILIBILI: Site = Site {
     home: "https://www.bilibili.com/",
     not_yet: Some("login"),
     page_says: Some(include_str!("bilibili_sign_in.js")),
+    cookie: Some("DedeUserID"),
 };
 
 /// Ximalaya's sign-in with desktop QR code, coming back to Ximalaya once signed in.
@@ -84,6 +87,7 @@ pub const XIMALAYA: Site = Site {
     home: "https://www.ximalaya.com/",
     not_yet: Some("login"),
     page_says: Some(include_str!("ximalaya_sign_in.js")),
+    cookie: Some("1&_token"),
 };
 
 /// Douyin's sign-in with desktop QR code/SMS.
@@ -93,6 +97,7 @@ pub const DOUYIN: Site = Site {
     home: "https://www.douyin.com/",
     not_yet: None,
     page_says: Some(include_str!("douyin_sign_in.js")),
+    cookie: Some("sessionid"),
 };
 
 /// Hongguo's sign-in with desktop QR code/SMS.
@@ -102,6 +107,7 @@ pub const HONGGUO: Site = Site {
     home: "https://www.hongguoduanju.com/",
     not_yet: None,
     page_says: Some(include_str!("hongguo_sign_in.js")),
+    cookie: Some("sessionid"),
 };
 
 /// NetEase Cloud Music's sign-in with desktop QR code.
@@ -111,6 +117,7 @@ pub const NETEASE: Site = Site {
     home: "https://music.163.com/",
     not_yet: None,
     page_says: Some(include_str!("netease_sign_in.js")),
+    cookie: Some("MUSIC_U"),
 };
 
 /// Apple Music's sign-in: the dialog of its own web player, opened at once (`apple_music_sign_in.js`).
@@ -120,6 +127,7 @@ pub const APPLE_MUSIC: Site = Site {
     home: "https://music.apple.com/",
     not_yet: None,
     page_says: Some(include_str!("apple_music_sign_in.js")),
+    cookie: None,
 };
 const CLASS: windows::core::PCWSTR = w!("WestPlaySignIn");
 const SIZE: (i32, i32) = (520, 760);
@@ -169,6 +177,7 @@ pub struct SignInWindow {
     closed: Rc<Cell<bool>>,
     /// Its page said it's signed in (a site that says so: `page_says`).
     said: Rc<Cell<bool>>,
+    last_cookie_check: Cell<Option<Instant>>,
 }
 
 impl SignInWindow {
@@ -349,7 +358,17 @@ impl SignInWindow {
         // SAFETY: the handler and the token are locals for the call; WebView2 keeps its own reference to the handler.
         unsafe { webview.add_WindowCloseRequested(&handler, &mut token)? };
 
-        let this = Self { window, hosted, webview, _target: target, loaded, site, closed, said };
+        let this = Self {
+            window,
+            hosted,
+            webview,
+            _target: target,
+            loaded,
+            site,
+            closed,
+            said,
+            last_cookie_check: Cell::new(None),
+        };
         // SAFETY: the window and its WebView were made above, on this thread, and are alive; the address lives through
         // the call.
         unsafe {
@@ -372,6 +391,43 @@ impl SignInWindow {
         }
     }
 
+    pub fn has_cookie(&self, name: &str) -> bool {
+        use webview2_com::GetCookiesCompletedHandler;
+        use webview2_com::Microsoft::Web::WebView2::Win32::ICoreWebView2_2;
+        let Ok(webview2) = self.webview.cast::<ICoreWebView2_2>() else { return false };
+        let Ok(manager) = (unsafe { webview2.CookieManager() }) else { return false };
+        let asked = manager.clone();
+        let uri = HSTRING::from(self.site.home);
+        let wanted = name.to_string();
+        let found = Rc::new(Cell::new(false));
+        let seen = found.clone();
+        let _ = GetCookiesCompletedHandler::wait_for_async_operation(
+            Box::new(move |handler| unsafe {
+                asked.GetCookies(&uri, &handler).map_err(webview2_com::Error::WindowsError)
+            }),
+            Box::new(move |error, list| {
+                error?;
+                let Some(list) = list else { return Ok(()) };
+                let mut count = 0;
+                unsafe {
+                    list.Count(&mut count)?;
+                    for index in 0..count {
+                        let cookie = list.GetValueAtIndex(index)?;
+                        let mut named = PWSTR::null();
+                        cookie.Name(&mut named)?;
+                        let name_str = webview2_com::take_pwstr(named);
+                        if name_str == wanted || name_str.starts_with(&wanted) {
+                            seen.set(true);
+                            break;
+                        }
+                    }
+                }
+                Ok(())
+            }),
+        );
+        found.get()
+    }
+
     pub fn progress(&self) -> Progress {
         // SAFETY: `IsWindow` takes any handle, a destroyed one included.
         if self.closed.get() || !unsafe { IsWindow(Some(self.window)) }.as_bool() {
@@ -379,6 +435,19 @@ impl SignInWindow {
         }
         if self.said.get() {
             return Progress::SignedIn;
+        }
+        if let Some(cookie_name) = self.site.cookie {
+            let check_now = match self.last_cookie_check.get() {
+                None => true,
+                Some(t) => t.elapsed() >= Duration::from_millis(600),
+            };
+            if check_now {
+                self.last_cookie_check.set(Some(Instant::now()));
+                if self.has_cookie(cookie_name) {
+                    self.said.set(true);
+                    return Progress::SignedIn;
+                }
+            }
         }
         if self.site.page_says.is_some() {
             return Progress::Signing;

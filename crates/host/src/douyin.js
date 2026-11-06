@@ -42,30 +42,18 @@
   }, 1000)
 
   let lastSignedIn = null
-  let checkingAccount = false
-  const checkStatus = async () => {
+  const checkStatus = () => {
     const avatar = document.querySelector(
-      '[data-e2e="profile-avatar"], a[href*="/user/MS4wLjAB"], .avatar-component, img[class*="avatar"]'
+      '[data-e2e="user-avatar"], [data-e2e="user-info"], a[href^="/user/"], [data-e2e="user-detail"], img[class*="avatar"], div[class*="avatar"]'
     )
-    const loginBtn = document.querySelector('[data-e2e="header-login-button"]')
-    let signedIn = Boolean(avatar && !loginBtn) || document.cookie.includes('LOGIN_STATUS=1')
-
-    if (!signedIn && !checkingAccount) {
-      checkingAccount = true
-      try {
-        const res = await fetch('https://www.douyin.com/passport/web/account/info/', { credentials: 'include' })
-        if (res.ok) {
-          const data = await res.json()
-          if (data && (data.message === 'success' || data?.data?.error_code === 0)) {
-            signedIn = true
-          }
-        }
-      } catch (e) {
-        // ignore
-      } finally {
-        checkingAccount = false
-      }
-    }
+    const hasUserCookies =
+      document.cookie.includes('sessionid') ||
+      document.cookie.includes('sid_tt') ||
+      document.cookie.includes('uid_tt')
+    const loginBtn = Array.from(document.querySelectorAll('button, a')).find(
+      (el) => (el.textContent?.trim() === '登录' || el.getAttribute('data-e2e') === 'login-button') && el.offsetParent !== null
+    )
+    const signedIn = Boolean(avatar) || Boolean(hasUserCookies) || (!loginBtn && document.querySelectorAll('video').length > 0)
 
     if (signedIn !== lastSignedIn) {
       lastSignedIn = signedIn
