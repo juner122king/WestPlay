@@ -15,7 +15,10 @@ undocumented_unsafe_blocks = "warn"
 missing_safety_doc = "warn"
 
 [profile.release]
-debug = "line-tables-only"
+opt-level = "z"
+lto = true
+codegen-units = 1
+strip = true
 
 # Debug builds keep line numbers (panics, backtraces) but not full debug symbols: Windows' .pdb files, kept
 # for every kind of build (tauri dev, tests, clippy, examples), grew target/ past 40 GB. Third-party crates
