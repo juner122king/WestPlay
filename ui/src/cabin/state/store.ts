@@ -33,6 +33,16 @@ import {
   receiveState as receiveXimalayaState,
 } from '../apps/ximalaya/ximalaya'
 import {
+  receiveAnswer as receiveDouyinAnswer,
+  receivePlayback as receiveDouyinPlayback,
+  receiveState as receiveDouyinState,
+} from '../apps/douyin/douyin'
+import {
+  receiveAnswer as receiveHongguoAnswer,
+  receivePlayback as receiveHongguoPlayback,
+  receiveState as receiveHongguoState,
+} from '../apps/hongguo/hongguo'
+import {
   receiveAnswer as receiveNeteaseAnswer,
   receivePlayback as receiveNeteasePlayback,
   receiveState as receiveNeteaseState,
@@ -599,6 +609,24 @@ function receiveHostMessage(now: () => number): (message: HostMessage) => void {
         break
       case 'ximalayaPlayback':
         receiveXimalayaPlayback(message.playback)
+        break
+      case 'douyin':
+        receiveDouyinState(message.signedIn, message.playing, message.signingIn)
+        break
+      case 'douyinAnswer':
+        receiveDouyinAnswer(message.id, message.failed, message.error, message.videos)
+        break
+      case 'douyinPlayback':
+        receiveDouyinPlayback(message.playback)
+        break
+      case 'hongguo':
+        receiveHongguoState(message.signedIn, message.playing, message.signingIn)
+        break
+      case 'hongguoAnswer':
+        receiveHongguoAnswer(message.id, message.failed, message.error, message.dramas)
+        break
+      case 'hongguoPlayback':
+        receiveHongguoPlayback(message.playback)
         break
       case 'netease':
         receiveNeteaseState(message.signedIn, message.playing, message.signingIn)

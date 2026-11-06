@@ -11,6 +11,10 @@ import {
   appleMusicSignOut,
   bilibiliSignIn,
   bilibiliSignOut,
+  douyinSignIn,
+  douyinSignOut,
+  hongguoSignIn,
+  hongguoSignOut,
   ximalayaSignIn,
   ximalayaSignOut,
   neteaseSignIn,
@@ -61,6 +65,24 @@ const SERVICES: Record<
     signingIn: (status) => status?.ximalayaSigningIn ?? false,
     words: (words) => words.accounts,
   },
+  douyin: {
+    name: '抖音',
+    app: 'douyin',
+    glow: GLOW.douyin,
+    signIn: douyinSignIn,
+    signOut: douyinSignOut,
+    signingIn: (status) => status?.douyinSigningIn ?? false,
+    words: (words) => words.accounts,
+  },
+  hongguo: {
+    name: '红果短剧',
+    app: 'hongguo',
+    glow: GLOW.hongguo,
+    signIn: hongguoSignIn,
+    signOut: hongguoSignOut,
+    signingIn: (status) => status?.hongguoSigningIn ?? false,
+    words: (words) => words.accounts,
+  },
   netease: {
     name: '网易云音乐',
     app: 'netease',
@@ -81,7 +103,7 @@ const SERVICES: Record<
   },
 }
 
-const ORDER: Service[] = ['youtube', 'netease', 'bilibili', 'ximalaya', 'appleMusic']
+const ORDER: Service[] = ['youtube', 'netease', 'bilibili', 'ximalaya', 'douyin', 'hongguo', 'appleMusic']
 
 /**
  * The services WestPlay plays from, each signed in (in its own window, on the desktop) or not. WestPlay only

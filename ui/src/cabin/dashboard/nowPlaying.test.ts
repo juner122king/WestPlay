@@ -6,6 +6,8 @@ const none: Record<NowPlayingSource, boolean> = {
   netease: false,
   bilibili: false,
   ximalaya: false,
+  douyin: false,
+  hongguo: false,
   appleMusic: false,
   player: false,
 }

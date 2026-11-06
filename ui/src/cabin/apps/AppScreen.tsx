@@ -12,6 +12,8 @@ import { SettingsApp } from './settings/SettingsApp'
 import { BilibiliApp } from './bilibili/BilibiliApp'
 import { XimalayaApp } from './ximalaya/XimalayaApp'
 import { NeteaseApp } from './netease/NeteaseApp'
+import { DouyinApp } from './douyin/DouyinApp'
+import { HongguoApp } from './hongguo/HongguoApp'
 import { WeatherApp } from './weather/WeatherApp'
 import { YouTubeApp } from './youtube/YouTubeApp'
 import './apps.css'
@@ -86,6 +88,10 @@ function AppContent({ app }: { app: AppId }) {
       return <XimalayaApp />
     case 'netease':
       return <NeteaseApp />
+    case 'douyin':
+      return <DouyinApp />
+    case 'hongguo':
+      return <HongguoApp />
     case 'youtube':
       return <YouTubeApp />
     case 'settings':

@@ -224,6 +224,14 @@ export type HostMessage =
   | { type: 'netease'; signedIn: boolean | null; playing: boolean | null; signingIn: boolean }
   | ({ type: 'neteaseAnswer'; id: number; failed?: boolean; error?: string } & Partial<NeteaseAnswers>)
   | { type: 'neteasePlayback'; playback: NeteasePlayback | null }
+  /** Douyin: whether it's signed in and playing, and whether its sign-in QR window is open. */
+  | { type: 'douyin'; signedIn: boolean | null; playing: boolean | null; signingIn: boolean }
+  | ({ type: 'douyinAnswer'; id: number; failed?: boolean; error?: string } & Partial<DouyinAnswers>)
+  | { type: 'douyinPlayback'; playback: DouyinPlayback | null }
+  /** Hongguo: whether it's signed in and playing, and whether its sign-in QR window is open. */
+  | { type: 'hongguo'; signedIn: boolean | null; playing: boolean | null; signingIn: boolean }
+  | ({ type: 'hongguoAnswer'; id: number; failed?: boolean; error?: string } & Partial<HongguoAnswers>)
+  | { type: 'hongguoPlayback'; playback: HongguoPlayback | null }
   /** Apple Music's web player: whether it's signed in and playing (`null`: not running), and whether its
    * sign-in window is open on the PC. */
   | {
@@ -325,6 +333,10 @@ export type PageMessage =
   | { type: 'ximalaya'; command: XimalayaCommand }
   /** A command for NetEase Cloud Music's web player (`westplay_host::netease::Command`). */
   | { type: 'netease'; command: NeteaseCommand }
+  /** A command for Douyin's web player (`westplay_host::douyin::Command`). */
+  | { type: 'douyin'; command: DouyinCommand }
+  /** A command for Hongguo's web player (`westplay_host::hongguo::Command`). */
+  | { type: 'hongguo'; command: HongguoCommand }
   /** A command for Apple Music's web player (`westplay_host::apple_music::Command`). */
   | { type: 'appleMusic'; command: AppleMusicCommand }
   /** A command for Player's own player (`westplay_host::music_folder::Command`). */
@@ -504,6 +516,120 @@ export interface NeteasePlayback {
 export interface NeteaseAnswers {
   songs?: NeteaseTrack[]
   lyric?: string
+}
+
+/** What the Douyin app asks of Douyin's web player (`westplay_host::douyin::Command`). */
+export type DouyinCommand =
+  | { action: 'start' }
+  | { action: 'signIn' }
+  | { action: 'signOut' }
+  | { action: 'play'; video?: DouyinVideo }
+  | { action: 'pause' }
+  | { action: 'toggle' }
+  | { action: 'next' }
+  | { action: 'previous' }
+  | { action: 'seek'; seconds: number }
+  | { action: 'volume'; percent: number }
+  | { action: 'like'; id?: string }
+  | { action: 'ask'; id: number; question: DouyinQuestion }
+
+export type DouyinQuestion =
+  | { ask: 'feed' }
+  | { ask: 'search'; query: string }
+
+export interface DouyinVideo {
+  id: string
+  title: string
+  author: string
+  avatar?: string
+  artwork?: string
+  duration?: number
+  url?: string
+  liked?: boolean
+  likes?: number
+  comments?: number
+  music?: string
+}
+
+export interface DouyinPlayback {
+  id?: string
+  title: string
+  artist: string
+  author?: string
+  artwork?: string
+  duration: number
+  position: number
+  status: string
+  liked?: boolean
+}
+
+export interface DouyinAnswers {
+  videos?: DouyinVideo[]
+}
+
+/** What the Hongguo app asks of Hongguo's web player (`westplay_host::hongguo::Command`). */
+export type HongguoCommand =
+  | { action: 'start' }
+  | { action: 'signIn' }
+  | { action: 'signOut' }
+  | { action: 'play'; drama?: HongguoDrama; episode?: number }
+  | { action: 'pause' }
+  | { action: 'toggle' }
+  | { action: 'next' }
+  | { action: 'previous' }
+  | { action: 'seek'; seconds: number }
+  | { action: 'volume'; percent: number }
+  | { action: 'selectEpisode'; episode: number }
+  | { action: 'setSpeed'; speed: number }
+  | { action: 'toggleAutoNext' }
+  | { action: 'ask'; id: number; question: HongguoQuestion }
+
+export type HongguoQuestion =
+  | { ask: 'catalog' }
+  | { ask: 'featured' }
+  | { ask: 'search'; query: string }
+  | { ask: 'episodes'; dramaId: string }
+
+export interface HongguoDrama {
+  id: string
+  title: string
+  category?: string
+  author?: string
+  cover?: string
+  totalEpisodes: number
+  episodesCount?: number
+  synopsis?: string
+  description?: string
+}
+
+export interface HongguoEpisode {
+  episode: number
+  title: string
+  duration?: number
+  url?: string
+}
+
+export interface HongguoPlayback {
+  dramaId?: string
+  title: string
+  dramaTitle?: string
+  artist?: string
+  author?: string
+  episodeTitle?: string
+  episode?: number
+  episodeNumber?: number
+  totalEpisodes?: number
+  artwork?: string
+  duration: number
+  position: number
+  status: string
+  speed?: number
+  autoNext?: boolean
+}
+
+export interface HongguoAnswers {
+  dramas?: HongguoDrama[]
+  episodes?: HongguoEpisode[]
 }
 
 /** What the Music app asks of Apple Music's web player (`westplay_host::apple_music::Command`), run hidden by

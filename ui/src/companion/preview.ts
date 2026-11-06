@@ -105,6 +105,8 @@ const accounts = {
   appleMusic: false as boolean | null,
   bilibili: false as boolean | null,
   ximalaya: false as boolean | null,
+  douyin: false as boolean | null,
+  hongguo: false as boolean | null,
   netease: false as boolean | null,
   signingIn: '',
 }
@@ -158,6 +160,10 @@ function status(): HostStatus {
     bilibiliSigningIn: accounts.signingIn === 'bilibili',
     ximalayaSignedIn: accounts.ximalaya,
     ximalayaSigningIn: accounts.signingIn === 'ximalaya',
+    douyinSignedIn: accounts.douyin,
+    douyinSigningIn: accounts.signingIn === 'douyin',
+    hongguoSignedIn: accounts.hongguo,
+    hongguoSigningIn: accounts.signingIn === 'hongguo',
     neteaseSignedIn: accounts.netease,
     neteaseSigningIn: accounts.signingIn === 'netease',
     map,
@@ -212,7 +218,7 @@ function setLook(change: Partial<Settings['look']>) {
 const later = <T>(value: T, ms = 300) => new Promise<T>((resolve) => setTimeout(() => resolve(value), ms))
 
 /** A sign-in: Google's, Apple's or domestic apps' window "open" a moment, then signed in. */
-function signIn(service: 'youtube' | 'appleMusic' | 'bilibili' | 'ximalaya' | 'netease') {
+function signIn(service: 'youtube' | 'appleMusic' | 'bilibili' | 'ximalaya' | 'douyin' | 'hongguo' | 'netease') {
   accounts.signingIn = service
   emit('host-status', status())
   setTimeout(() => {
@@ -344,6 +350,8 @@ export function answer(command: string, args?: Record<string, unknown>): Promise
     case 'apple_music_check':
     case 'bilibili_check':
     case 'ximalaya_check':
+    case 'douyin_check':
+    case 'hongguo_check':
     case 'netease_check':
       return later(undefined)
     case 'youtube_sign_in':
@@ -357,6 +365,12 @@ export function answer(command: string, args?: Record<string, unknown>): Promise
       return later(undefined)
     case 'ximalaya_sign_in':
       signIn('ximalaya')
+      return later(undefined)
+    case 'douyin_sign_in':
+      signIn('douyin')
+      return later(undefined)
+    case 'hongguo_sign_in':
+      signIn('hongguo')
       return later(undefined)
     case 'netease_sign_in':
       signIn('netease')
@@ -398,6 +412,18 @@ export function answer(command: string, args?: Record<string, unknown>): Promise
     case 'ximalaya_sign_out':
       setTimeout(() => {
         accounts.ximalaya = false
+        emit('host-status', status())
+      }, 1200)
+      return later(undefined)
+    case 'douyin_sign_out':
+      setTimeout(() => {
+        accounts.douyin = false
+        emit('host-status', status())
+      }, 1200)
+      return later(undefined)
+    case 'hongguo_sign_out':
+      setTimeout(() => {
+        accounts.hongguo = false
         emit('host-status', status())
       }, 1200)
       return later(undefined)

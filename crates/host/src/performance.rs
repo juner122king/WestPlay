@@ -53,6 +53,8 @@ pub enum Profile {
     AppleMusic,
     Bilibili,
     Ximalaya,
+    Douyin,
+    Hongguo,
     NetEase,
 }
 
@@ -293,6 +295,8 @@ fn parts_of(
             let part = match profile {
                 Profile::Bilibili => "Bilibili",
                 Profile::Ximalaya => "Ximalaya",
+                Profile::Douyin => "Douyin",
+                Profile::Hongguo => "Hongguo",
                 Profile::NetEase => "NetEase",
                 Profile::AppleMusic => "Apple Music",
                 Profile::Cab => match kind {

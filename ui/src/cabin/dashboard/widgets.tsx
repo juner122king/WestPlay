@@ -23,6 +23,18 @@ import {
   useXimalayaSource,
 } from '../apps/ximalaya/ximalaya'
 import {
+  playOrPause as playOrPauseDouyin,
+  skip as skipDouyin,
+  useDouyin,
+  useDouyinSource,
+} from '../apps/douyin/douyin'
+import {
+  playOrPause as playOrPauseHongguo,
+  skip as skipHongguo,
+  useHongguo,
+  useHongguoSource,
+} from '../apps/hongguo/hongguo'
+import {
   playOrPause as playOrPauseNetease,
   skip as skipNetease,
   useNetease,
@@ -49,12 +61,14 @@ import { cabClock } from '../../shared/host'
  */
 export function NowPlayingWidget() {
   const shown = useCabin((state) => state.dashboardWidgets.nowPlaying)
-  const { showing, bilibili, ximalaya, netease, appleMusic, player } = useNowPlaying()
+  const { showing, bilibili, ximalaya, douyin, hongguo, netease, appleMusic, player } = useNowPlaying()
   return (
     <div className={`widget-slot${shown ? ' open' : ''}`}>
       {shown && showing === 'video' && <VideoWidget />}
       {shown && showing === 'bilibili' && bilibili && <BilibiliWidget bilibili={bilibili} />}
       {shown && showing === 'ximalaya' && ximalaya && <XimalayaWidget ximalaya={ximalaya} />}
+      {shown && showing === 'douyin' && douyin && <DouyinWidget douyin={douyin} />}
+      {shown && showing === 'hongguo' && hongguo && <HongguoWidget hongguo={hongguo} />}
       {shown && showing === 'netease' && netease && <NeteaseWidget netease={netease} />}
       {shown && showing === 'appleMusic' && appleMusic && <AppleMusicWidget appleMusic={appleMusic} />}
       {shown && showing === 'player' && player && <PlayerWidget player={player} />}
@@ -115,6 +129,44 @@ function XimalayaWidget({ ximalaya }: { ximalaya: NonNullable<ReturnType<typeof 
         if (action === 'playPause') playOrPauseXimalaya()
         else if (action === 'next') skipXimalaya(1)
         else if (action === 'previous') skipXimalaya(-1)
+      }}
+    />
+  )
+}
+
+/** Douyin short video audio: what plays, its controls, opening Douyin on Now Playing. */
+function DouyinWidget({ douyin }: { douyin: NonNullable<ReturnType<typeof useDouyinSource>> }) {
+  return (
+    <MusicWidget
+      source={douyin.source}
+      artwork={douyin.artwork}
+      onOpen={() => {
+        useDouyin.setState({ nowPlaying: true })
+        go({ type: 'openApp', app: 'douyin' })
+      }}
+      onControl={(action) => {
+        if (action === 'playPause') playOrPauseDouyin()
+        else if (action === 'next') skipDouyin(1)
+        else if (action === 'previous') skipDouyin(-1)
+      }}
+    />
+  )
+}
+
+/** Hongguo short drama audio: what plays, its controls, opening Hongguo on Now Playing. */
+function HongguoWidget({ hongguo }: { hongguo: NonNullable<ReturnType<typeof useHongguoSource>> }) {
+  return (
+    <MusicWidget
+      source={hongguo.source}
+      artwork={hongguo.artwork}
+      onOpen={() => {
+        useHongguo.setState({ nowPlaying: true })
+        go({ type: 'openApp', app: 'hongguo' })
+      }}
+      onControl={(action) => {
+        if (action === 'playPause') playOrPauseHongguo()
+        else if (action === 'next') skipHongguo(1)
+        else if (action === 'previous') skipHongguo(-1)
       }}
     />
   )

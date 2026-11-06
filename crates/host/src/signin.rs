@@ -86,6 +86,24 @@ pub const XIMALAYA: Site = Site {
     page_says: Some(include_str!("ximalaya_sign_in.js")),
 };
 
+/// Douyin's sign-in with desktop QR code/SMS.
+pub const DOUYIN: Site = Site {
+    sign_in: "https://www.douyin.com/",
+    title: "Sign in to Douyin - WestPlay",
+    home: "https://www.douyin.com/",
+    not_yet: None,
+    page_says: Some(include_str!("douyin_sign_in.js")),
+};
+
+/// Hongguo's sign-in with desktop QR code/SMS.
+pub const HONGGUO: Site = Site {
+    sign_in: "https://www.hongguoduanju.com/",
+    title: "Sign in to Hongguo - WestPlay",
+    home: "https://www.hongguoduanju.com/",
+    not_yet: None,
+    page_says: Some(include_str!("hongguo_sign_in.js")),
+};
+
 /// NetEase Cloud Music's sign-in with desktop QR code.
 pub const NETEASE: Site = Site {
     sign_in: "https://music.163.com/#/login",

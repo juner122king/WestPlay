@@ -122,6 +122,36 @@ fn ximalaya_check(accounts: State<Accounts>) {
 }
 
 #[tauri::command]
+fn douyin_sign_in(accounts: State<Accounts>) {
+    accounts.0.douyin.request(AccountAction::SignIn);
+}
+
+#[tauri::command]
+fn douyin_sign_out(accounts: State<Accounts>) {
+    accounts.0.douyin.request(AccountAction::SignOut);
+}
+
+#[tauri::command]
+fn douyin_check(accounts: State<Accounts>) {
+    accounts.0.douyin.request(AccountAction::Check);
+}
+
+#[tauri::command]
+fn hongguo_sign_in(accounts: State<Accounts>) {
+    accounts.0.hongguo.request(AccountAction::SignIn);
+}
+
+#[tauri::command]
+fn hongguo_sign_out(accounts: State<Accounts>) {
+    accounts.0.hongguo.request(AccountAction::SignOut);
+}
+
+#[tauri::command]
+fn hongguo_check(accounts: State<Accounts>) {
+    accounts.0.hongguo.request(AccountAction::Check);
+}
+
+#[tauri::command]
 fn netease_sign_in(accounts: State<Accounts>) {
     accounts.0.netease.request(AccountAction::SignIn);
 }
@@ -250,6 +280,12 @@ fn main() {
             ximalaya_sign_in,
             ximalaya_sign_out,
             ximalaya_check,
+            douyin_sign_in,
+            douyin_sign_out,
+            douyin_check,
+            hongguo_sign_in,
+            hongguo_sign_out,
+            hongguo_check,
             netease_sign_in,
             netease_sign_out,
             netease_check,

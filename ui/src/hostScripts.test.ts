@@ -3,6 +3,10 @@ import appleMusic from '../../crates/host/src/apple_music.js?raw'
 import appleMusicSignIn from '../../crates/host/src/apple_music_sign_in.js?raw'
 import bilibili from '../../crates/host/src/bilibili.js?raw'
 import bilibiliSignIn from '../../crates/host/src/bilibili_sign_in.js?raw'
+import douyin from '../../crates/host/src/douyin.js?raw'
+import douyinSignIn from '../../crates/host/src/douyin_sign_in.js?raw'
+import hongguo from '../../crates/host/src/hongguo.js?raw'
+import hongguoSignIn from '../../crates/host/src/hongguo_sign_in.js?raw'
 import cabSound from '../../crates/host/src/cab_sound.js?raw'
 import netease from '../../crates/host/src/netease.js?raw'
 import neteaseSignIn from '../../crates/host/src/netease_sign_in.js?raw'
@@ -23,6 +27,10 @@ const AS_RUN: Record<string, string[]> = {
   "Bilibili's sign-in": [bilibiliSignIn],
   Ximalaya: [cabSound, ximalaya],
   "Ximalaya's sign-in": [ximalayaSignIn],
+  Douyin: [cabSound, douyin],
+  "Douyin's sign-in": [douyinSignIn],
+  Hongguo: [cabSound, hongguo],
+  "Hongguo's sign-in": [hongguoSignIn],
   NetEase: [cabSound, netease],
   "NetEase's sign-in": [neteaseSignIn],
 }

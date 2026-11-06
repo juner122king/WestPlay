@@ -35,6 +35,12 @@ export interface HostStatus {
   /** Whether Ximalaya is signed in (`null`: not known yet), and whether its sign-in window is open. */
   ximalayaSignedIn: boolean | null
   ximalayaSigningIn: boolean
+  /** Whether Douyin is signed in (`null`: not known yet), and whether its sign-in window is open. */
+  douyinSignedIn: boolean | null
+  douyinSigningIn: boolean
+  /** Whether Hongguo is signed in (`null`: not known yet), and whether its sign-in window is open. */
+  hongguoSignedIn: boolean | null
+  hongguoSigningIn: boolean
   /** Whether NetEase Cloud Music is signed in (`null`: not known yet), and whether its sign-in window is open. */
   neteaseSignedIn: boolean | null
   neteaseSigningIn: boolean
@@ -149,6 +155,36 @@ export function ximalayaSignOut(): Promise<void> {
 /** Runs Ximalaya's web player (hidden), so the status says whether it's signed in. */
 export function ximalayaCheck(): Promise<void> {
   return call('ximalaya_check')
+}
+
+/** Opens Douyin's sign-in in a window on the desktop. */
+export function douyinSignIn(): Promise<void> {
+  return call('douyin_sign_in')
+}
+
+/** Signs Douyin out. */
+export function douyinSignOut(): Promise<void> {
+  return call('douyin_sign_out')
+}
+
+/** Runs Douyin (hidden), so the status says whether it's signed in. */
+export function douyinCheck(): Promise<void> {
+  return call('douyin_check')
+}
+
+/** Opens Hongguo's sign-in in a window on the desktop. */
+export function hongguoSignIn(): Promise<void> {
+  return call('hongguo_sign_in')
+}
+
+/** Signs Hongguo out. */
+export function hongguoSignOut(): Promise<void> {
+  return call('hongguo_sign_out')
+}
+
+/** Runs Hongguo (hidden), so the status says whether it's signed in. */
+export function hongguoCheck(): Promise<void> {
+  return call('hongguo_check')
 }
 
 /** Opens NetEase Cloud Music's sign-in in a window on the desktop. */

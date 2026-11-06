@@ -25,6 +25,8 @@ mod play_log;
 mod player;
 mod pointer;
 mod bilibili;
+mod douyin;
+mod hongguo;
 mod netease;
 pub mod route;
 mod route_change;
@@ -113,6 +115,10 @@ pub struct Status {
     pub bilibili_signing_in: bool,
     pub ximalaya_signed_in: Option<bool>,
     pub ximalaya_signing_in: bool,
+    pub douyin_signed_in: Option<bool>,
+    pub douyin_signing_in: bool,
+    pub hongguo_signed_in: Option<bool>,
+    pub hongguo_signing_in: bool,
     pub netease_signed_in: Option<bool>,
     pub netease_signing_in: bool,
     /// The map of the profile played: ready, being built, waiting for the game to close...
@@ -134,6 +140,8 @@ pub struct AccountRequests {
     pub apple_music: AccountRequest,
     pub bilibili: AccountRequest,
     pub ximalaya: AccountRequest,
+    pub douyin: AccountRequest,
+    pub hongguo: AccountRequest,
     pub netease: AccountRequest,
 }
 
@@ -396,6 +404,8 @@ pub fn run(mut config: Config, stop: Arc<AtomicBool>) -> Result<(), Error> {
     let mut apple_music_log = play_log::PlayLog::new("apple music");
     let mut bilibili_log = play_log::PlayLog::new("bilibili");
     let mut ximalaya_log = play_log::PlayLog::new("ximalaya");
+    let mut douyin_log = play_log::PlayLog::new("douyin");
+    let mut hongguo_log = play_log::PlayLog::new("hongguo");
     let mut netease_log = play_log::PlayLog::new("netease");
     let (mut youtube_window_open, mut youtube_confirming) = (false, false);
     // Apple Music's web player.
@@ -413,6 +423,16 @@ pub fn run(mut config: Config, stop: Arc<AtomicBool>) -> Result<(), Error> {
     let mut ximalaya_state: Option<ximalaya::State> = None;
     let (mut ximalaya_window_open, ximalaya_confirming) = (false, false);
     let mut ximalaya_playback: Option<String> = None;
+    // Douyin's web player.
+    let mut douyin: Option<douyin::Douyin> = None;
+    let mut douyin_state: Option<douyin::State> = None;
+    let (mut douyin_window_open, douyin_confirming) = (false, false);
+    let mut douyin_playback: Option<String> = None;
+    // Hongguo's web player.
+    let mut hongguo: Option<hongguo::Hongguo> = None;
+    let mut hongguo_state: Option<hongguo::State> = None;
+    let (mut hongguo_window_open, hongguo_confirming) = (false, false);
+    let mut hongguo_playback: Option<String> = None;
     // NetEase Cloud Music's web player.
     let mut netease: Option<netease::Netease> = None;
     let mut netease_state: Option<netease::State> = None;
@@ -518,6 +538,24 @@ pub fn run(mut config: Config, stop: Arc<AtomicBool>) -> Result<(), Error> {
                 AccountAction::SignIn => ximalaya::Command::SignIn,
                 AccountAction::SignOut => ximalaya::Command::SignOut,
                 AccountAction::Check => ximalaya::Command::Start,
+            });
+        }
+        if let Some(action) = config.accounts.douyin.take()
+            && let Some(player) = start_douyin(&mut douyin, &stage, &config)
+        {
+            player.command(&match action {
+                AccountAction::SignIn => douyin::Command::SignIn,
+                AccountAction::SignOut => douyin::Command::SignOut,
+                AccountAction::Check => douyin::Command::Start,
+            });
+        }
+        if let Some(action) = config.accounts.hongguo.take()
+            && let Some(player) = start_hongguo(&mut hongguo, &stage, &config)
+        {
+            player.command(&match action {
+                AccountAction::SignIn => hongguo::Command::SignIn,
+                AccountAction::SignOut => hongguo::Command::SignOut,
+                AccountAction::Check => hongguo::Command::Start,
             });
         }
         if let Some(action) = config.accounts.netease.take()
@@ -655,6 +693,12 @@ pub fn run(mut config: Config, stop: Arc<AtomicBool>) -> Result<(), Error> {
                 }
                 if let Some(ximalaya) = &ximalaya {
                     profiles.push((performance::Profile::Ximalaya, ximalaya.view().environment()));
+                }
+                if let Some(douyin) = &douyin {
+                    profiles.push((performance::Profile::Douyin, douyin.view().environment()));
+                }
+                if let Some(hongguo) = &hongguo {
+                    profiles.push((performance::Profile::Hongguo, hongguo.view().environment()));
                 }
                 if let Some(netease) = &netease {
                     profiles.push((performance::Profile::NetEase, netease.view().environment()));
@@ -855,6 +899,22 @@ pub fn run(mut config: Config, stop: Arc<AtomicBool>) -> Result<(), Error> {
                             let _ = webview.post_json(playback);
                         }
                     }
+                    if douyin.is_some() {
+                        let signing_in = douyin_window_open || douyin_confirming;
+                        let message = douyin::state_message(douyin_state.as_ref(), signing_in);
+                        let _ = webview.post_json(&message);
+                        if let Some(playback) = &douyin_playback {
+                            let _ = webview.post_json(playback);
+                        }
+                    }
+                    if hongguo.is_some() {
+                        let signing_in = hongguo_window_open || hongguo_confirming;
+                        let message = hongguo::state_message(hongguo_state.as_ref(), signing_in);
+                        let _ = webview.post_json(&message);
+                        if let Some(playback) = &hongguo_playback {
+                            let _ = webview.post_json(playback);
+                        }
+                    }
                     if netease.is_some() {
                         let signing_in = netease_window_open || netease_confirming;
                         let message = netease::state_message(netease_state.as_ref(), signing_in);
@@ -948,6 +1008,20 @@ pub fn run(mut config: Config, stop: Arc<AtomicBool>) -> Result<(), Error> {
                     if ximalaya.is_none() && matches!(command, ximalaya::Command::Pause) {
                         // Nothing to pause.
                     } else if let Some(player) = start_ximalaya(&mut ximalaya, &stage, &config) {
+                        player.command(&command);
+                    }
+                }
+                Some(PageMessage::Douyin { command }) => {
+                    if douyin.is_none() && matches!(command, douyin::Command::Pause) {
+                        // Nothing to pause.
+                    } else if let Some(player) = start_douyin(&mut douyin, &stage, &config) {
+                        player.command(&command);
+                    }
+                }
+                Some(PageMessage::Hongguo { command }) => {
+                    if hongguo.is_none() && matches!(command, hongguo::Command::Pause) {
+                        // Nothing to pause.
+                    } else if let Some(player) = start_hongguo(&mut hongguo, &stage, &config) {
                         player.command(&command);
                     }
                 }
@@ -1329,6 +1403,98 @@ pub fn run(mut config: Config, stop: Arc<AtomicBool>) -> Result<(), Error> {
             }
         }
 
+        // What Douyin says.
+        if let Some(player) = &douyin {
+            let mut state_changed = false;
+            for report in player.take_reports() {
+                match report {
+                    douyin::Report::Spectrum(bars) => {
+                        let _ = webview.post_json(&speakers::spectrum_message(&bars));
+                    }
+                    douyin::Report::State(state) => {
+                        if status.douyin_signed_in != Some(state.signed_in) {
+                            status.douyin_signed_in = Some(state.signed_in);
+                            (config.on_status)(&status);
+                        }
+                        douyin_state = Some(state);
+                        state_changed = true;
+                    }
+                    douyin::Report::SignInWindow(open) => {
+                        douyin_window_open = open;
+                        status.douyin_signing_in = douyin_window_open || douyin_confirming;
+                        (config.on_status)(&status);
+                        state_changed = true;
+                    }
+                    douyin::Report::Answer(answer) => {
+                        let _ = webview.post_json(&douyin::answer_message(&answer));
+                    }
+                    douyin::Report::Playback(playback) => {
+                        let heard = playback.as_ref().map(|pb| play_log::Heard {
+                            doing: if pb.status == "playing" { play_log::Doing::Playing } else { play_log::Doing::Paused },
+                            track: Some(pb.title.as_str()),
+                            position: pb.position,
+                        });
+                        if let Some(line) = douyin_log.heard(heard) {
+                            log!("{line}");
+                        }
+                        let message = douyin::playback_message(playback.as_ref());
+                        let _ = webview.post_json(&message);
+                        douyin_playback = Some(message);
+                    }
+                }
+            }
+            if state_changed {
+                let signing_in = douyin_window_open || douyin_confirming;
+                let _ = webview.post_json(&douyin::state_message(douyin_state.as_ref(), signing_in));
+            }
+        }
+
+        // What Hongguo says.
+        if let Some(player) = &hongguo {
+            let mut state_changed = false;
+            for report in player.take_reports() {
+                match report {
+                    hongguo::Report::Spectrum(bars) => {
+                        let _ = webview.post_json(&speakers::spectrum_message(&bars));
+                    }
+                    hongguo::Report::State(state) => {
+                        if status.hongguo_signed_in != Some(state.signed_in) {
+                            status.hongguo_signed_in = Some(state.signed_in);
+                            (config.on_status)(&status);
+                        }
+                        hongguo_state = Some(state);
+                        state_changed = true;
+                    }
+                    hongguo::Report::SignInWindow(open) => {
+                        hongguo_window_open = open;
+                        status.hongguo_signing_in = hongguo_window_open || hongguo_confirming;
+                        (config.on_status)(&status);
+                        state_changed = true;
+                    }
+                    hongguo::Report::Answer(answer) => {
+                        let _ = webview.post_json(&hongguo::answer_message(&answer));
+                    }
+                    hongguo::Report::Playback(playback) => {
+                        let heard = playback.as_ref().map(|pb| play_log::Heard {
+                            doing: if pb.status == "playing" { play_log::Doing::Playing } else { play_log::Doing::Paused },
+                            track: Some(pb.title.as_str()),
+                            position: pb.position,
+                        });
+                        if let Some(line) = hongguo_log.heard(heard) {
+                            log!("{line}");
+                        }
+                        let message = hongguo::playback_message(playback.as_ref());
+                        let _ = webview.post_json(&message);
+                        hongguo_playback = Some(message);
+                    }
+                }
+            }
+            if state_changed {
+                let signing_in = hongguo_window_open || hongguo_confirming;
+                let _ = webview.post_json(&hongguo::state_message(hongguo_state.as_ref(), signing_in));
+            }
+        }
+
         // What NetEase Cloud Music says.
         if let Some(player) = &netease {
             let mut state_changed = false;
@@ -1558,6 +1724,12 @@ pub fn run(mut config: Config, stop: Arc<AtomicBool>) -> Result<(), Error> {
                 let _ = player.cab(truck_speakers, head, outside, distance, equalizer, spectrum);
             }
             if let Some(player) = &ximalaya {
+                let _ = player.cab(truck_speakers, head, outside, distance, equalizer, spectrum);
+            }
+            if let Some(player) = &douyin {
+                let _ = player.cab(truck_speakers, head, outside, distance, equalizer, spectrum);
+            }
+            if let Some(player) = &hongguo {
                 let _ = player.cab(truck_speakers, head, outside, distance, equalizer, spectrum);
             }
             if let Some(player) = &netease {
@@ -2074,6 +2246,42 @@ fn start_ximalaya<'a>(
     ximalaya.as_ref()
 }
 
+fn start_douyin<'a>(
+    douyin: &'a mut Option<douyin::Douyin>,
+    stage: &Stage,
+    config: &Config,
+) -> Option<&'a douyin::Douyin> {
+    if douyin.is_none() {
+        let user_data = config.data_dir.join("webview2-douyin");
+        match douyin::Douyin::start(stage, config.width, config.height, &user_data) {
+            Ok(started) => {
+                log!("[douyin] opened");
+                *douyin = Some(started)
+            }
+            Err(e) => startup::mark(&format!("host: Douyin couldn't start: {e}")),
+        }
+    }
+    douyin.as_ref()
+}
+
+fn start_hongguo<'a>(
+    hongguo: &'a mut Option<hongguo::Hongguo>,
+    stage: &Stage,
+    config: &Config,
+) -> Option<&'a hongguo::Hongguo> {
+    if hongguo.is_none() {
+        let user_data = config.data_dir.join("webview2-hongguo");
+        match hongguo::Hongguo::start(stage, config.width, config.height, &user_data) {
+            Ok(started) => {
+                log!("[hongguo] opened");
+                *hongguo = Some(started)
+            }
+            Err(e) => startup::mark(&format!("host: Hongguo couldn't start: {e}")),
+        }
+    }
+    hongguo.as_ref()
+}
+
 fn start_netease<'a>(
     netease: &'a mut Option<netease::Netease>,
     stage: &Stage,
@@ -2188,6 +2396,10 @@ enum PageMessage {
     Bilibili { command: bilibili::Command },
     /// A command for Ximalaya (`ximalaya`): its sign-in, a question, its controls.
     Ximalaya { command: ximalaya::Command },
+    /// A command for Douyin (`douyin`): its sign-in, a question, its controls.
+    Douyin { command: douyin::Command },
+    /// A command for Hongguo (`hongguo`): its sign-in, a question, its controls.
+    Hongguo { command: hongguo::Command },
     /// A command for NetEase Cloud Music (`netease`): its sign-in, a question, its controls.
     Netease { command: netease::Command },
     /// A command for Player's own player (`player`): what to play from the music folder, its controls.

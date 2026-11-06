@@ -484,6 +484,8 @@ export const strings: Strings = {
     bilibili: '哔哩哔哩',
     ximalaya: '喜马拉雅',
     netease: '网易云音乐',
+    douyin: '抖音',
+    hongguo: '红果短剧',
     youtube: 'YouTube',
     player: 'Player',
     podcasts: '播客',

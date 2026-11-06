@@ -5,6 +5,8 @@ import { keybinds } from './apps/keybinds'
 import { oneAtATime } from './apps/oneAtATime'
 import { bilibiliPlayer, pauseBilibiliWithGame } from './apps/bilibili/pauseWithGame'
 import { pauseXimalayaWithGame, ximalayaPlayer } from './apps/ximalaya/pauseWithGame'
+import { douyinPlayer, pauseDouyinWithGame } from './apps/douyin/pauseWithGame'
+import { hongguoPlayer, pauseHongguoWithGame } from './apps/hongguo/pauseWithGame'
 import { neteasePlayer, pauseNeteaseWithGame } from './apps/netease/pauseWithGame'
 import { pauseYouTubeWithGame, youtubePlayer } from './apps/youtube/pauseWithGame'
 import { pausePlayerWithGame, playerAppPlayer } from './apps/player/pauseWithGame'
@@ -32,19 +34,30 @@ import { followTimeZone } from './state/timeZone'
 const FOLLOW_POWER = isInHost() || new URLSearchParams(location.search).has('power')
 
 /** The cab's music players. */
-const PLAYERS = [youtubePlayer, neteasePlayer, bilibiliPlayer, ximalayaPlayer, appleMusicPlayer, playerAppPlayer]
+const PLAYERS = [
+  youtubePlayer,
+  neteasePlayer,
+  bilibiliPlayer,
+  ximalayaPlayer,
+  douyinPlayer,
+  hongguoPlayer,
+  appleMusicPlayer,
+  playerAppPlayer,
+]
 
 /** The in-cabin screen: the shell around the screen for the current route, after the boot sequence. */
 export function CabinApp() {
   const route = useCabin((state) => state.navigation.route)
   const phase = useCabin((state) => state.power.phase)
   useEffect(() => connectHost(), [])
-  // YouTube, NetEase, Bilibili, Ximalaya, Apple Music and Player pause with the game (its menu, tabbing out) and play
+  // YouTube, NetEase, Bilibili, Ximalaya, Douyin, Hongguo, Apple Music and Player pause with the game (its menu, tabbing out) and play
   // on after.
   useEffect(() => pauseYouTubeWithGame(), [])
   useEffect(() => pauseNeteaseWithGame(), [])
   useEffect(() => pauseBilibiliWithGame(), [])
   useEffect(() => pauseXimalayaWithGame(), [])
+  useEffect(() => pauseDouyinWithGame(), [])
+  useEffect(() => pauseHongguoWithGame(), [])
   useEffect(() => pauseAppleMusicWithGame(), [])
   useEffect(() => pausePlayerWithGame(), [])
   // One of them at a time: the newest to start plays on, the others pause (apps/oneAtATime.ts).

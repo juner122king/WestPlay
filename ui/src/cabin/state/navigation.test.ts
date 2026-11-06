@@ -14,12 +14,31 @@ describe('navigate', () => {
   it('opens an app and moves it to the front of the recents', () => {
     const state = navigate(INITIAL_NAVIGATION, { type: 'openApp', app: 'youtube' })
     expect(state.route).toEqual({ kind: 'app', app: 'youtube' })
-    expect(state.recents).toEqual(['youtube', 'maps', 'music', 'netease', 'bilibili', 'ximalaya'])
+    expect(state.recents).toEqual([
+      'youtube',
+      'maps',
+      'music',
+      'netease',
+      'bilibili',
+      'ximalaya',
+      'douyin',
+      'hongguo',
+    ])
   })
 
   it('adds a new app to the recents, keeping every app used', () => {
     const state = navigate(INITIAL_NAVIGATION, { type: 'openApp', app: 'settings' })
-    expect(state.recents).toEqual(['settings', 'maps', 'music', 'netease', 'bilibili', 'ximalaya', 'youtube'])
+    expect(state.recents).toEqual([
+      'settings',
+      'maps',
+      'music',
+      'netease',
+      'bilibili',
+      'ximalaya',
+      'douyin',
+      'hongguo',
+      'youtube',
+    ])
     expect(RECENTS_LIMIT).toBe(APP_IDS.length)
   })
 

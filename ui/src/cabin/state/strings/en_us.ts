@@ -482,6 +482,8 @@ export const strings: Strings = {
     bilibili: 'Bilibili',
     ximalaya: 'Ximalaya',
     netease: 'NetEase Music',
+    douyin: 'Douyin',
+    hongguo: 'Hongguo',
     youtube: 'YouTube',
     player: 'Player',
     podcasts: 'Podcasts',
