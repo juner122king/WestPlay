@@ -48,7 +48,8 @@
       "icons/icon.ico"
     ],
     "resources": {
-      "../ui/dist/": "ui/"
+      "../ui/dist/": "ui/",
+      "../target/release/westplay.dll": "westplay.dll"
     }
   },
   "plugins": {
