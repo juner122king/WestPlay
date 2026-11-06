@@ -48,12 +48,8 @@ describe('useKeyboard', () => {
     expect(useKeyboard.getState().field).toBeNull()
   })
 
-  it("starts in the game's language, and keeps the one the player switches to", () => {
-    useKeyboard.getState().attach(fakeField('a').typing, 'tr')
-    expect(useKeyboard.getState().keys.language).toBe('tr')
-    useKeyboard.getState().press({ kind: 'globe' })
-    useKeyboard.getState().detach('a')
-    useKeyboard.getState().attach(fakeField('b').typing, 'tr')
+  it("starts in the game's language", () => {
+    useKeyboard.getState().attach(fakeField('a').typing, 'en')
     expect(useKeyboard.getState().keys.language).toBe('en')
   })
 
@@ -69,7 +65,7 @@ describe('useKeyboard', () => {
 
   it('types what the player types on their own keyboard', () => {
     const { field, typing } = fakeField('search')
-    useKeyboard.getState().attach(typing, 'tr')
+    useKeyboard.getState().attach(typing, 'en')
     const typed = useKeyboard.getState().typed
     typed({ text: 'Kok' })
     expect(useKeyboard.getState().flash?.char).toBe('k')

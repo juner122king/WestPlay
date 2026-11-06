@@ -4,7 +4,7 @@ import type { MapLabel } from '../maps/mapData'
 import { stringsFor } from '../state/strings'
 import { destinationView, formatDeadline, nearestCity } from './destination'
 
-const text = stringsFor('en_gb')
+const text = stringsFor('en_us')
 // Thursday (day 3), 14:00.
 const now = 3 * 1440 + 14 * 60
 const telemetry = { gameTime: now, navigationDistance: 214_000, navigationTime: 3 * 3600 } as Telemetry
@@ -104,11 +104,11 @@ describe('destinationView', () => {
 describe('helpers', () => {
   it('gives a deadline its day only when it is not today', () => {
     expect(formatDeadline(now + 60, now, text.days)).toBe('15:00')
-    expect(formatDeadline(now + 2 * 1440, now, stringsFor('tr_tr').days)).toBe('Cmt 14:00')
+    expect(formatDeadline(now + 2 * 1440, now, stringsFor('zh_cn').days)).toBe('周六 14:00')
     // In 12-hour time, each language's way.
     const twelve = (language: string) => ({ hours24: false, period: stringsFor(language).timeOfDay })
-    expect(formatDeadline(now + 60, now, text.days, twelve('en_gb'))).toBe('3:00 PM')
-    expect(formatDeadline(now + 2 * 1440 - 4 * 60, now, stringsFor('tr_tr').days, twelve('tr_tr'))).toBe('Cmt ÖÖ 10:00')
+    expect(formatDeadline(now + 60, now, text.days, twelve('en_us'))).toBe('3:00 PM')
+    expect(formatDeadline(now + 2 * 1440 - 4 * 60, now, stringsFor('zh_cn').days, twelve('zh_cn'))).toBe('周六 上午10:00')
   })
 
   it('finds the nearest city, by the name the map shows', () => {

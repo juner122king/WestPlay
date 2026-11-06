@@ -17,11 +17,7 @@
         "installerHooks": "installer/hooks.nsh",
         "displayLanguageSelector": false,
         "languages": [
-          "English", "Turkish", "German", "French", "Spanish", "SpanishInternational", "Italian", "PortugueseBR",
-          "Portuguese", "Dutch", "Polish", "Russian", "Ukrainian", "Czech", "Slovak", "Bulgarian", "Croatian",
-          "Slovenian", "Serbian", "SerbianLatin", "Macedonian", "Danish", "Swedish", "Norwegian", "Finnish",
-          "Estonian", "Latvian", "Lithuanian", "Hungarian", "Romanian", "Greek", "Catalan", "Basque", "Galician",
-          "Georgian", "Japanese", "Korean", "SimpChinese", "TradChinese", "Vietnamese"
+          "English", "SimpChinese"
         ]
       }
     }

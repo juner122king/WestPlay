@@ -190,49 +190,10 @@ const WORDS: Record<string, Words> = Object.fromEntries(
   ),
 )
 
-/** The game's language codes, for a language Windows shows (BCP 47): its region or script decides between a
- * language's variants, as the game has them. */
-const BY_LANGUAGE: Record<string, string | ((tag: string) => string)> = {
-  bg: 'bg_bg',
-  ca: 'ca_es',
-  cs: 'cs_cz',
-  da: 'da_dk',
-  de: 'de_de',
-  el: 'el_gr',
-  en: (tag) => (/-(us|ph|um|as|gu|pr|vi)\b/i.test(tag) || tag.toLowerCase() === 'en' ? 'en_us' : 'en_gb'),
-  es: (tag) => (/-(es|ad)\b/i.test(tag) || tag.toLowerCase() === 'es' ? 'es_es' : 'es_la'),
-  et: 'et_ee',
-  eu: 'eu_es',
-  fi: 'fi_fi',
-  fr: (tag) => (/-ca\b/i.test(tag) ? 'fr_ca' : 'fr_fr'),
-  gl: 'gl_es',
-  hr: 'hr_hr',
-  hu: 'hu_hu',
-  it: 'it_it',
-  ja: 'ja_jp',
-  ka: 'ka_ge',
-  ko: 'ko_kr',
-  lt: 'lt_lt',
-  lv: 'lv_lv',
-  mk: 'mk_mk',
-  nl: 'nl_nl',
-  nb: 'no_no',
-  nn: 'no_no',
-  no: 'no_no',
-  pl: 'pl_pl',
-  szl: 'pl_si',
-  pt: (tag) => (/-br\b/i.test(tag) ? 'pt_br' : 'pt_pt'),
-  ro: 'ro_ro',
-  ru: 'ru_ru',
-  sk: 'sk_sk',
-  sl: 'sl_sl',
-  // The game's `sr_sp` is Serbian in Latin letters, `sr_sr` in Cyrillic (Windows' default for Serbian).
-  sr: (tag) => (/-latn\b/i.test(tag) ? 'sr_sp' : 'sr_sr'),
-  sv: 'sv_se',
-  tr: 'tr_tr',
-  uk: 'uk_uk',
-  vi: 'vi_vn',
-  zh: (tag) => (/-(hant|tw|hk|mo)\b/i.test(tag) ? 'zh_tw' : 'zh_cn'),
+/** The game's language codes, for a language Windows shows (BCP 47). */
+const BY_LANGUAGE: Record<string, string> = {
+  zh: 'zh_cn',
+  en: 'en_us',
 }
 
 /** The game's code for the first of `tags` (Windows' languages, most preferred first) it has; `en_us`
@@ -240,8 +201,7 @@ const BY_LANGUAGE: Record<string, string | ((tag: string) => string)> = {
 export function languageOf(tags: readonly string[]): string {
   for (const tag of tags) {
     const known = BY_LANGUAGE[tag.split('-')[0].toLowerCase()]
-    const code = typeof known === 'function' ? known(tag) : known
-    if (code && WORDS[code]) return code
+    if (known && WORDS[known]) return known
   }
   return 'en_us'
 }
@@ -250,7 +210,8 @@ export function languageOf(tags: readonly string[]): string {
  * `config.cfg` was last set to), or Windows' for a game never started. */
 export function chosenLanguage(chosen: string | null | undefined, game: string | null): string {
   if (chosen && WORDS[chosen]) return chosen
-  return game ?? languageOf(navigator.languages)
+  if (game && WORDS[game]) return game
+  return languageOf(navigator.languages)
 }
 
 /** The words in the game's language `code` (English for one without). */

@@ -15,14 +15,7 @@ export function useText(): Strings {
 
 /** Google's own tags where they aren't a locale's language alone (YouTube's and YouTube Music's `hl`). */
 const GOOGLE_LANGUAGES: Record<string, string> = {
-  'en-GB': 'en-GB',
-  'es-419': 'es-419',
-  'fr-CA': 'fr-CA',
-  'pt-PT': 'pt-PT',
   'zh-Hans-CN': 'zh-CN',
-  'zh-Hant-TW': 'zh-TW',
-  'sr-Latn-RS': 'sr-Latn',
-  'nb-NO': 'no',
 }
 
 /** The language YouTube and YouTube Music are asked to answer in, for the cabin's locale (`de-DE`: `de`,
