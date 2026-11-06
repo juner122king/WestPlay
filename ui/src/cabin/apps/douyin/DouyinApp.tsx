@@ -37,7 +37,7 @@ export function DouyinApp() {
     )
   }
 
-  const activeVideo = videos[currentVideoIndex] ?? videos[0]
+  const activeVideo = videos[currentVideoIndex] ?? videos[0] ?? null
 
   return (
     <section className="app-panel douyin-app" aria-label="抖音">

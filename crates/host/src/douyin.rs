@@ -176,12 +176,10 @@ impl Douyin {
         let mut reports = std::mem::take(&mut *self.pending.borrow_mut());
 
         let progress = self.sign_in.borrow().as_ref().map(SignInWindow::progress);
-        if let Some(progress @ (Progress::SignedIn | Progress::Closed)) = progress {
+        if let Some(Progress::SignedIn | Progress::Closed) = progress {
             self.sign_in.borrow_mut().take();
             reports.push(Report::SignInWindow(false));
-            if progress == Progress::SignedIn {
-                let _ = self.view.navigate(HOME);
-            }
+            let _ = self.view.navigate(HOME);
         }
 
         for message in self.view.take_page_messages() {

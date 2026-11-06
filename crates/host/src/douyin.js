@@ -42,11 +42,31 @@
   }, 1000)
 
   let lastSignedIn = null
-  const checkStatus = () => {
-    const signedIn =
-      document.cookie.includes('sessionid') ||
-      document.cookie.includes('LOGIN_STATUS') ||
-      document.cookie.includes('passport_csrf_token')
+  let checkingAccount = false
+  const checkStatus = async () => {
+    const avatar = document.querySelector(
+      '[data-e2e="profile-avatar"], a[href*="/user/MS4wLjAB"], .avatar-component, img[class*="avatar"]'
+    )
+    const loginBtn = document.querySelector('[data-e2e="header-login-button"]')
+    let signedIn = Boolean(avatar && !loginBtn) || document.cookie.includes('LOGIN_STATUS=1')
+
+    if (!signedIn && !checkingAccount) {
+      checkingAccount = true
+      try {
+        const res = await fetch('https://www.douyin.com/passport/web/account/info/', { credentials: 'include' })
+        if (res.ok) {
+          const data = await res.json()
+          if (data && (data.message === 'success' || data?.data?.error_code === 0)) {
+            signedIn = true
+          }
+        }
+      } catch (e) {
+        // ignore
+      } finally {
+        checkingAccount = false
+      }
+    }
+
     if (signedIn !== lastSignedIn) {
       lastSignedIn = signedIn
       post({

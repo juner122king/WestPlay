@@ -44,8 +44,33 @@
   }, 1000)
 
   let lastSignedIn = null
-  const checkStatus = () => {
-    const signedIn = document.cookie.includes('MUSIC_U')
+  let checkingAccount = false
+  const checkStatus = async () => {
+    let signedIn = Boolean(
+      (window.GUser && window.GUser.userId > 0) ||
+      document.querySelector('a[href*="/user/home"]') ||
+      document.querySelector('a[href*="/u?id="]') ||
+      document.querySelector('.m-tophead img') ||
+      document.querySelector('.head.f-fl img')
+    )
+
+    if (!signedIn && !checkingAccount) {
+      checkingAccount = true
+      try {
+        const res = await fetch('https://music.163.com/api/nuser/account/get', { credentials: 'include' })
+        if (res.ok) {
+          const data = await res.json()
+          if (data && data.code === 200 && data.account && data.account.id) {
+            signedIn = true
+          }
+        }
+      } catch (e) {
+        // ignore
+      } finally {
+        checkingAccount = false
+      }
+    }
+
     if (signedIn !== lastSignedIn) {
       lastSignedIn = signedIn
       post({

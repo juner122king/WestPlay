@@ -52,9 +52,15 @@
 
   let lastSignedIn = null
   const checkStatus = () => {
+    const avatar = document.querySelector(
+      'img[class*="avatar"], div[class*="avatar"], [class*="user-info"], [class*="user-header"], a[href*="/user"]'
+    )
+    const loginButtons = Array.from(document.querySelectorAll('button, a, span')).filter(
+      (el) => el.textContent?.trim() === '登录' && el.offsetParent !== null
+    )
     const signedIn =
-      document.cookie.includes('sessionid') ||
-      document.cookie.includes('LOGIN_STATUS')
+      (Boolean(avatar) && loginButtons.length === 0) ||
+      document.cookie.includes('LOGIN_STATUS=1')
     if (signedIn !== lastSignedIn) {
       lastSignedIn = signedIn
       post({

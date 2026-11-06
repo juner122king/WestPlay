@@ -66,7 +66,7 @@ export const useDouyin = create<DouyinState>(() => ({
   signedIn: IN_HOST ? null : false,
   signingIn: false,
   playing: false,
-  videos: IN_HOST ? [] : MOCK_DOUYIN_VIDEOS,
+  videos: MOCK_DOUYIN_VIDEOS,
   currentVideoIndex: 0,
   playback: null,
   nowPlaying: false,

@@ -40,7 +40,7 @@ export function HongguoApp() {
     )
   }
 
-  const activeDrama = dramas.find((d) => d.id === currentDramaId) || dramas[0]
+  const activeDrama = dramas.find((d) => d.id === currentDramaId) ?? dramas[0] ?? null
   const episodes = Array.from(
     { length: Math.min(activeDrama ? activeDrama.totalEpisodes : 20, 40) },
     (_, i) => i + 1,
