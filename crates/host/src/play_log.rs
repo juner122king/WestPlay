@@ -148,7 +148,7 @@ mod tests {
         let mut log = PlayLog::new("netease");
         log.heard(heard(Doing::Playing, "a", 0.0));
         log.heard(heard(Doing::Playing, "a", 10.2));
-        assert_eq!(log.heard(None).as_deref(), Some("[spotify] stopped at 10 s"));
+        assert_eq!(log.heard(None).as_deref(), Some("[netease] stopped at 10 s"));
     }
 
     #[test]
