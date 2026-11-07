@@ -388,40 +388,151 @@ export type BilibiliCommand =
   | { action: 'start' }
   | { action: 'signIn' }
   | { action: 'signOut' }
-  | { action: 'play'; video?: BilibiliVideo }
+  | { action: 'play'; video?: BilibiliVideo; page?: number }
   | { action: 'pause' }
+  | { action: 'stop' }
   | { action: 'next' }
   | { action: 'previous' }
   | { action: 'seek'; seconds: number }
   | { action: 'volume'; percent: number }
+  | { action: 'quality'; quality: number }
+  | { action: 'rate'; rate: number }
+  | { action: 'danmaku'; on: boolean }
   | { action: 'show'; x: number; y: number; width: number; height: number; crop?: boolean }
   | { action: 'crop'; on: boolean }
   | { action: 'hide' }
   | { action: 'ask'; id: number; question: BilibiliQuestion }
 
-export type BilibiliQuestion = { ask: 'search'; query: string } | { ask: 'popular' } | { ask: 'recommend' }
+export type BilibiliQuestion =
+  | { ask: 'search'; query: string; page?: number; filter?: 'videos' | 'users' }
+  | { ask: 'suggest'; query: string }
+  | { ask: 'popular'; page?: number; freshIdx?: number }
+  | { ask: 'recommend'; page?: number; freshIdx?: number }
+  | { ask: 'feed'; which?: 'recommend' | 'popular' | 'dynamic'; page?: number; freshIdx?: number }
+  | { ask: 'channel'; mid: string; page?: number }
+  | { ask: 'playlist'; bvid: string }
+  | { ask: 'related'; bvid: string }
+  | { ask: 'subscribe'; mid: string; on: boolean }
+  | { ask: 'live'; parentAreaId?: number; page?: number }
+  | { ask: 'movie'; seasonType?: number; order?: number; page?: number }
 
 export interface BilibiliVideo {
   bvid: string
   title: string
   author: string
+  mid?: string
   cid?: number
-  artwork?: string
+  artwork?: string | null
   duration?: number
+  playCount?: string
+  pubdate?: string
   url?: string
+  roomId?: number
+  isLive?: boolean
+  seasonId?: number
+  epId?: number
+}
+
+export interface BilibiliMovieItem {
+  seasonId: number
+  title: string
+  subTitle?: string
+  cover?: string | null
+  badge?: string
+  score?: string
+  indexShow?: string
+  order?: string
+  link?: string
+  epId?: number
+}
+
+export interface BilibiliLiveRoom {
+  roomId: number
+  uid: number
+  title: string
+  uname: string
+  avatar?: string | null
+  cover?: string | null
+  areaName?: string
+  parentAreaName?: string
+  online?: string
+  isFollowing?: boolean
+}
+
+export interface BilibiliChannel {
+  mid: string
+  name: string
+  avatar?: string | null
+  banner?: string | null
+  sign?: string
+  fans?: string
+  videos?: string
+  subscribed?: boolean | null
+}
+
+export interface BilibiliDynamicAuthor {
+  mid: string
+  name: string
+  avatar?: string | null
+  pubTime: string
+  pubAction?: string | null
+}
+
+export interface BilibiliDynamicItem {
+  id: string
+  author: BilibiliDynamicAuthor
+  desc?: string | null
+  video?: BilibiliVideo | null
+  origAuthor?: string | null
+  origDesc?: string | null
+}
+
+export interface BilibiliVideoPage {
+  cid: number
+  page: number
+  part: string
+  duration?: number
+}
+
+export interface BilibiliQualityOption {
+  quality: number
+  label: string
 }
 
 export interface BilibiliPlayback {
+  bvid?: string | null
   title: string
   artist: string
-  artwork?: string
+  artwork?: string | null
+  mid?: string | null
   duration: number
   position: number
   status: string
+  quality?: number
+  qualities?: BilibiliQualityOption[]
+  rate?: number
+  danmaku?: boolean
+  page?: number
+  pages?: BilibiliVideoPage[]
+  isLive?: boolean
+  roomId?: number
+  seasonId?: number
+  epId?: number
 }
 
 export interface BilibiliAnswers {
   videos?: BilibiliVideo[]
+  dynamics?: BilibiliDynamicItem[]
+  liveRooms?: BilibiliLiveRoom[]
+  followingLiveRooms?: BilibiliLiveRoom[]
+  movies?: BilibiliMovieItem[]
+  channels?: BilibiliChannel[]
+  channel?: BilibiliChannel | null
+  suggestions?: string[]
+  pages?: BilibiliVideoPage[]
+  hasMore?: boolean
+  failed?: boolean
+  error?: string
 }
 
 /** What the Ximalaya app asks of Ximalaya's web player (`westplay_host::ximalaya::Command`). */
@@ -973,7 +1084,7 @@ export const IS_DEMO = typeof location !== 'undefined' && new URLSearchParams(lo
 
 /** Whether the page runs inside the WestPlay host (and not in a plain browser preview, nor as the demo). */
 export function isInHost(): boolean {
-  return !IS_DEMO && window.chrome?.webview !== undefined
+  return !IS_DEMO && typeof window !== 'undefined' && window.chrome?.webview !== undefined
 }
 
 /**
@@ -983,7 +1094,7 @@ export function isInHost(): boolean {
  * sent before this page (re)loaded was lost, and some state (like the truck) is only sent on change.
  */
 export function subscribeHostMessages(listener: (message: HostMessage) => void): () => void {
-  const webview = window.chrome?.webview
+  const webview = typeof window !== 'undefined' ? window.chrome?.webview : undefined
   if (!webview) return () => {}
   const onMessage = (event: { data: HostMessage }) => listener(event.data)
   webview.addEventListener('message', onMessage)

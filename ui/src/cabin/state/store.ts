@@ -602,9 +602,11 @@ function receiveHostMessage(now: () => number): (message: HostMessage) => void {
       case 'bilibili':
         receiveBilibiliState(message.signedIn, message.playing, message.signingIn)
         break
-      case 'bilibiliAnswer':
-        receiveBilibiliAnswer(message.id, message.failed, message.error, message.videos)
+      case 'bilibiliAnswer': {
+        const { type: _, id, ...answer } = message
+        receiveBilibiliAnswer(id, answer)
         break
+      }
       case 'bilibiliPlayback':
         receiveBilibiliPlayback(message.playback)
         break

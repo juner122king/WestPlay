@@ -1015,8 +1015,8 @@ pub fn run(mut config: Config, stop: Arc<AtomicBool>) -> Result<(), Error> {
                     }
                 }
                 Some(PageMessage::Bilibili { command }) => {
-                    if bilibili.is_none() && matches!(command, bilibili::Command::Pause | bilibili::Command::Hide) {
-                        // Nothing to pause or hide.
+                    if bilibili.is_none() && matches!(command, bilibili::Command::Pause | bilibili::Command::Hide | bilibili::Command::Stop) {
+                        // Nothing to pause, hide or stop.
                     } else if let Some(player) = start_bilibili(&mut bilibili, &stage, &config) {
                         let _ = player.command(&command);
                     }
@@ -1370,7 +1370,7 @@ pub fn run(mut config: Config, stop: Arc<AtomicBool>) -> Result<(), Error> {
                         }
                         let message = bilibili::playback_message(playback.as_ref());
                         let _ = webview.post_json(&message);
-                        bilibili_playback = Some(message);
+                        bilibili_playback = playback.as_ref().map(|_| message);
                     }
                 }
             }

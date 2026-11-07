@@ -1,6 +1,7 @@
 import { type Backdrop, type Look, useWordsOver, wordsClass } from '../apps/music/contrast'
 import { Crossfade } from '../apps/music/Crossfade'
 import { VideoWidget } from '../apps/youtube/VideoWidget'
+import { BilibiliVideoWidget } from '../apps/bilibili/VideoWidget'
 import { NextGlyph, NoteGlyph, PauseGlyph, PlayGlyph, PreviousGlyph } from '../apps/music/glyphs'
 import { TrackSlide } from '../apps/music/TrackSlide'
 import { useTrackTransition } from '../apps/music/useTrackTransition'
@@ -10,12 +11,6 @@ import {
   useAppleMusic,
   useAppleMusicSource,
 } from '../apps/music/appleMusic'
-import {
-  playOrPause as playOrPauseBilibili,
-  skip as skipBilibili,
-  useBilibili,
-  useBilibiliSource,
-} from '../apps/bilibili/bilibili'
 import {
   playOrPause as playOrPauseXimalaya,
   skip as skipXimalaya,
@@ -65,7 +60,7 @@ export function NowPlayingWidget() {
   return (
     <div className={`widget-slot${shown ? ' open' : ''}`}>
       {shown && showing === 'video' && <VideoWidget />}
-      {shown && showing === 'bilibili' && bilibili && <BilibiliWidget bilibili={bilibili} />}
+      {shown && showing === 'bilibili' && bilibili && <BilibiliVideoWidget />}
       {shown && showing === 'ximalaya' && ximalaya && <XimalayaWidget ximalaya={ximalaya} />}
       {shown && showing === 'douyin' && douyin && <DouyinWidget douyin={douyin} />}
       {shown && showing === 'hongguo' && hongguo && <HongguoWidget hongguo={hongguo} />}
@@ -91,25 +86,6 @@ function AppleMusicWidget({ appleMusic }: { appleMusic: NonNullable<ReturnType<t
         if (action === 'playPause') playOrPauseAppleMusic()
         else if (action === 'next') skipAppleMusic(1)
         else if (action === 'previous') skipAppleMusic(-1)
-      }}
-    />
-  )
-}
-
-/** Bilibili video audio: what plays, its controls, opening Bilibili on Now Playing. */
-function BilibiliWidget({ bilibili }: { bilibili: NonNullable<ReturnType<typeof useBilibiliSource>> }) {
-  return (
-    <MusicWidget
-      source={bilibili.source}
-      artwork={bilibili.artwork}
-      onOpen={() => {
-        useBilibili.setState({ nowPlaying: true })
-        go({ type: 'openApp', app: 'bilibili' })
-      }}
-      onControl={(action) => {
-        if (action === 'playPause') playOrPauseBilibili()
-        else if (action === 'next') skipBilibili(1)
-        else if (action === 'previous') skipBilibili(-1)
       }}
     />
   )

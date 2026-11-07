@@ -457,7 +457,7 @@
 /* The player: over the whole CarPlay area. What's under it shows through: the video (YouTube's, placed
    there by the host), once it plays. The rest of the CarPlay area is hidden meanwhile (Shell.tsx `watching`). */
 .carplay.watching .wallpaper-stack,
-.carplay.watching .carplay-content > :not(.yt-player, .sidebar) {
+.carplay.watching .carplay-content > :not(.yt-player, .bili-player, .sidebar) {
   visibility: hidden;
 }
 

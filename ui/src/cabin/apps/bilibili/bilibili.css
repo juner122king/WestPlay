@@ -1,449 +1,3913 @@
-.bilibili-app {
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-  width: 100%;
-  padding: 16px 24px;
-  box-sizing: border-box;
-  background: radial-gradient(circle at 10% 20%, rgba(0, 174, 236, 0.08) 0%, rgba(20, 20, 24, 0.95) 90%);
-  color: #fff;
-  user-select: none;
-  overflow: hidden;
-  position: relative;
+/* The Bilibili app (BilibiliApp.tsx) and its full-screen player (Player.tsx):
+   Tailored for the truck cabin with Bilibili's pink/cyan brand touches and WestPlay's CarPlay glass design. */
+
+.bilibili-app,
+.bili-player {
+  --bili-surface: #0e0f12;
+  --bili-text: #f6f7f8;
+  --bili-dim: #9499a0;
+  --bili-chip: rgb(255 255 255 / 0.1);
+  --bili-chip-on: #fb7299;
+  --bili-chip-on-text: #ffffff;
+  --bili-field: #18191c;
+  --bili-field-rim: #2f3238;
+  --bili-pink: #fb7299;
+  --bili-blue: #00aeec;
+  font-family: -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Helvetica Neue', 'Microsoft YaHei', sans-serif;
 }
 
-.bili-header {
+.shell.appearance-light .bilibili-app {
+  --bili-surface: #ffffff;
+  --bili-text: #18191c;
+  --bili-dim: #61666d;
+  --bili-chip: rgb(0 0 0 / 0.06);
+  --bili-chip-on: #fb7299;
+  --bili-chip-on-text: #ffffff;
+  --bili-field: #f1f2f3;
+  --bili-field-rim: #e3e5e7;
+}
+
+.bilibili-app {
+  border-radius: var(--panel-radius);
+  background: var(--bili-surface);
+  color: var(--bili-text);
+  overflow: hidden;
+  padding: 24px 28px 0;
   display: flex;
-  justify-content: space-between;
+  flex-direction: column;
+  gap: 20px;
+  position: relative;
+  user-select: none;
+}
+
+/* Top bar: search pill, back button, sign-in */
+.bili-top {
+  --text-scale: 1;
+  display: flex;
   align-items: center;
-  margin-bottom: 14px;
+  gap: 16px;
   flex-shrink: 0;
 }
 
-.bili-logo {
-  display: flex;
-  align-items: center;
-  gap: 10px;
+.bilibili-app .text-field {
+  flex: 1;
+  min-width: 0;
+  height: 60px;
+  border-radius: 30px;
+  background: rgba(255, 255, 255, 0.07);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.25), 0 2px 10px rgba(0, 0, 0, 0.15);
+  padding-inline: 22px;
+  font-size: calc(22px * var(--text-scale, 1));
+  color: var(--bili-text);
+  gap: 14px;
+  transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-.bili-badge {
-  background: #00aeec;
-  color: #fff;
-  font-weight: 700;
-  font-size: 13px;
-  padding: 3px 8px;
-  border-radius: 6px;
-  letter-spacing: 0.5px;
+.bilibili-app .text-field:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.22);
 }
 
-.bili-title {
-  font-size: 24px;
+.bilibili-app .text-field.typing {
+  background: rgba(255, 255, 255, 0.11);
+  border-color: var(--bili-pink);
+  box-shadow: 0 0 0 3px rgba(251, 114, 153, 0.25), inset 0 1px 2px rgba(0, 0, 0, 0.2);
+}
+
+.bilibili-app .text-field.typing > svg {
+  color: var(--bili-pink);
+  transform: scale(1.08);
+}
+
+.bilibili-app .text-field-caret {
+  background: var(--bili-pink);
+}
+
+.bilibili-app .text-field > svg,
+.bilibili-app .text-field-hint {
+  color: var(--bili-dim);
+}
+
+.bili-cancel-search-btn {
+  flex: none;
+  height: 60px;
+  padding-inline: 24px;
+  border-radius: 30px;
+  background: rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: var(--bili-pink);
+  font-size: 18px;
   font-weight: 600;
-  margin: 0;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  user-select: none;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.bili-cancel-search-btn:hover {
+  background: rgba(251, 114, 153, 0.18);
+  border-color: rgba(251, 114, 153, 0.4);
   color: #ffffff;
 }
 
-.bili-account {
-  display: flex;
-  align-items: center;
-}
-
-.bili-sign-in-btn {
-  background: #00aeec;
-  color: #fff;
-  border: none;
-  font-size: 14px;
-  font-weight: 600;
-  padding: 8px 16px;
-  border-radius: 20px;
-  cursor: pointer;
-  transition:
-    transform 0.15s,
-    background 0.15s;
-}
-
-.bili-sign-in-btn:active {
+.bili-cancel-search-btn:active {
   transform: scale(0.96);
-  background: #0090d0;
 }
 
-.bili-signed-in {
+.bilibili-app .bili-round,
+.bili-player .bili-round {
+  flex: none;
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: var(--bili-chip);
+  color: var(--bili-text);
+  border: none;
+  cursor: pointer;
+}
+
+.bili-round svg {
+  width: 48%;
+  height: 48%;
+}
+
+.bili-sign-in {
+  flex: none;
+  height: 60px;
+  padding-inline: 22px;
+  border-radius: 30px;
+  background: var(--bili-chip);
+  color: var(--bili-text);
+  border: none;
   display: flex;
   align-items: center;
   gap: 10px;
-}
-
-.bili-vip-tag {
-  background: rgba(0, 174, 236, 0.2);
-  color: #00aeec;
-  border: 1px solid rgba(0, 174, 236, 0.4);
-  font-size: 12px;
-  padding: 3px 8px;
-  border-radius: 12px;
-}
-
-.bili-action-btn {
-  background: rgba(255, 255, 255, 0.12);
-  color: #ddd;
-  border: none;
-  font-size: 12px;
-  padding: 4px 10px;
-  border-radius: 12px;
+  font-size: 20px;
+  font-weight: 500;
   cursor: pointer;
 }
 
-.bili-status-signing-in {
+.bili-sign-in svg {
+  width: 24px;
+  height: 24px;
+  color: var(--bili-pink);
+}
+
+.bili-account-box {
+  position: relative;
+}
+
+.bili-me {
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  background: var(--bili-chip);
+  border: none;
+  display: grid;
+  place-items: center;
+  color: var(--bili-pink);
+  cursor: pointer;
+}
+
+.bili-signing-in-banner {
   display: flex;
   align-items: center;
-  gap: 8px;
-  font-size: 13px;
-  color: #00aeec;
+  gap: 12px;
+  padding: 12px 18px;
+  background: rgba(251, 114, 153, 0.15);
+  border: 1px solid rgba(251, 114, 153, 0.3);
+  border-radius: 12px;
+  color: #fff;
+  font-size: 16px;
 }
 
 .bili-spinner {
-  width: 14px;
-  height: 14px;
-  border: 2px solid rgba(0, 174, 236, 0.3);
-  border-top-color: #00aeec;
+  width: 18px;
+  height: 18px;
+  border: 2.5px solid rgba(255, 255, 255, 0.2);
+  border-top-color: var(--bili-pink);
   border-radius: 50%;
   animation: bili-spin 0.8s linear infinite;
 }
 
 @keyframes bili-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Layer container */
+.bili-body {
+  flex: 1;
+  min-height: 0;
+  position: relative;
+}
+
+.bili-layer {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  transition: opacity 0.2s ease;
+}
+
+.bili-layer.away {
+  opacity: 0;
+  pointer-events: none;
+  visibility: hidden;
+}
+
+/* Home Container */
+.bili-home-container {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  gap: 22px;
+}
+
+.bili-home-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  padding-bottom: 12px;
+  flex-shrink: 0;
+}
+
+/* Home Persistent Refresh Button */
+.bili-home-refresh-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  height: 66px;
+  padding-inline: 26px;
+  border-radius: 33px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.07);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  color: var(--bili-dim);
+  font-size: 17.5px;
+  font-weight: 500;
+  cursor: pointer;
+  position: relative;
+  box-shadow: inset 0 1px 2px rgba(255, 255, 255, 0.08), 0 4px 20px rgba(0, 0, 0, 0.25);
+  transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+  user-select: none;
+  flex-shrink: 0;
+}
+
+.bili-home-refresh-btn:hover {
+  background: rgba(255, 255, 255, 0.13);
+  border-color: rgba(251, 114, 153, 0.45);
+  color: #ffffff;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 22px rgba(251, 114, 153, 0.32), inset 0 1px 1px rgba(255, 255, 255, 0.18);
+}
+
+.bili-home-refresh-btn:hover .bili-refresh-icon {
+  color: #fb7299;
+}
+
+.bili-home-refresh-btn:active {
+  transform: scale(0.96);
+}
+
+.bili-home-refresh-btn.refreshing {
+  border-color: rgba(251, 114, 153, 0.55);
+  background: rgba(251, 114, 153, 0.18);
+  color: #ffffff;
+  pointer-events: none;
+}
+
+.bili-refresh-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.bili-home-refresh-btn:hover .bili-refresh-icon {
+  transform: rotate(60deg);
+}
+
+.bili-home-refresh-btn.refreshing .bili-refresh-icon {
+  color: #fb7299;
+  animation: bili-refresh-spin 0.75s cubic-bezier(0.35, 0, 0.25, 1) infinite;
+}
+
+@keyframes bili-refresh-spin {
+  from {
+    transform: rotate(0deg);
+  }
   to {
     transform: rotate(360deg);
   }
 }
 
-.bili-qr-banner {
+.bili-refresh-label {
+  line-height: 1;
+  letter-spacing: 0.5px;
+  white-space: nowrap;
+}
+
+.bili-tab-content {
+  flex: 1;
+  min-height: 0;
   display: flex;
+  flex-direction: column;
+}
+
+/* CarPlay Segmented Control */
+.bili-segmented-control {
+  display: inline-flex;
   align-items: center;
-  gap: 14px;
-  background: rgba(0, 174, 236, 0.15);
-  border: 1px solid rgba(0, 174, 236, 0.4);
-  border-radius: 12px;
-  padding: 10px 16px;
-  margin-bottom: 12px;
+  align-self: flex-start;
+  background: rgba(255, 255, 255, 0.07);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border-radius: 34px;
+  padding: 7px;
+  gap: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: inset 0 1px 2px rgba(255, 255, 255, 0.08), 0 4px 20px rgba(0, 0, 0, 0.25);
   flex-shrink: 0;
 }
 
-.bili-qr-banner-icon {
-  font-size: 28px;
+.bili-segmented-control.small {
+  border-radius: 28px;
+  padding: 5px;
+  gap: 8px;
 }
 
-.bili-qr-banner-text strong {
-  display: block;
-  font-size: 14px;
-  color: #00aeec;
-  margin-bottom: 2px;
+.bili-segmented-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  height: 52px;
+  min-width: 120px;
+  padding-inline: 24px;
+  border-radius: 26px;
+  border: none;
+  background: transparent;
+  color: var(--bili-dim);
+  font-size: 18px;
+  font-weight: 500;
+  cursor: pointer;
+  position: relative;
+  transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+  user-select: none;
 }
 
-.bili-qr-banner-text p {
-  margin: 0;
-  font-size: 12px;
-  color: #d0e7f7;
+.bili-segmented-control.small .bili-segmented-btn {
+  height: 46px;
+  min-width: 102px;
+  padding-inline: 22px;
+  border-radius: 23px;
+  font-size: 16.5px;
+  gap: 9px;
 }
 
-.bili-main {
+.bili-segmented-btn:hover {
+  color: var(--bili-text);
+  background: rgba(255, 255, 255, 0.07);
+}
+
+.bili-segmented-btn:active {
+  transform: scale(0.96);
+}
+
+.bili-segmented-btn.active {
+  background: linear-gradient(135deg, #fb7299 0%, #e85a85 100%);
+  color: #ffffff;
+  font-weight: 600;
+  box-shadow: 0 4px 16px rgba(251, 114, 153, 0.42), inset 0 1px 0 rgba(255, 255, 255, 0.35);
+}
+
+.bili-tab-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+}
+
+.bili-tab-icon svg {
+  width: 100%;
+  height: 100%;
+}
+
+.bili-tab-label {
+  line-height: 1;
+  letter-spacing: 0.3px;
+}
+
+.bili-tab-badge {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: #ff4d4f;
+  box-shadow: 0 0 6px #ff4d4f;
+  margin-left: -2px;
+}
+
+/* Glass Action Button (e.g. Refresh) */
+.bili-glass-action-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  height: 50px;
+  padding-inline: 22px;
+  border-radius: 25px;
+  background: rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.1), 0 4px 12px rgba(0, 0, 0, 0.15);
+  color: var(--bili-text);
+  font-size: 17px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  flex-shrink: 0;
+}
+
+.bili-glass-action-btn:hover {
+  background: rgba(255, 255, 255, 0.14);
+  border-color: rgba(255, 255, 255, 0.2);
+  transform: translateY(-1px);
+  color: #ffffff;
+}
+
+.bili-glass-action-btn:active {
+  transform: scale(0.95);
+}
+
+.bili-glass-action-btn svg {
+  width: 20px;
+  height: 20px;
+  transition: transform 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.bili-glass-action-btn.refreshing svg {
+  animation: bili-spin 0.6s cubic-bezier(0.2, 0.8, 0.4, 1);
+}
+
+/* Topic chips wrapper with smooth edge fade */
+.bili-topic-chips-wrapper {
+  position: relative;
+  width: 100%;
+  mask-image: linear-gradient(to right, black calc(100% - 40px), transparent 100%);
+  -webkit-mask-image: linear-gradient(to right, black calc(100% - 40px), transparent 100%);
+  margin-bottom: 18px;
+  flex-shrink: 0;
+}
+
+/* Level 2 Sub-Tabs (二级 Tab) Track & Buttons */
+.bili-subtabs-track {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  padding: 7px 10px;
+  border-radius: 32px;
+  background: rgba(255, 255, 255, 0.055);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.06), 0 3px 12px rgba(0, 0, 0, 0.18);
+  overflow-x: auto;
+  scrollbar-width: none;
+  max-width: 100%;
+}
+
+.bili-subtabs-track::-webkit-scrollbar {
+  display: none;
+}
+
+.bili-subtab-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  height: 48px;
+  padding-inline: 24px;
+  border-radius: 24px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--bili-dim);
+  font-size: 16.5px;
+  font-weight: 550;
+  cursor: pointer;
+  white-space: nowrap;
+  user-select: none;
+  transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.bili-subtab-btn:hover {
+  color: var(--bili-text);
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.08);
+  transform: translateY(-1px);
+}
+
+.bili-subtab-btn:active {
+  transform: scale(0.96);
+}
+
+.bili-subtab-btn.active {
+  background: linear-gradient(135deg, #fb7299 0%, #e85a85 100%);
+  color: #ffffff;
+  font-weight: 600;
+  border-color: rgba(255, 255, 255, 0.3);
+  box-shadow: 0 4px 14px rgba(251, 114, 153, 0.42), inset 0 1px 0 rgba(255, 255, 255, 0.35);
+}
+
+.bili-subtab-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 19px;
+  line-height: 1;
+}
+
+.bili-subtab-label {
+  line-height: 1;
+  letter-spacing: 0.3px;
+}
+
+.bili-topic-chips {
+  margin-bottom: 0;
+  gap: 12px;
+}
+
+/* Filter Bar */
+.bili-filter-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-bottom: 14px;
+  flex-shrink: 0;
+}
+
+.bili-filter-query {
+  font-size: 15px;
+  color: var(--bili-dim);
+  padding-right: 8px;
+}
+
+/* Chips header */
+.bili-chips {
+  display: flex;
+  gap: 14px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  padding-bottom: 12px;
+  flex-shrink: 0;
+}
+
+.bili-chips.wrap {
+  flex-wrap: wrap;
+  overflow-x: visible;
+  gap: 12px;
+}
+
+.bili-chip {
+  flex: none;
+  height: 48px;
+  padding-inline: 24px;
+  border-radius: 24px;
+  background: rgba(255, 255, 255, 0.07);
+  color: var(--bili-text);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.08), 0 2px 8px rgba(0, 0, 0, 0.18);
+  font-size: 16.5px;
+  font-weight: 550;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  user-select: none;
+}
+
+.bili-chip:hover {
+  background: rgba(255, 255, 255, 0.13);
+  border-color: rgba(251, 114, 153, 0.4);
+  transform: translateY(-2px);
+  box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.15), 0 4px 14px rgba(0, 0, 0, 0.25);
+  color: #ffffff;
+}
+
+.bili-chip:active {
+  transform: scale(0.96);
+}
+
+.bili-chip.on {
+  background: linear-gradient(135deg, #fb7299 0%, #e85a85 100%);
+  color: #ffffff;
+  font-weight: 600;
+  border-color: rgba(255, 255, 255, 0.3);
+  box-shadow: 0 4px 16px rgba(251, 114, 153, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.35);
+}
+
+.bili-chip-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  opacity: 0.85;
+  transition: transform 0.2s ease, opacity 0.2s ease;
+}
+
+.bili-chip-icon svg {
+  width: 100%;
+  height: 100%;
+}
+
+.bili-chip:hover .bili-chip-icon {
+  opacity: 1;
+  transform: scale(1.1);
+}
+
+.bili-chip.on .bili-chip-icon {
+  opacity: 1;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.25));
+}
+
+.bili-chip-label {
+  line-height: 1;
+  letter-spacing: 0.3px;
+  white-space: nowrap;
+}
+
+.bili-chip.bili-recent {
+  padding-inline: 0;
+  padding-left: 20px;
+}
+
+.bili-chip-search {
+  background: none;
+  border: none;
+  color: inherit;
+  font: inherit;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+}
+
+.bili-chip-forget {
+  background: none;
+  border: none;
+  color: inherit;
+  cursor: pointer;
+  padding: 8px 14px;
+  display: grid;
+  place-items: center;
+}
+
+/* Scroll area */
+.bili-scroll {
   flex: 1;
-  overflow-y: auto;
   min-height: 0;
-  padding-right: 4px;
+  overflow-y: auto;
+  scrollbar-width: none;
+  padding-bottom: 110px;
+}
+
+/* Section styling */
+.bili-section {
+  margin-bottom: 28px;
 }
 
 .bili-section-title {
-  font-size: 17px;
-  font-weight: 600;
-  margin: 0 0 12px 0;
-  color: rgba(255, 255, 255, 0.9);
-}
-
-.bili-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-  gap: 14px;
-}
-
-.bili-card {
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 12px;
-  overflow: hidden;
-  cursor: pointer;
-  transition:
-    transform 0.15s,
-    background 0.15s;
-}
-
-.bili-card:active {
-  transform: scale(0.97);
-  background: rgba(255, 255, 255, 0.1);
-}
-
-.bili-card-thumb {
-  position: relative;
-  width: 100%;
-  aspect-ratio: 16 / 9;
-  background: rgba(0, 0, 0, 0.4);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.bili-card-thumb img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-.bili-thumb-fallback {
-  font-size: 36px;
-  opacity: 0.6;
-}
-
-.bili-play-hint {
-  position: absolute;
-  right: 8px;
-  bottom: 8px;
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
-  background: rgba(0, 0, 0, 0.6);
-  color: #fff;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 13px;
-}
-
-.bili-card-body {
-  padding: 10px 12px;
-}
-
-.bili-card-title {
-  font-size: 13px;
-  font-weight: 500;
-  line-height: 1.4;
-  height: 2.8em;
-  overflow: hidden;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  color: #fff;
-  margin-bottom: 6px;
-}
-
-.bili-card-author {
-  font-size: 11px;
-  color: rgba(255, 255, 255, 0.5);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.bili-mini-bar {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  background: rgba(30, 30, 36, 0.85);
-  backdrop-filter: blur(20px);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 14px;
-  padding: 10px 16px;
-  margin-top: 10px;
-  cursor: pointer;
-  flex-shrink: 0;
+  margin-bottom: 16px;
 }
 
-.bili-mini-info {
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-}
-
-.bili-mini-title {
-  font-size: 13px;
-  font-weight: 600;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.bili-mini-author {
-  font-size: 11px;
-  color: rgba(255, 255, 255, 0.6);
-}
-
-.bili-mini-btn {
-  background: #00aeec;
-  color: #fff;
-  border: none;
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
-  font-size: 14px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-}
-
-/* Now Playing screen */
-.bili-now-playing {
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-  width: 100%;
-}
-
-.bili-np-header {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  margin-bottom: 20px;
-}
-
-.bili-back-btn {
-  background: rgba(255, 255, 255, 0.1);
-  color: #fff;
-  border: none;
-  font-size: 14px;
-  font-weight: 500;
-  padding: 6px 14px;
-  border-radius: 16px;
-  cursor: pointer;
-}
-
-.bili-np-brand {
-  font-size: 14px;
-  color: rgba(255, 255, 255, 0.6);
-}
-
-.bili-np-content {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  max-width: 480px;
-  margin: 0 auto;
-  width: 100%;
-}
-
-.bili-np-artwork {
-  position: relative;
-  width: 320px;
-  height: 180px;
-  border-radius: 16px;
-  overflow: hidden;
-  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.6);
-  margin-bottom: 24px;
-  background: rgba(0, 0, 0, 0.4);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.bili-np-video-hole {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  border-radius: inherit;
-  overflow: hidden;
-  display: block;
-}
-
-.bili-np-video-hole img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-.bili-np-placeholder {
-  font-size: 72px;
-  opacity: 0.5;
-}
-
-.bili-np-meta {
-  text-align: center;
-  margin-bottom: 20px;
-  width: 100%;
-}
-
-.bili-np-title {
+.bili-section-heading {
   font-size: 20px;
   font-weight: 600;
-  margin: 0 0 6px 0;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.bili-np-author {
-  font-size: 14px;
-  color: rgba(255, 255, 255, 0.6);
   margin: 0;
 }
 
-.bili-np-progress-bar {
+.bili-clear {
+  background: none;
+  border: none;
+  color: var(--bili-dim);
+  font-size: 16px;
+  cursor: pointer;
+}
+
+/* Video Grid & Cards */
+.bili-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 20px 18px;
+}
+
+.bili-card {
+  background: rgba(255, 255, 255, 0.025);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 18px;
+  padding: 12px;
+  text-align: left;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  cursor: pointer;
+  color: inherit;
+  transition: transform 0.22s cubic-bezier(0.16, 1, 0.3, 1), background 0.2s ease, border-color 0.2s ease, box-shadow 0.22s ease;
+}
+
+.bili-card:hover {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(251, 114, 153, 0.3);
+  transform: translateY(-3px);
+  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.35);
+}
+
+.bili-card:active {
+  transform: scale(0.985);
+}
+
+.bili-popular-card .bili-thumb-wrap {
+  position: relative;
   width: 100%;
+}
+
+.bili-rank-badge {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  z-index: 2;
+  font-size: 13px;
+  font-weight: 800;
+  padding: 3px 8px;
+  border-radius: 8px;
+  letter-spacing: 0.5px;
+  backdrop-filter: blur(8px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+}
+
+.bili-rank-badge.gold {
+  background: linear-gradient(135deg, #ffd700 0%, #ff8c00 100%);
+  color: #1a1000;
+  border: 1px solid rgba(255, 255, 255, 0.4);
+}
+
+.bili-rank-badge.silver {
+  background: linear-gradient(135deg, #f0f0f0 0%, #a8a8a8 100%);
+  color: #1a1a1a;
+  border: 1px solid rgba(255, 255, 255, 0.4);
+}
+
+.bili-rank-badge.bronze {
+  background: linear-gradient(135deg, #f2994a 0%, #a35d28 100%);
+  color: #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+.bili-rank-badge.normal {
+  background: rgba(0, 0, 0, 0.65);
+  color: rgba(255, 255, 255, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+.bili-card.shelf {
+  flex: none;
+  width: 275px;
+}
+
+.bili-shelf {
+  display: flex;
+  gap: 16px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  padding-bottom: 12px;
+}
+
+.bili-thumb {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  border-radius: 12px;
+  overflow: hidden;
+  background: #18191c;
+  display: block;
+}
+
+.bili-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.bili-card:hover .bili-thumb img {
+  transform: scale(1.05);
+}
+
+.bili-thumb-blank {
+  width: 100%;
+  height: 100%;
+  display: grid;
+  place-items: center;
+  font-size: 32px;
+}
+
+.bili-badge {
+  position: absolute;
+  right: 8px;
+  bottom: 8px;
+  background: rgba(0, 0, 0, 0.72);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 2.5px 7px;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+}
+
+.bili-progress {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  height: 4px;
+  background: var(--bili-pink);
+}
+
+.bili-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 2px 2px 4px;
+}
+
+.bili-title {
+  font-size: 18px;
+  font-weight: 600;
+  line-height: 1.42;
+  color: var(--bili-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+.bili-sub {
+  font-size: 15px;
+  color: var(--bili-dim);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  margin-top: 2px;
+}
+
+.bili-author-link {
+  background: transparent;
+  border: none;
+  padding: 0;
+  margin: 0;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  display: inline;
+  text-align: left;
+  transition: color 0.15s ease, opacity 0.15s ease;
+}
+
+.bili-author-link:hover {
+  color: var(--bili-pink, #fb7299);
+  text-decoration: underline;
+}
+
+/* Rows layout for search results & playlists */
+.bili-results,
+.bili-playlist-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.bili-row {
+  display: flex;
+  gap: 18px;
+  align-items: center;
+  cursor: pointer;
+  padding: 12px 18px;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.025);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), background 0.2s ease, border-color 0.2s ease;
+}
+
+.bili-row:hover {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(251, 114, 153, 0.3);
+  transform: translateX(4px);
+}
+
+.bili-row:active {
+  transform: scale(0.99);
+}
+
+.bili-row .bili-thumb {
+  width: 210px;
+  flex: none;
+}
+
+.bili-row-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* Channel & UP Space Page */
+.bili-channel-head {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-bottom: 24px;
+  border-radius: 20px;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.bili-banner {
+  width: 100%;
+  height: 140px;
+  object-fit: cover;
+}
+
+.bili-channel-who {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  padding: 18px 24px;
+}
+
+.bili-avatar {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex: none;
+  display: inline-block;
+}
+
+.bili-avatar.large {
+  width: 68px;
+  height: 68px;
+}
+
+.bili-avatar.blank {
+  background: var(--bili-pink);
+  color: #fff;
+  font-weight: 700;
+  display: grid;
+  place-items: center;
+  font-size: 26px;
+}
+
+.bili-channel-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.bili-channel-text h2 {
+  font-size: 22px;
+  margin: 0;
+}
+
+.bili-sign {
+  font-size: 14px;
+  color: var(--bili-dim);
+  margin: 4px 0 0;
+}
+
+.bili-sign-small {
+  font-size: 13px;
+  color: var(--bili-dim);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bili-subscribe {
+  height: 44px;
+  padding-inline: 20px;
+  border-radius: 22px;
+  background: var(--bili-pink);
+  color: #fff;
+  border: none;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.bili-subscribe.subscribed {
+  background: var(--bili-chip);
+  color: var(--bili-dim);
+}
+
+.bili-channel-row {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  padding: 16px 20px;
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  color: inherit;
+  cursor: pointer;
+  text-align: left;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.bili-channel-row:hover {
+  background: rgba(255, 255, 255, 0.07);
+  border-color: rgba(251, 114, 153, 0.35);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+}
+
+.bili-channel-row:active {
+  transform: scale(0.985);
+}
+
+/* Playlist page */
+.bili-playlist-head {
+  display: flex;
+  gap: 20px;
   margin-bottom: 20px;
 }
 
-.bili-np-track {
-  width: 100%;
-  height: 6px;
-  background: rgba(255, 255, 255, 0.15);
-  border-radius: 3px;
+.bili-playlist-head .bili-thumb {
+  width: 260px;
+  flex: none;
+}
+
+.bili-playlist-text {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.bili-playlist-text h2 {
+  font-size: 22px;
+  margin: 0;
+}
+
+.bili-play-all {
+  height: 48px;
+  padding-inline: 20px;
+  border-radius: 24px;
+  background: var(--bili-pink);
+  color: #fff;
+  border: none;
+  font-size: 18px;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
   cursor: pointer;
-  position: relative;
+  margin-top: 8px;
+  width: fit-content;
+}
+
+.bili-page-badge {
+  flex: none;
+  padding: 6px 12px;
+  background: rgba(251, 114, 153, 0.2);
+  color: var(--bili-pink);
+  font-weight: 700;
+  border-radius: 8px;
+  font-size: 16px;
+}
+
+/* Search Suggestions & Discovery Page */
+.bili-suggestions-page {
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+  padding: 8px 4px 120px;
+}
+
+.bili-sug-section {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.bili-sug-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.bili-sug-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 19px;
+  font-weight: 600;
+  color: var(--bili-text);
+  letter-spacing: -0.2px;
+}
+
+.bili-sug-title svg {
+  width: 20px;
+  height: 20px;
+  color: var(--bili-pink);
+}
+
+.bili-clear-history-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: var(--bili-dim);
+  font-size: 15px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.bili-clear-history-btn svg {
+  width: 15px;
+  height: 15px;
+}
+
+.bili-clear-history-btn:hover {
+  background: rgba(255, 71, 87, 0.15);
+  border-color: rgba(255, 71, 87, 0.3);
+  color: #ff4757;
+}
+
+.bili-clear-history-btn:active {
+  transform: scale(0.96);
+}
+
+/* History Pills */
+.bili-history-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.bili-history-tag {
+  display: inline-flex;
+  align-items: center;
+  height: 44px;
+  border-radius: 22px;
+  background: rgba(255, 255, 255, 0.07);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  padding-left: 16px;
+  padding-right: 6px;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.bili-history-tag:hover {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(251, 114, 153, 0.4);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.2);
+}
+
+.bili-history-text-btn {
+  background: none;
+  border: none;
+  color: var(--bili-text);
+  font-size: 16px;
+  font-weight: 500;
+  cursor: pointer;
+  padding: 0 6px 0 0;
+  white-space: nowrap;
+  max-width: 240px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-align: left;
+}
+
+.bili-history-del-btn {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: transparent;
+  border: none;
+  color: var(--bili-dim);
+  cursor: pointer;
+  padding: 0;
+  margin-left: 2px;
+  transition: all 0.15s ease;
+}
+
+.bili-history-del-btn svg {
+  width: 14px;
+  height: 14px;
+}
+
+.bili-history-del-btn:hover {
+  background: rgba(255, 255, 255, 0.15);
+  color: #ffffff;
+}
+
+/* Trending Searches 2-Column Grid */
+.bili-hot-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px 18px;
+}
+
+.bili-hot-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  height: 54px;
+  padding: 0 16px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  user-select: none;
+}
+
+.bili-hot-item:hover {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(251, 114, 153, 0.35);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.22);
+}
+
+.bili-hot-item:active {
+  transform: scale(0.98);
+}
+
+.bili-hot-rank {
+  flex: none;
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  display: grid;
+  place-items: center;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.bili-hot-rank.rank-1 {
+  background: linear-gradient(135deg, #ff4757 0%, #ff6b81 100%);
+  color: #ffffff;
+  box-shadow: 0 2px 6px rgba(255, 71, 87, 0.4);
+}
+
+.bili-hot-rank.rank-2 {
+  background: linear-gradient(135deg, #ff7f50 0%, #ffa502 100%);
+  color: #ffffff;
+  box-shadow: 0 2px 6px rgba(255, 127, 80, 0.4);
+}
+
+.bili-hot-rank.rank-3 {
+  background: linear-gradient(135deg, #eccc68 0%, #f1c40f 100%);
+  color: #2f3542;
+  box-shadow: 0 2px 6px rgba(241, 196, 15, 0.4);
+}
+
+.bili-hot-rank.rank-normal {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--bili-dim);
+}
+
+.bili-hot-text {
+  flex: 1;
+  min-width: 0;
+  font-size: 17px;
+  font-weight: 500;
+  color: var(--bili-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.bili-hot-tag {
+  flex: none;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 2px 7px;
+  border-radius: 6px;
+  line-height: 1.2;
+}
+
+.bili-hot-tag.hot {
+  background: rgba(255, 71, 87, 0.18);
+  color: #ff4757;
+  border: 1px solid rgba(255, 71, 87, 0.3);
+}
+
+.bili-hot-tag.new {
+  background: rgba(0, 174, 236, 0.18);
+  color: #00aeec;
+  border: 1px solid rgba(0, 174, 236, 0.3);
+}
+
+/* Floating Real-time Suggestions Card */
+.bili-suggestions-card {
+  display: flex;
+  flex-direction: column;
+  background: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border-radius: 24px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  overflow: hidden;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+}
+
+.bili-suggestion-row {
+  display: flex;
+  align-items: center;
+  height: 60px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  transition: background 0.18s ease;
+}
+
+.bili-suggestion-row:last-child {
+  border-bottom: none;
+}
+
+.bili-suggestion-row:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.bili-suggestion-main {
+  flex: 1;
+  height: 100%;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding-left: 20px;
+  padding-right: 12px;
+  background: none;
+  border: none;
+  color: inherit;
+  cursor: pointer;
+  text-align: left;
+}
+
+.bili-sug-icon {
+  flex: none;
+  width: 22px;
+  height: 22px;
+  display: grid;
+  place-items: center;
+  color: var(--bili-dim);
+}
+
+.bili-sug-icon svg {
+  width: 20px;
+  height: 20px;
+}
+
+.bili-sug-label {
+  flex: 1;
+  min-width: 0;
+  font-size: 19px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.bili-sug-prefix {
+  color: var(--bili-pink);
+  font-weight: 600;
+}
+
+.bili-sug-rest {
+  color: var(--bili-text);
+  font-weight: 400;
+}
+
+.bili-sug-history-badge {
+  flex: none;
+  font-size: 13px;
+  padding: 2px 8px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--bili-dim);
+  margin-left: 8px;
+}
+
+.bili-suggestion-fill-btn {
+  flex: none;
+  width: 58px;
+  height: 100%;
+  display: grid;
+  place-items: center;
+  background: none;
+  border: none;
+  color: var(--bili-dim);
+  cursor: pointer;
+  transition: all 0.18s ease;
+}
+
+.bili-suggestion-fill-btn svg {
+  width: 20px;
+  height: 20px;
+}
+
+.bili-suggestion-fill-btn:hover {
+  color: var(--bili-pink);
+  transform: scale(1.15);
+}
+
+.bili-sug-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 80px;
+  color: var(--bili-dim);
+  font-size: 18px;
+}
+
+/* Bottom Mini Bar */
+.bili-now {
+  position: absolute;
+  left: 26px;
+  right: 26px;
+  bottom: 20px;
+  height: 68px;
+  border-radius: 34px;
+  background: rgba(26, 27, 32, 0.95);
+  backdrop-filter: blur(20px);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  display: flex;
+  align-items: center;
+  padding: 6px 14px 6px 8px;
+  gap: 12px;
+  cursor: pointer;
+  z-index: 10;
+}
+
+.bili-now-open {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.bili-now-video {
+  width: 86px;
+  height: 52px;
+  border-radius: 26px;
+  flex: none;
+  object-fit: cover;
+}
+
+.bili-now-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.bili-now .bili-round {
+  width: 52px;
+  height: 52px;
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+  transition: background 0.15s ease, transform 0.15s ease;
+}
+
+.bili-now .bili-round:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.bili-now .bili-round:active {
+  transform: scale(0.92);
+}
+
+/* Fullscreen Player (Player.tsx) */
+.bili-player {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  background: transparent;
+  pointer-events: auto;
+  user-select: none;
   overflow: hidden;
 }
 
-.bili-np-fill {
-  height: 100%;
-  background: #00aeec;
-  border-radius: 3px;
-  transition: width 0.1s linear;
+.bili-player-top {
+  position: absolute;
+  left: 24px;
+  right: 24px;
+  top: 24px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  z-index: 2;
+  opacity: 0;
+  transition: opacity 0.25s ease;
+  pointer-events: none;
 }
 
-.bili-np-times {
+.bili-player.controls .bili-player-top,
+.bili-player.controls .bili-player-bottom {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.bili-player-title {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.bili-player-title-text {
+  font-size: 22px;
+  font-weight: 700;
+  color: #fff;
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.8);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bili-player-author-btn {
+  background: none;
+  border: none;
+  color: var(--bili-pink);
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0;
+  text-align: left;
+}
+
+.bili-player-author-text {
+  color: #ddd;
+  font-size: 16px;
+}
+
+.bili-player-bottom {
+  position: absolute;
+  left: 24px;
+  right: 24px;
+  bottom: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  z-index: 2;
+  opacity: 0;
+  transition: opacity 0.25s ease;
+  pointer-events: none;
+}
+
+.bili-glass {
+  background: rgba(20, 20, 25, 0.75);
+  backdrop-filter: blur(24px);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: #fff;
+  border-radius: 30px;
+}
+
+.bili-round.big {
+  width: 68px;
+  height: 68px;
+}
+
+.bili-round.big.play {
+  background: var(--bili-pink);
+  color: #fff;
+}
+
+.bili-pill {
+  height: 60px;
+  padding-inline: 20px;
+  border-radius: 30px;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 18px;
+  font-weight: 500;
+  cursor: pointer;
+  border: none;
+}
+
+.bili-pill.on {
+  border-color: var(--bili-pink);
+  color: var(--bili-pink);
+}
+
+.bili-controls {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.bili-spacer {
+  flex: 1;
+}
+
+.bili-time {
+  padding-inline: 18px;
+  font-variant-numeric: tabular-nums;
+  font-size: 17px;
+}
+
+.bili-quality-tag {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--bili-pink);
+}
+
+.bili-pill-badge {
+  background: var(--bili-pink);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 10px;
+}
+
+/* Progress bar */
+.bili-bar {
+  position: relative;
+  width: 100%;
+  height: 18px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+}
+
+.bili-bar::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 6px;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.25);
+}
+
+.bili-bar-played {
+  position: absolute;
+  left: 0;
+  height: 6px;
+  border-radius: 3px;
+  background: var(--bili-pink);
+}
+
+.bili-bar-dot {
+  position: absolute;
+  top: 50%;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #fff;
+  transform: translate(-50%, -50%);
+  box-shadow: 0 0 6px rgba(0, 0, 0, 0.6);
+}
+
+/* Volume control */
+.bili-volume {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 190px;
+}
+
+.bili-volume-slider {
+  position: relative;
+  flex: 1;
+  height: 24px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+}
+
+.bili-volume-slider::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 6px;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.25);
+}
+
+.bili-volume-level {
+  position: absolute;
+  left: 0;
+  height: 6px;
+  border-radius: 3px;
+  background: #fff;
+}
+
+/* Popover Menu (Quality & Rate) */
+.bili-menu {
+  position: absolute;
+  right: 0;
+  bottom: 84px;
+  background: rgba(20, 20, 26, 0.95);
+  backdrop-filter: blur(28px);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 20px;
+  padding: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  width: 320px;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.8);
+  z-index: 10;
+}
+
+.bili-menu-section {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.bili-menu-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--bili-dim);
+}
+
+.bili-menu-items {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.bili-menu-items.grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+.bili-menu-item {
+  height: 44px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.05);
+  color: #fff;
+  border: none;
+  font-size: 16px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-inline: 14px;
+}
+
+.bili-menu-item.on {
+  background: rgba(251, 114, 153, 0.25);
+  color: var(--bili-pink);
+  font-weight: 700;
+}
+
+.bili-menu-item svg {
+  width: 18px;
+  height: 18px;
+}
+
+/* Drawer: 分P选集 / 相关推荐 */
+.bili-drawer {
+  position: absolute;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  width: 440px;
+  background: rgba(18, 19, 24, 0.96);
+  backdrop-filter: blur(32px);
+  border-left: 1px solid rgba(255, 255, 255, 0.12);
+  display: flex;
+  flex-direction: column;
+  z-index: 10;
+  padding: 24px;
+  box-shadow: -10px 0 30px rgba(0, 0, 0, 0.7);
+}
+
+.bili-drawer-header {
   display: flex;
   justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.bili-drawer-header h3 {
+  font-size: 22px;
+  margin: 0;
+}
+
+.bili-drawer-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  scrollbar-width: none;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.bili-drawer-section h4 {
+  font-size: 18px;
+  margin: 0 0 12px;
+  color: var(--bili-dim);
+}
+
+.bili-pages-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+}
+
+.bili-page-chip {
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.05);
+  color: #fff;
+  border: none;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.bili-page-chip.active {
+  background: rgba(251, 114, 153, 0.25);
+  border: 1px solid var(--bili-pink);
+  color: var(--bili-pink);
+}
+
+.bili-page-num {
+  font-weight: 700;
+  font-size: 15px;
+}
+
+.bili-page-name {
+  font-size: 14px;
+  color: var(--bili-dim);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bili-page-chip.active .bili-page-name {
+  color: var(--bili-pink);
+}
+
+.bili-related-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.bili-related-card {
+  display: flex;
+  gap: 12px;
+  cursor: pointer;
+}
+
+.bili-related-thumb {
+  position: relative;
+  width: 140px;
+  aspect-ratio: 16 / 9;
+  border-radius: 10px;
+  overflow: hidden;
+  background: #222;
+  flex: none;
+}
+
+.bili-related-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.bili-related-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+/* Double tap 10s skip ripple */
+.bili-skip {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  background: rgba(0, 0, 0, 0.65);
+  backdrop-filter: blur(12px);
+  padding: 18px 28px;
+  border-radius: 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  font-size: 18px;
+  font-weight: 600;
+  color: #fff;
+  pointer-events: none;
+  z-index: 4;
+}
+
+.bili-skip.back {
+  left: 10%;
+}
+
+.bili-skip.forward {
+  right: 10%;
+}
+
+.bili-skip-arrows {
+  font-size: 26px;
+  color: var(--bili-pink);
+}
+
+/* Playback Ended Overlay & Related Shelf */
+.bili-ended-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 80px 24px 100px;
+  background: rgba(0, 0, 0, 0.65);
+  backdrop-filter: blur(12px);
+  z-index: 4;
+  animation: biliFadeIn 0.25s ease forwards;
+}
+
+@keyframes biliFadeIn {
+  from { opacity: 0; transform: scale(0.98); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+.bili-ended-card {
+  width: 100%;
+  max-width: 960px;
+  max-height: 100%;
+  background: rgba(22, 23, 30, 0.94);
+  backdrop-filter: blur(32px);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 24px;
+  padding: 20px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.7);
+  overflow: hidden;
+}
+
+.bili-ended-top-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-shrink: 0;
+}
+
+.bili-ended-status {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.bili-ended-status-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--bili-pink, #fb7299);
+  box-shadow: 0 0 10px var(--bili-pink, #fb7299);
+}
+
+.bili-ended-status-text {
+  font-size: 18px;
+  font-weight: 700;
+  color: #fff;
+}
+
+.bili-ended-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.bili-btn-replay-primary {
+  height: 48px;
+  padding-inline: 20px;
+  border-radius: 24px;
+  background: var(--bili-pink, #fb7299);
+  color: #fff;
+  border: none;
+  font-size: 16px;
+  font-weight: 700;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  transition: transform 0.15s ease, filter 0.15s ease;
+  box-shadow: 0 4px 16px rgba(251, 114, 153, 0.4);
+}
+
+.bili-btn-replay-primary:hover {
+  filter: brightness(1.1);
+  transform: scale(1.02);
+}
+
+.bili-btn-replay-primary svg {
+  width: 20px;
+  height: 20px;
+}
+
+.bili-btn-next-part,
+.bili-btn-parts {
+  height: 48px;
+  padding-inline: 18px;
+  border-radius: 24px;
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  transition: background 0.15s ease;
+}
+
+.bili-btn-next-part:hover,
+.bili-btn-parts:hover {
+  background: rgba(255, 255, 255, 0.18);
+}
+
+.bili-btn-next-part svg,
+.bili-btn-parts svg {
+  width: 18px;
+  height: 18px;
+}
+
+.bili-btn-dismiss {
+  width: 44px;
+  height: 44px;
+  border-radius: 22px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: #aaa;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.15s, background 0.15s;
+}
+
+.bili-btn-dismiss:hover {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.16);
+}
+
+.bili-btn-dismiss svg {
+  width: 18px;
+  height: 18px;
+}
+
+.bili-ended-shelf-section {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-height: 0;
+}
+
+.bili-ended-shelf-header {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+}
+
+.bili-ended-shelf-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: #fff;
+}
+
+.bili-ended-shelf-sub {
+  font-size: 13px;
+  color: var(--bili-dim, #999);
+}
+
+.bili-ended-shelf {
+  display: flex;
+  gap: 14px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding-bottom: 6px;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
+}
+
+.bili-ended-shelf::-webkit-scrollbar {
+  height: 4px;
+}
+
+.bili-ended-shelf::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.25);
+  border-radius: 2px;
+}
+
+.bili-ended-video-card {
+  flex: 0 0 176px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  cursor: pointer;
+  background: rgba(255, 255, 255, 0.04);
+  padding: 8px;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  transition: background 0.15s, transform 0.15s;
+}
+
+.bili-ended-video-card:hover {
+  background: rgba(255, 255, 255, 0.08);
+  transform: translateY(-2px);
+}
+
+.bili-ended-thumb {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  border-radius: 10px;
+  overflow: hidden;
+  background: #111;
+}
+
+.bili-ended-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.bili-ended-video-info {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.bili-ended-video-info .bili-title {
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1.35;
+  color: #f0f0f0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+.bili-ended-video-info .bili-sub {
   font-size: 12px;
-  color: rgba(255, 255, 255, 0.5);
+  color: var(--bili-dim, #999);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.bili-ended-loading {
+  padding: 24px;
+  text-align: center;
+  color: var(--bili-dim, #999);
+  font-size: 14px;
+}
+
+.bili-ended-pill-btn {
+  font-size: 15px;
+  color: var(--bili-pink, #fb7299);
+  border-color: rgba(251, 114, 153, 0.3);
+}
+
+.bili-ended-pill-btn svg {
+  width: 18px;
+  height: 18px;
+}
+
+/* Skeletons */
+.bili-skeleton {
+  pointer-events: none;
+  position: relative;
+  overflow: hidden;
+  animation: bili-skeleton-pulse 1.8s ease-in-out infinite;
+}
+
+.bili-skeleton::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.08), transparent);
+  animation: bili-shimmer 1.8s infinite;
+}
+
+@keyframes bili-shimmer {
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+@keyframes bili-skeleton-pulse {
+  0%, 100% { opacity: 0.85; }
+  50% { opacity: 0.45; }
+}
+
+.bili-skeleton .bili-thumb {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.bili-skeleton-line {
+  height: 16px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.08);
+  width: 90%;
+  margin-top: 6px;
+  display: block;
+}
+
+.bili-skeleton-line.short {
+  width: 55%;
+}
+
+.bili-skeleton-line.medium-short {
+  width: 45%;
+}
+
+.bili-skeleton-line.very-short {
+  width: 25%;
+}
+
+.bili-skeleton-bone {
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  animation: bili-skeleton-pulse 1.5s ease-in-out infinite;
+  display: block;
+}
+
+.bili-skeleton-video {
+  pointer-events: none;
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.bili-note {
+  font-size: 18px;
+  color: var(--bili-dim);
+  text-align: center;
+  padding: 40px 0;
+}
+
+/* Dynamic Timeline Container */
+.bili-timeline-container {
+  padding-right: 8px;
+}
+
+.bili-timeline {
+  display: flex;
+  flex-direction: column;
+  position: relative;
+}
+
+.bili-timeline-item {
+  display: flex;
+  gap: 20px;
+  position: relative;
+  padding-bottom: 28px;
+}
+
+/* Timeline rail & connecting lines */
+.bili-timeline-rail {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 20px;
+  flex: none;
+  padding-top: 14px;
+}
+
+.bili-timeline-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--bili-pink);
+  box-shadow: 0 0 10px rgba(251, 114, 153, 0.6);
+  flex: none;
+  z-index: 1;
+}
+
+.bili-timeline-line {
+  flex: 1;
+  width: 2px;
+  background: linear-gradient(to bottom, var(--bili-pink), var(--bili-field-rim));
+  opacity: 0.4;
   margin-top: 6px;
 }
 
-.bili-np-controls {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 28px;
+.bili-timeline-item:last-child .bili-timeline-line {
+  display: none;
 }
 
-.bili-ctrl-btn {
+/* Timeline Glass Card */
+.bili-timeline-card {
+  flex: 1;
+  min-width: 0;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--bili-field-rim);
+  border-radius: 20px;
+  padding: 20px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  backdrop-filter: blur(16px);
+  transition: background 0.2s ease, border-color 0.2s ease;
+}
+
+.bili-timeline-card:hover {
+  background: rgba(255, 255, 255, 0.06);
+  border-color: rgba(251, 114, 153, 0.3);
+}
+
+/* Author Row */
+.bili-author-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.bili-author-avatar-btn {
   background: none;
   border: none;
-  color: #fff;
-  font-size: 26px;
+  padding: 0;
   cursor: pointer;
-  padding: 8px;
   border-radius: 50%;
-  transition: transform 0.1s;
+  display: flex;
+  flex: none;
 }
 
-.bili-ctrl-btn:active {
-  transform: scale(0.9);
+.bili-avatar.medium {
+  width: 48px;
+  height: 48px;
 }
 
-.bili-play-btn {
-  background: #00aeec;
-  width: 58px;
-  height: 58px;
-  font-size: 24px;
+.bili-author-info {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  gap: 4px;
+}
+
+.bili-author-name {
+  background: none;
+  border: none;
+  padding: 0;
+  color: var(--bili-text);
+  font-size: 17px;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bili-author-name:hover {
+  color: var(--bili-pink);
+}
+
+.bili-author-meta {
+  font-size: 14px;
+  color: var(--bili-dim);
+}
+
+/* Dynamic Description / Text */
+.bili-dynamic-desc {
+  font-size: 16px;
+  line-height: 1.55;
+  color: var(--bili-text);
+  word-break: break-word;
+  white-space: pre-wrap;
+}
+
+/* Repost / Forwarded Box */
+.bili-dynamic-repost {
+  background: rgba(0, 0, 0, 0.25);
+  border-left: 3px solid var(--bili-pink);
+  border-radius: 0 12px 12px 0;
+  padding: 12px 16px;
+  font-size: 15px;
+  line-height: 1.5;
+  color: var(--bili-dim);
+}
+
+.bili-repost-author {
+  color: var(--bili-blue);
+  font-weight: 500;
+  margin-right: 4px;
+}
+
+/* Embedded Video Card */
+.bili-embedded-video {
+  display: flex;
+  gap: 16px;
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 16px;
+  padding: 12px 14px;
+  cursor: pointer;
+  transition: transform 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+}
+
+.bili-embedded-video:hover {
+  background: rgba(0, 0, 0, 0.45);
+  border-color: rgba(251, 114, 153, 0.4);
+  transform: translateY(-1px);
+}
+
+.bili-embedded-thumb-wrap {
+  position: relative;
+  width: 180px;
+  aspect-ratio: 16 / 9;
+  border-radius: 10px;
+  overflow: hidden;
+  flex: none;
+  display: block;
+}
+
+.bili-embedded-thumb-wrap .bili-thumb {
+  width: 100%;
+  height: 100%;
+  border-radius: 10px;
+}
+
+.bili-embedded-play-btn {
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.6);
+  color: #ffffff;
+  display: grid;
+  place-items: center;
+  opacity: 0.85;
+  transition: opacity 0.15s ease, transform 0.15s ease;
+}
+
+.bili-embedded-play-btn svg {
+  width: 18px;
+  height: 18px;
+  margin-left: 2px;
+}
+
+.bili-embedded-video:hover .bili-embedded-play-btn {
+  opacity: 1;
+  transform: scale(1.1);
+  background: var(--bili-pink);
+}
+
+.bili-embedded-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 6px;
+}
+
+.bili-embedded-title {
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.35;
+  color: var(--bili-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+.bili-embedded-meta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+  color: var(--bili-dim);
+}
+
+.bili-embedded-author {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bili-embedded-stat {
+  flex: none;
+  color: var(--bili-dim);
+}
+
+/* Dynamic Logged Out Card */
+.bili-logged-out-pane {
   display: flex;
   align-items: center;
   justify-content: center;
+  padding: 40px 20px;
+}
+
+.bili-logged-out-card {
+  max-width: 440px;
+  width: 100%;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--bili-field-rim);
+  border-radius: 24px;
+  padding: 36px 28px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 16px;
+  backdrop-filter: blur(20px);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.25);
+}
+
+.bili-logged-out-icon {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: rgba(251, 114, 153, 0.15);
+  color: var(--bili-pink);
+  display: grid;
+  place-items: center;
+}
+
+.bili-logged-out-icon svg {
+  width: 32px;
+  height: 32px;
+}
+
+.bili-logged-out-title {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--bili-text);
+  margin: 0;
+}
+
+.bili-logged-out-desc {
+  font-size: 15px;
+  line-height: 1.5;
+  color: var(--bili-dim);
+  margin: 0;
+}
+
+.bili-login-action-btn {
+  margin-top: 8px;
+  height: 48px;
+  padding-inline: 32px;
+  border-radius: 24px;
+  border: none;
+  background: var(--bili-pink);
+  color: #ffffff;
+  font-size: 17px;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 4px 16px rgba(251, 114, 153, 0.4);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.bili-login-action-btn:hover {
+  transform: scale(1.03);
+  box-shadow: 0 6px 20px rgba(251, 114, 153, 0.5);
+}
+
+/* Empty State */
+.bili-empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 40px 20px;
+  text-align: center;
+}
+
+.bili-empty-actions {
+  display: flex;
+  gap: 10px;
+}
+
+/* Light Theme Overrides */
+.shell.appearance-light .bili-segmented-control {
+  background: rgba(0, 0, 0, 0.05);
+  border-color: rgba(0, 0, 0, 0.08);
+  box-shadow: inset 0 1px 1px rgba(0, 0, 0, 0.04), 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+.shell.appearance-light .bili-segmented-btn:hover {
+  background: rgba(0, 0, 0, 0.04);
+}
+
+.shell.appearance-light .bili-glass-action-btn {
+  background: rgba(0, 0, 0, 0.05);
+  border-color: rgba(0, 0, 0, 0.08);
+  box-shadow: inset 0 1px 1px rgba(0, 0, 0, 0.03), 0 2px 8px rgba(0, 0, 0, 0.05);
+  color: var(--bili-text);
+}
+
+.shell.appearance-light .bili-glass-action-btn:hover {
+  background: rgba(0, 0, 0, 0.08);
+  border-color: rgba(0, 0, 0, 0.12);
+  color: #000000;
+}
+
+.shell.appearance-light .bili-chip {
+  background: #ffffff;
+  border-color: #e3e5e7;
+  color: var(--bili-text);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04);
+}
+
+.shell.appearance-light .bili-chip:hover {
+  background: #f6f7f8;
+  border-color: rgba(251, 114, 153, 0.5);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+.shell.appearance-light .bili-chip.on {
+  background: linear-gradient(135deg, #fb7299 0%, #e85a85 100%);
+  color: #ffffff;
+  border-color: transparent;
+  box-shadow: 0 4px 14px rgba(251, 114, 153, 0.35);
+}
+
+.shell.appearance-light .bili-filter-query {
+  color: var(--bili-dim);
+}
+
+.shell.appearance-light .bili-card {
+  background: #ffffff;
+  border-color: #e3e5e7;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+}
+
+.shell.appearance-light .bili-card:hover {
+  background: #ffffff;
+  border-color: rgba(251, 114, 153, 0.5);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
+}
+
+.shell.appearance-light .bili-row {
+  background: #ffffff;
+  border-color: #e3e5e7;
+}
+
+.shell.appearance-light .bili-row:hover {
+  background: #f6f7f8;
+  border-color: rgba(251, 114, 153, 0.5);
+}
+
+.shell.appearance-light .bili-channel-row {
+  background: #ffffff;
+  border-color: #e3e5e7;
+}
+
+.shell.appearance-light .bili-channel-row:hover {
+  background: #f6f7f8;
+  border-color: rgba(251, 114, 153, 0.5);
+}
+
+.shell.appearance-light .bili-timeline-card {
+  background: #f6f7f8;
+  border-color: #e3e5e7;
+}
+
+.shell.appearance-light .bili-timeline-card:hover {
+  background: #f1f2f3;
+}
+
+.shell.appearance-light .bili-dynamic-repost {
+  background: #eef0f2;
+}
+
+.shell.appearance-light .bili-embedded-video {
+  background: #f1f2f3;
+  border-color: #e3e5e7;
+}
+
+.shell.appearance-light .bili-embedded-video:hover {
+  background: #e9eaec;
+}
+
+.shell.appearance-light .bili-logged-out-card {
+  background: #f6f7f8;
+  border-color: #e3e5e7;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.08);
+}
+
+.shell.appearance-light .bili-skeleton::after {
+  background: linear-gradient(90deg, transparent, rgba(0, 0, 0, 0.04), transparent);
+}
+
+.shell.appearance-light .bilibili-app .text-field {
+  background: #f1f2f3;
+  border-color: #e3e5e7;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+
+.shell.appearance-light .bilibili-app .text-field:hover {
+  background: #e9eaec;
+  border-color: #d1d5db;
+}
+
+.shell.appearance-light .bilibili-app .text-field.typing {
+  background: #ffffff;
+  border-color: var(--bili-pink);
+  box-shadow: 0 0 0 3px rgba(251, 114, 153, 0.2), inset 0 1px 2px rgba(0, 0, 0, 0.04);
+}
+
+.shell.appearance-light .bili-cancel-search-btn {
+  background: #f1f2f3;
+  border-color: #e3e5e7;
+  color: var(--bili-pink);
+}
+
+.shell.appearance-light .bili-cancel-search-btn:hover {
+  background: rgba(251, 114, 153, 0.12);
+  border-color: rgba(251, 114, 153, 0.3);
+  color: var(--bili-pink);
+}
+
+.shell.appearance-light .bili-clear-history-btn {
+  background: #f1f2f3;
+  border-color: #e3e5e7;
+  color: var(--bili-dim);
+}
+
+.shell.appearance-light .bili-clear-history-btn:hover {
+  background: rgba(255, 71, 87, 0.12);
+  border-color: rgba(255, 71, 87, 0.25);
+  color: #ff4757;
+}
+
+.shell.appearance-light .bili-history-tag {
+  background: #f1f2f3;
+  border-color: #e3e5e7;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+.shell.appearance-light .bili-history-tag:hover {
+  background: #ffffff;
+  border-color: rgba(251, 114, 153, 0.5);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+}
+
+.shell.appearance-light .bili-history-del-btn:hover {
+  background: rgba(0, 0, 0, 0.08);
+  color: #18191c;
+}
+
+.shell.appearance-light .bili-hot-item {
+  background: #f6f7f8;
+  border-color: #e3e5e7;
+}
+
+.shell.appearance-light .bili-hot-item:hover {
+  background: #ffffff;
+  border-color: rgba(251, 114, 153, 0.5);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.06);
+}
+
+.shell.appearance-light .bili-hot-rank.rank-normal {
+  background: #e3e5e7;
+  color: var(--bili-dim);
+}
+
+.shell.appearance-light .bili-suggestions-card {
+  background: #ffffff;
+  border-color: #e3e5e7;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.08);
+}
+
+.shell.appearance-light .bili-suggestion-row {
+  border-bottom-color: #f1f2f3;
+}
+
+.shell.appearance-light .bili-suggestion-row:hover {
+  background: #f6f7f8;
+}
+
+.shell.appearance-light .bili-sug-history-badge {
+  background: #e9eaec;
+  color: var(--bili-dim);
+}
+
+/* Author Link */
+.bili-author-link {
+  cursor: pointer;
+  transition: color 0.18s ease;
+}
+
+.bili-author-link:hover {
+  color: var(--bili-pink);
+  text-decoration: underline;
+}
+
+/* Sign-in Guide Card */
+.bili-signin-guide-wrap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 20px 120px;
+}
+
+.bili-signin-guide-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 16px;
+  max-width: 480px;
+  padding: 40px 32px;
+  border-radius: 28px;
+  background: rgba(255, 255, 255, 0.04);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.3);
+}
+
+.bili-signin-guide-icon {
+  font-size: 44px;
+}
+
+.bili-signin-guide-text h3 {
+  font-size: 22px;
+  font-weight: 700;
+  margin: 0 0 8px;
+  color: var(--bili-text);
+}
+
+.bili-signin-guide-text p {
+  font-size: 16px;
+  color: var(--bili-dim);
+  margin: 0;
+  line-height: 1.5;
+}
+
+.bili-live-login-btn.large {
+  height: 52px;
+  padding-inline: 28px;
+  font-size: 18px;
+  border-radius: 26px;
+  margin-top: 8px;
+}
+
+/* ============================================================
+   Bilibili Live Streaming Tab & Player Styles
+   ============================================================ */
+
+@keyframes bili-live-pulse {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.45;
+    transform: scale(0.85);
+  }
+}
+
+.bili-live-scroll {
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+  padding-bottom: 120px;
+}
+
+.bili-live-section {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.bili-live-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.bili-live-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--bili-text);
+  letter-spacing: -0.2px;
+}
+
+.bili-live-title svg {
+  width: 22px;
+  height: 22px;
+  color: var(--bili-pink);
+}
+
+.bili-live-pulse-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #ff4757;
+  box-shadow: 0 0 10px #ff4757;
+  animation: bili-live-pulse 1.6s ease-in-out infinite;
+  flex: none;
+}
+
+.bili-live-pulse-dot.small {
+  width: 8px;
+  height: 8px;
+  box-shadow: 0 0 6px #ff4757;
+}
+
+.bili-live-count-badge {
+  font-size: 13px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 10px;
+  background: rgba(255, 71, 87, 0.2);
+  color: #ff4757;
+  border: 1px solid rgba(255, 71, 87, 0.35);
+}
+
+/* Followed Live Stream Shelf */
+.bili-following-live-shelf {
+  display: flex;
+  gap: 18px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  padding-bottom: 6px;
+}
+
+.bili-following-live-card {
+  flex: none;
+  width: 290px;
+  background: rgba(255, 255, 255, 0.04);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 20px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  cursor: pointer;
+  transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.bili-following-live-card:hover {
+  background: rgba(255, 255, 255, 0.09);
+  border-color: rgba(251, 114, 153, 0.4);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+}
+
+.bili-following-live-card:active {
+  transform: scale(0.98);
+}
+
+.bili-following-thumb-wrap {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  border-radius: 14px;
+  overflow: hidden;
+  background: rgba(0, 0, 0, 0.4);
+}
+
+.bili-following-thumb-wrap img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.bili-live-pill-badge {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 12px;
+  background: rgba(0, 0, 0, 0.68);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: #ffffff;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+}
+
+.bili-live-area-pill {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  padding: 3px 8px;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.bili-live-bottom-heat {
+  position: absolute;
+  inset-inline: 0;
+  bottom: 0;
+  padding: 16px 10px 6px;
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.78) 0%, transparent 100%);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 13px;
+  font-weight: 600;
+  color: #ffffff;
+  letter-spacing: 0.3px;
+}
+
+.bili-following-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.bili-following-host-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.bili-following-avatar-wrap {
+  position: relative;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  flex: none;
+}
+
+.bili-following-avatar-wrap img {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.bili-live-mini-badge {
+  position: absolute;
+  bottom: -1px;
+  right: -1px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #ff4757;
+  border: 2px solid #141518;
+}
+
+.bili-following-uname {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--bili-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Live Quiet State Card */
+.bili-live-quiet-card {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  padding: 20px 24px;
+  border-radius: 22px;
+  background: rgba(255, 255, 255, 0.035);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.bili-quiet-icon {
+  font-size: 30px;
+  flex: none;
+}
+
+.bili-quiet-text {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.bili-quiet-title {
+  font-size: 17px;
+  font-weight: 600;
+  color: var(--bili-text);
+}
+
+.bili-quiet-sub {
+  font-size: 14px;
+  color: var(--bili-dim);
+}
+
+/* Live Sign-in Banner */
+.bili-live-signin-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 18px 24px;
+  border-radius: 22px;
+  background: linear-gradient(135deg, rgba(251, 114, 153, 0.12) 0%, rgba(0, 174, 236, 0.08) 100%);
+  border: 1px solid rgba(251, 114, 153, 0.25);
+  backdrop-filter: blur(16px);
+}
+
+.bili-signin-banner-text {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 16px;
+  font-weight: 500;
+  color: var(--bili-text);
+}
+
+.bili-live-login-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 44px;
+  padding-inline: 20px;
+  border-radius: 22px;
+  background: var(--bili-pink);
+  border: none;
+  color: #ffffff;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  flex: none;
+}
+
+.bili-live-login-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 14px rgba(251, 114, 153, 0.45);
+}
+
+.bili-live-login-btn:active {
+  transform: scale(0.96);
+}
+
+/* Category Live Grid */
+.bili-live-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 20px 18px;
+}
+
+.bili-live-card {
+  padding: 12px;
+  gap: 10px;
+}
+
+.bili-live-thumb-wrap {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  border-radius: 14px;
+  overflow: hidden;
+  background: rgba(0, 0, 0, 0.4);
+}
+
+.bili-live-thumb-wrap img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.bili-live-heat-text {
+  color: #ffffff;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.bili-live-host-name {
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 13px;
+  max-width: 160px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bili-live-card-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+/* Player Live Display & Controls */
+.bili-player-top.live {
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0.75) 0%, rgba(0, 0, 0, 0.3) 70%, transparent 100%);
+  border-radius: 0 0 20px 20px;
+  padding-bottom: 12px;
+  gap: 18px;
+}
+
+.bili-player-title.live {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.bili-live-title-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.bili-live-player-badge {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 36px;
+  background: linear-gradient(135deg, rgba(255, 71, 87, 0.28) 0%, rgba(251, 114, 153, 0.22) 100%);
+  border: 1px solid rgba(255, 71, 87, 0.5);
+  border-radius: 18px;
+  padding-inline: 14px;
+  font-size: 14.5px;
+  font-weight: 800;
+  color: #ff5263;
+  letter-spacing: 0.5px;
+  box-shadow: 0 2px 10px rgba(255, 71, 87, 0.25);
+}
+
+.bili-live-pulse-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: #ff4757;
+  box-shadow: 0 0 8px #ff4757;
+  animation: live-pulse-dot 1.6s infinite ease-in-out;
+}
+
+@keyframes live-pulse-dot {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.35);
+    opacity: 0.6;
+  }
+}
+
+.bili-live-room-pill {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 36px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 18px;
+  padding-inline: 14px;
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.bili-live-room-lbl {
+  opacity: 0.65;
+  font-size: 12.5px;
+}
+
+.bili-live-room-num {
+  font-weight: 700;
+  color: #fff;
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+}
+
+.bili-player-title-text.live {
+  font-size: 22px;
+  font-weight: 700;
+  color: #fff;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bili-live-meta-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 2px;
+}
+
+.bili-live-anchor-btn,
+.bili-live-anchor-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 38px;
+  background: rgba(255, 255, 255, 0.07);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 19px;
+  padding-inline: 16px;
+  font-size: 15px;
+  color: #fff;
+  transition: all 0.2s ease;
+}
+
+.bili-live-anchor-btn {
+  cursor: pointer;
+}
+
+.bili-live-anchor-btn:hover {
+  background: rgba(251, 114, 153, 0.2);
+  border-color: rgba(251, 114, 153, 0.45);
+  box-shadow: 0 2px 10px rgba(251, 114, 153, 0.2);
+}
+
+.bili-live-anchor-icon {
+  font-size: 15px;
+}
+
+.bili-live-anchor-label {
+  color: rgba(255, 255, 255, 0.65);
+  font-size: 14px;
+}
+
+.bili-live-anchor-name {
+  font-weight: 600;
+  color: #fff;
+  font-size: 15px;
+}
+
+.bili-live-anchor-arrow {
+  color: var(--bili-pink);
+  font-size: 16px;
+  font-weight: 700;
+  margin-left: 2px;
+}
+
+.bili-live-tag-live {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: #ff4757;
+  font-size: 16px;
+  font-weight: 700;
+}
+
+/* Differentiated Live Bottom Bar */
+.bili-bar.live {
+  height: 36px;
+  display: flex;
+  align-items: center;
+  cursor: default;
+}
+
+.bili-bar.live::before {
+  display: none !important;
+}
+
+.bili-bar-live-track {
+  position: relative;
+  width: 100%;
+  height: 36px;
+  border-radius: 18px;
+  background: rgba(20, 20, 26, 0.65);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  backdrop-filter: blur(16px);
+  display: flex;
+  align-items: center;
+  padding: 0 18px;
+  overflow: hidden;
+}
+
+.bili-bar-live-glow {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 30%;
+  background: linear-gradient(90deg, transparent 0%, rgba(255, 71, 87, 0.25) 50%, rgba(251, 114, 153, 0.35) 80%, transparent 100%);
+  animation: live-track-shimmer 3s infinite ease-in-out;
+  pointer-events: none;
+}
+
+@keyframes live-track-shimmer {
+  0% {
+    transform: translateX(-120%);
+  }
+  100% {
+    transform: translateX(400%);
+  }
+}
+
+.bili-bar-live-content {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+}
+
+.bili-bar-live-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 800;
+  color: #ff5263;
+  letter-spacing: 0.5px;
+  flex: none;
+}
+
+.bili-bar-live-stream-text {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.75);
+  letter-spacing: 0.3px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.bili-live-refresh-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: #fff;
+  transition: all 0.2s ease;
+}
+
+.bili-live-refresh-btn:hover {
+  background: rgba(255, 255, 255, 0.15);
+  color: var(--bili-pink);
+}
+
+.bili-time.live {
+  background: rgba(255, 71, 87, 0.1);
+  border-color: rgba(255, 71, 87, 0.25);
+}
+
+.bili-menu.live {
+  width: 280px;
+}
+
+/* Light Mode Overrides for Live Components */
+.shell.appearance-light .bili-signin-guide-card {
+  background: #ffffff;
+  border-color: #e3e5e7;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.08);
+}
+
+.shell.appearance-light .bili-following-live-card {
+  background: #ffffff;
+  border-color: #e3e5e7;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.05);
+}
+
+.shell.appearance-light .bili-following-live-card:hover {
+  background: #ffffff;
+  border-color: rgba(251, 114, 153, 0.5);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
+}
+
+.shell.appearance-light .bili-live-quiet-card {
+  background: #f6f7f8;
+  border-color: #e3e5e7;
+}
+
+.shell.appearance-light .bili-live-signin-banner {
+  background: linear-gradient(135deg, rgba(251, 114, 153, 0.08) 0%, rgba(0, 174, 236, 0.06) 100%);
+  border-color: rgba(251, 114, 153, 0.3);
+}
+
+.shell.appearance-light .bili-player-top.live {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.9) 0%, rgba(255, 255, 255, 0.4) 70%, transparent 100%);
+}
+
+.shell.appearance-light .bili-player-title-text.live {
+  color: #18191c;
+  text-shadow: 0 1px 4px rgba(255, 255, 255, 0.8);
+}
+
+.shell.appearance-light .bili-live-room-pill {
+  background: rgba(0, 0, 0, 0.06);
+  border-color: rgba(0, 0, 0, 0.12);
+  color: #18191c;
+}
+
+.shell.appearance-light .bili-live-room-num {
+  color: #18191c;
+}
+
+.shell.appearance-light .bili-live-anchor-btn,
+.shell.appearance-light .bili-live-anchor-tag {
+  background: rgba(0, 0, 0, 0.05);
+  border-color: rgba(0, 0, 0, 0.1);
+  color: #18191c;
+}
+
+.shell.appearance-light .bili-live-anchor-label {
+  color: #61666d;
+}
+
+.shell.appearance-light .bili-live-anchor-name {
+  color: #18191c;
+}
+
+.shell.appearance-light .bili-bar-live-track {
+  background: rgba(255, 255, 255, 0.85);
+  border-color: rgba(0, 0, 0, 0.1);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
+}
+
+.shell.appearance-light .bili-bar-live-stream-text {
+  color: #61666d;
+}
+
+/* ============================================================
+   Bilibili Cinema / Movie Tab Styles (https://www.bilibili.com/movie)
+   ============================================================ */
+
+.bili-movie-scroll {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  padding-bottom: 120px;
+}
+
+.bili-movie-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  flex-shrink: 0;
+}
+
+/* Level 3 Tertiary Sort / Filter Bar (三级 Tab / 排序过滤) */
+.bili-movie-sort-bar {
+  display: inline-flex;
+  align-items: center;
+  gap: 16px;
+  padding: 8px 14px 8px 20px;
+  border-radius: 30px;
+  background: rgba(255, 255, 255, 0.055);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.05);
+  align-self: flex-start;
+  flex-shrink: 0;
+}
+
+.bili-movie-sort-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 15.5px;
+  font-weight: 600;
+  color: var(--bili-dim);
+  letter-spacing: 0.4px;
+}
+
+.bili-movie-sort-label svg {
+  color: var(--bili-pink);
+  width: 18px;
+  height: 18px;
+}
+
+.bili-movie-sort-chips {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.bili-sort-btn {
+  height: 44px;
+  padding-inline: 22px;
+  border-radius: 22px;
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--bili-dim);
+  font-size: 15.5px;
+  font-weight: 550;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  user-select: none;
+}
+
+.bili-sort-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--bili-text);
+  border-color: rgba(255, 255, 255, 0.08);
+}
+
+.bili-sort-btn:active {
+  transform: scale(0.96);
+}
+
+.bili-sort-btn.active {
+  background: rgba(251, 114, 153, 0.24);
+  border-color: rgba(251, 114, 153, 0.5);
+  color: #ffffff;
+  font-weight: 600;
+  box-shadow: 0 3px 10px rgba(251, 114, 153, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.2);
+}
+
+.bili-sort-icon {
+  font-size: 15px;
+  line-height: 1;
+}
+
+.bili-results-header {
+  padding-bottom: 16px;
+  display: flex;
+  align-items: center;
+}
+
+/* Movie Vertical Poster Grid (3 Columns) */
+.bili-movie-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 20px 18px;
+}
+
+.bili-movie-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 10px;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.035);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  cursor: pointer;
+  transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+  user-select: none;
+  color: inherit;
+  text-align: left;
+}
+
+.bili-movie-card:hover {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(251, 114, 153, 0.4);
+  transform: translateY(-3px);
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.35);
+}
+
+.bili-movie-card:active {
+  transform: scale(0.98);
+}
+
+.bili-movie-poster-wrap {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 3 / 4.2;
+  border-radius: 12px;
+  overflow: hidden;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.bili-movie-poster-wrap img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.bili-movie-card:hover .bili-movie-poster-wrap img {
+  transform: scale(1.04);
+}
+
+/* Movie Badges */
+.bili-movie-badge {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  padding: 4px 8px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #ffffff;
+  letter-spacing: 0.5px;
+  backdrop-filter: blur(6px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+  z-index: 2;
+}
+
+.bili-movie-badge.vip {
+  background: linear-gradient(135deg, #fb7299 0%, #e85a85 100%);
+  border: 1px solid rgba(255, 255, 255, 0.4);
+}
+
+.bili-movie-badge.exclusive {
+  background: linear-gradient(135deg, #a855f7 0%, #7c3aed 100%);
+  border: 1px solid rgba(255, 255, 255, 0.35);
+}
+
+.bili-movie-badge.original {
+  background: linear-gradient(135deg, #00aeec 0%, #0284c7 100%);
+  border: 1px solid rgba(255, 255, 255, 0.35);
+}
+
+.bili-movie-badge.limited {
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  border: 1px solid rgba(255, 255, 255, 0.35);
+}
+
+.bili-movie-badge.free {
+  background: rgba(0, 0, 0, 0.65);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+/* Rating Score Badge */
+.bili-movie-score-badge {
+  position: absolute;
+  bottom: 8px;
+  right: 8px;
+  padding: 3px 8px;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.72);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 215, 0, 0.35);
+  color: #ffd700;
+  font-size: 13px;
+  font-weight: 800;
+  z-index: 2;
+  letter-spacing: 0.3px;
+}
+
+/* Status Pill */
+.bili-movie-status-pill {
+  position: absolute;
+  bottom: 8px;
+  left: 8px;
+  padding: 3px 8px;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, 0.68);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 12px;
+  font-weight: 500;
+  z-index: 2;
+}
+
+.bili-movie-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.bili-movie-title {
+  font-size: 17px;
+  font-weight: 600;
+  color: var(--bili-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  letter-spacing: -0.2px;
+}
+
+.bili-movie-sub {
+  font-size: 14px;
+  color: var(--bili-dim);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Light mode overrides for Movie components */
+.shell.appearance-light .bili-movie-card {
+  background: #ffffff;
+  border-color: #e3e5e7;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.05);
+}
+
+.shell.appearance-light .bili-movie-card:hover {
+  background: #ffffff;
+  border-color: rgba(251, 114, 153, 0.5);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
+}
+
+/* Light mode overrides for Sub-Tabs (二级 Tab) & Tertiary Bar (三级 Tab) */
+.shell.appearance-light .bili-subtabs-track {
+  background: rgba(0, 0, 0, 0.04);
+  border-color: rgba(0, 0, 0, 0.08);
+  box-shadow: inset 0 1px 1px rgba(0, 0, 0, 0.03), 0 2px 8px rgba(0, 0, 0, 0.04);
+}
+
+.shell.appearance-light .bili-subtab-btn {
+  color: #61666d;
+}
+
+.shell.appearance-light .bili-subtab-btn:hover {
+  background: rgba(0, 0, 0, 0.06);
+  color: #18191c;
+}
+
+.shell.appearance-light .bili-subtab-btn.active {
+  background: linear-gradient(135deg, #fb7299 0%, #e85a85 100%);
+  color: #ffffff;
+  box-shadow: 0 4px 14px rgba(251, 114, 153, 0.38);
+}
+
+.shell.appearance-light .bili-movie-sort-bar {
+  background: rgba(0, 0, 0, 0.03);
+  border-color: rgba(0, 0, 0, 0.06);
+  box-shadow: inset 0 1px 1px rgba(0, 0, 0, 0.02);
+}
+
+.shell.appearance-light .bili-movie-sort-label {
+  color: #61666d;
+}
+
+.shell.appearance-light .bili-sort-btn {
+  background: #f1f2f3;
+  border-color: #e3e5e7;
+  color: var(--bili-dim);
+}
+
+.shell.appearance-light .bili-sort-btn:hover {
+  background: #e9eaec;
+  color: var(--bili-text);
+}
+
+.shell.appearance-light .bili-sort-btn.active {
+  background: rgba(251, 114, 153, 0.15);
+  border-color: rgba(251, 114, 153, 0.45);
+  color: var(--bili-pink);
 }

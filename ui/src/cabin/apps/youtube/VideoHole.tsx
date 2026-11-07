@@ -5,7 +5,7 @@ import { whenTransitionEnds } from '../../state/launch'
 import { useCabin } from '../../state/store'
 import { useDouyin } from '../douyin/douyin'
 import { useHongguo } from '../hongguo/hongguo'
-import { useBilibili } from '../bilibili/bilibili'
+import { send as sendBilibili, useBilibili } from '../bilibili/bilibili'
 import { command, followArea, useYouTube } from './youtube'
 
 /** How long the CarPlay area takes at most to grow back from the truck's screen, ms (its spring). */
@@ -93,7 +93,7 @@ export function VideoHole({
       } else if (app === 'hongguo') {
         postToHost({ type: 'hongguo', command: showCmd })
       } else if (app === 'bilibili') {
-        postToHost({ type: 'bilibili', command: showCmd })
+        sendBilibili(showCmd)
       } else {
         command(showCmd)
       }
@@ -152,7 +152,9 @@ export function VideoHole({
         postToHost({ type: 'hongguo', command: { action: 'hide' } })
       } else if (app === 'bilibili') {
         useBilibili.setState({ hole: null })
-        postToHost({ type: 'bilibili', command: { action: 'hide' } })
+        if (!useBilibili.getState().open) {
+          sendBilibili({ action: 'hide' })
+        }
       } else {
         useYouTube.setState({ hole: null })
         // Gone (whatever shows it next places it again).

@@ -7,6 +7,7 @@ import { frameInsets, NO_INSETS, OEM_STRIPS } from '../state/oem'
 import { RETURN_BUTTON_SIZE, returnButtonCentre } from '../state/screen'
 import { textScale } from '../state/textSize'
 import { Player } from '../apps/youtube/Player'
+import { BilibiliPlayer } from '../apps/bilibili/Player'
 import { type Hole, useYouTube } from '../apps/youtube/youtube'
 import { useDouyin } from '../apps/douyin/douyin'
 import { useHongguo } from '../apps/hongguo/hongguo'
@@ -74,7 +75,9 @@ export function Shell({ children, overlay, entering = false }: ShellProps) {
   const button = returnButtonCentre(profile, insets.left, layout)
   // A video full screen: the rest of the CarPlay area steps aside for it (apps/youtube/youtube.css). A video
   // in small (YouTube's Now playing): the CarPlay area is cut open where it shows.
-  const watching = useYouTube((state) => state.open)
+  const ytWatching = useYouTube((state) => state.open)
+  const biliWatching = useBilibili((state) => state.open)
+  const watching = ytWatching || biliWatching
   const holdSidebar = useYouTube((state) => state.holdSidebar)
   const ytHole = useYouTube((state) => state.hole)
   const dyHole = useDouyin((state) => state.hole)
@@ -136,6 +139,7 @@ export function Shell({ children, overlay, entering = false }: ShellProps) {
           <Sidebar />
           {children}
           <Player />
+          <BilibiliPlayer />
           <Keyboard />
           <VolumeHud />
           <div ref={corners} className="screen-corners" aria-hidden />
