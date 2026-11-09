@@ -69,6 +69,18 @@ static SNAPSHOT: Mutex<Telemetry> = Mutex::new(Telemetry {
     cabin_z: 0.0,
     steering: 0.0,
     multiplayer_time_offset: 0,
+    next_rest_stop: 0,
+    cargo_damage: 0.0,
+    wear_engine: 0.0,
+    wear_transmission: 0.0,
+    wear_cabin: 0.0,
+    wear_chassis: 0.0,
+    wear_wheels: 0.0,
+    wear_trailer_chassis: 0.0,
+    wear_trailer_wheels: 0.0,
+    wear_trailer_body: 0.0,
+    brake_air_pressure: 0.0,
+    brake_air_pressure_warning: false,
 });
 
 /// Where the driver's head is by default in the truck's cab (the "truck" configuration's `head.position`).
@@ -106,6 +118,18 @@ enum Field {
     HeadOffset,
     Steering,
     MultiplayerTimeOffset,
+    NextRestStop,
+    CargoDamage,
+    WearEngine,
+    WearTransmission,
+    WearCabin,
+    WearChassis,
+    WearWheels,
+    WearTrailerChassis,
+    WearTrailerWheels,
+    WearTrailerBody,
+    BrakeAirPressure,
+    BrakeAirPressureWarning,
 }
 
 const CHANNELS: &[(&str, u32, Field)] = &[
@@ -133,6 +157,18 @@ const CHANNELS: &[(&str, u32, Field)] = &[
     ("truck.head.offset", SCS_VALUE_TYPE_FPLACEMENT, Field::HeadOffset),
     ("truck.effective.steering", SCS_VALUE_TYPE_FLOAT, Field::Steering),
     ("multiplayer.time.offset", SCS_VALUE_TYPE_S32, Field::MultiplayerTimeOffset),
+    ("rest.stop", SCS_VALUE_TYPE_S32, Field::NextRestStop),
+    ("trailer.cargo.damage", SCS_VALUE_TYPE_FLOAT, Field::CargoDamage),
+    ("truck.wear.engine", SCS_VALUE_TYPE_FLOAT, Field::WearEngine),
+    ("truck.wear.transmission", SCS_VALUE_TYPE_FLOAT, Field::WearTransmission),
+    ("truck.wear.cabin", SCS_VALUE_TYPE_FLOAT, Field::WearCabin),
+    ("truck.wear.chassis", SCS_VALUE_TYPE_FLOAT, Field::WearChassis),
+    ("truck.wear.wheels", SCS_VALUE_TYPE_FLOAT, Field::WearWheels),
+    ("trailer.wear.chassis", SCS_VALUE_TYPE_FLOAT, Field::WearTrailerChassis),
+    ("trailer.wear.wheels", SCS_VALUE_TYPE_FLOAT, Field::WearTrailerWheels),
+    ("trailer.wear.body", SCS_VALUE_TYPE_FLOAT, Field::WearTrailerBody),
+    ("truck.brake.air.pressure", SCS_VALUE_TYPE_FLOAT, Field::BrakeAirPressure),
+    ("truck.brake.air.pressure.warning", SCS_VALUE_TYPE_BOOL, Field::BrakeAirPressureWarning),
 ];
 
 /// Registers the telemetry channels and events. Called from `scs_telemetry_init`.
@@ -417,6 +453,18 @@ unsafe fn on_channel_value(value: *const ScsValue, context: *mut c_void) {
             }
             Field::Steering => s.steering = value.float(),
             Field::MultiplayerTimeOffset => s.multiplayer_time_offset = value.s32(),
+            Field::NextRestStop => s.next_rest_stop = value.s32(),
+            Field::CargoDamage => s.cargo_damage = value.float(),
+            Field::WearEngine => s.wear_engine = value.float(),
+            Field::WearTransmission => s.wear_transmission = value.float(),
+            Field::WearCabin => s.wear_cabin = value.float(),
+            Field::WearChassis => s.wear_chassis = value.float(),
+            Field::WearWheels => s.wear_wheels = value.float(),
+            Field::WearTrailerChassis => s.wear_trailer_chassis = value.float(),
+            Field::WearTrailerWheels => s.wear_trailer_wheels = value.float(),
+            Field::WearTrailerBody => s.wear_trailer_body = value.float(),
+            Field::BrakeAirPressure => s.brake_air_pressure = value.float(),
+            Field::BrakeAirPressureWarning => s.brake_air_pressure_warning = value.bool(),
         }
     }
 }
@@ -454,5 +502,17 @@ fn reset(s: &mut Telemetry, field: Field) {
         }
         Field::Steering => s.steering = d.steering,
         Field::MultiplayerTimeOffset => s.multiplayer_time_offset = d.multiplayer_time_offset,
+        Field::NextRestStop => s.next_rest_stop = d.next_rest_stop,
+        Field::CargoDamage => s.cargo_damage = d.cargo_damage,
+        Field::WearEngine => s.wear_engine = d.wear_engine,
+        Field::WearTransmission => s.wear_transmission = d.wear_transmission,
+        Field::WearCabin => s.wear_cabin = d.wear_cabin,
+        Field::WearChassis => s.wear_chassis = d.wear_chassis,
+        Field::WearWheels => s.wear_wheels = d.wear_wheels,
+        Field::WearTrailerChassis => s.wear_trailer_chassis = d.wear_trailer_chassis,
+        Field::WearTrailerWheels => s.wear_trailer_wheels = d.wear_trailer_wheels,
+        Field::WearTrailerBody => s.wear_trailer_body = d.wear_trailer_body,
+        Field::BrakeAirPressure => s.brake_air_pressure = d.brake_air_pressure,
+        Field::BrakeAirPressureWarning => s.brake_air_pressure_warning = d.brake_air_pressure_warning,
     }
 }

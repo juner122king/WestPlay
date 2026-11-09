@@ -100,9 +100,7 @@ function OpenPlayer() {
 
   const isLive = Boolean(current?.isLive || playback?.isLive || playback?.bvid?.startsWith('live:'))
   const isPlaybackPlaying = Boolean(
-    playing ||
-    playback?.status === 'playing' ||
-    (isLive && playback?.status !== 'paused')
+    playing || playback?.status === 'playing' || (isLive && playback?.status !== 'paused'),
   )
 
   const ended =
@@ -176,12 +174,16 @@ function OpenPlayer() {
   const videoTitle =
     (!isGenericTitle(current?.title) ? current?.title : null) ||
     (!isGenericTitle(playback?.title) ? playback?.title : null) ||
-    current?.title || playback?.title || (isLive ? '哔哩哔哩直播' : '哔哩哔哩视频')
+    current?.title ||
+    playback?.title ||
+    (isLive ? '哔哩哔哩直播' : '哔哩哔哩视频')
 
   const authorName =
     (!isGenericAuthor(current?.author) ? current?.author : null) ||
     (!isGenericAuthor(playback?.artist) ? playback?.artist : null) ||
-    current?.author || playback?.artist || (isLive ? '主播' : 'UP主')
+    current?.author ||
+    playback?.artist ||
+    (isLive ? '主播' : 'UP主')
 
   const mid = current?.mid || playback?.mid
   const roomId = current?.roomId || playback?.roomId
@@ -323,11 +325,7 @@ function OpenPlayer() {
                 <span className="bili-ended-status-text">播放已结束</span>
               </div>
               <div className="bili-ended-actions">
-                <button
-                  type="button"
-                  className="bili-btn-replay-primary"
-                  onClick={() => replay()}
-                >
+                <button type="button" className="bili-btn-replay-primary" onClick={() => replay()}>
                   <ReplayGlyph />
                   <span>重新播放</span>
                 </button>
@@ -344,11 +342,7 @@ function OpenPlayer() {
                 )}
 
                 {queue && queue.pages.length > 1 && (
-                  <button
-                    type="button"
-                    className="bili-btn-parts"
-                    onClick={() => setShowDrawer(true)}
-                  >
+                  <button type="button" className="bili-btn-parts" onClick={() => setShowDrawer(true)}>
                     <QueueGlyph />
                     <span>分P选集</span>
                   </button>
@@ -387,9 +381,7 @@ function OpenPlayer() {
                         ) : (
                           <span className="bili-thumb-blank" />
                         )}
-                        {v.duration ? (
-                          <span className="bili-badge">{formatClock(v.duration)}</span>
-                        ) : null}
+                        {v.duration ? <span className="bili-badge">{formatClock(v.duration)}</span> : null}
                       </div>
                       <div className="bili-ended-video-info">
                         <span className="bili-title">{v.title}</span>

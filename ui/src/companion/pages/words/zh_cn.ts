@@ -152,8 +152,7 @@ export const words: CompanionWords = {
     language: '语言',
     languageAutomatic: '自动',
     languageAutomaticDetail: '游戏语言：{name}',
-    languageNote:
-      'WestPlay 会在卡车屏幕和此窗口中使用此语言。地图上的地名仍使用游戏语言。',
+    languageNote: 'WestPlay 会在卡车屏幕和此窗口中使用此语言。地图上的地名仍使用游戏语言。',
   },
   tutorial: {
     intro: {
@@ -263,8 +262,10 @@ export const words: CompanionWords = {
     iconCount: '图标 {n}/10',
     addFolder: '从文件夹添加',
     addZip: '从 .zip 添加',
-    iconsNote: '用应用的名字为每个图标命名：{names}。支持 PNG、WebP、JPG 或 SVG。没有提供图标的应用沿用 WestPlay 的图标。',
-    looksNote: '想要随浅色和深色切换的图标，就再添加一个文件名带 .dark 的深色版本，例如 maps.png 旁边放 maps.dark.png。',
+    iconsNote:
+      '用应用的名字为每个图标命名：{names}。支持 PNG、WebP、JPG 或 SVG。没有提供图标的应用沿用 WestPlay 的图标。',
+    looksNote:
+      '想要随浅色和深色切换的图标，就再添加一个文件名带 .dark 的深色版本，例如 maps.png 旁边放 maps.dark.png。',
     style: { title: '图标外观', auto: '自动', light: '浅色', dark: '深色' },
     remove: '移除',
     pickWallpapers: '选择壁纸',

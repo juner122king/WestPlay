@@ -13,15 +13,7 @@ import {
 import { SearchGlyph } from '../../keyboard/glyphs'
 import { useKeyboard } from '../../keyboard/store'
 import { TextField } from '../../keyboard/TextField'
-import {
-  BackGlyph,
-  CloseGlyph,
-  FillGlyph,
-  HistoryGlyph,
-  PauseGlyph,
-  PersonGlyph,
-  PlayGlyph,
-} from '../youtube/glyphs'
+import { BackGlyph, CloseGlyph, FillGlyph, HistoryGlyph, PauseGlyph, PersonGlyph, PlayGlyph } from '../youtube/glyphs'
 import { VideoHole } from '../youtube/VideoHole'
 import {
   ask,
@@ -86,7 +78,17 @@ function SparkleGlyph() {
 
 function SignalGlyph() {
   return (
-    <svg viewBox="0 0 24 24" aria-hidden="true" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <svg
+      viewBox="0 0 24 24"
+      aria-hidden="true"
+      width="20"
+      height="20"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
       <path d="M4 11a9 9 0 0 1 9 9" />
       <path d="M4 4a16 16 0 0 1 16 16" />
       <circle cx="5" cy="19" r="1.5" fill="currentColor" />
@@ -104,7 +106,17 @@ function FireGlyph() {
 
 function LiveBroadcastGlyph() {
   return (
-    <svg viewBox="0 0 24 24" aria-hidden="true" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <svg
+      viewBox="0 0 24 24"
+      aria-hidden="true"
+      width="20"
+      height="20"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
       <circle cx="12" cy="12" r="2.5" fill="currentColor" />
       <path d="M16.2 7.8a6 6 0 0 1 0 8.4m-8.4-8.4a6 6 0 0 0 0 8.4" />
       <path d="M19.1 4.9a10 10 0 0 1 0 14.2m-14.2-14.2a10 10 0 0 0 0 14.2" />
@@ -114,7 +126,17 @@ function LiveBroadcastGlyph() {
 
 function TrashGlyph() {
   return (
-    <svg viewBox="0 0 24 24" aria-hidden="true" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <svg
+      viewBox="0 0 24 24"
+      aria-hidden="true"
+      width="16"
+      height="16"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
       <path d="M3 6h18m-2 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
     </svg>
   )
@@ -122,7 +144,17 @@ function TrashGlyph() {
 
 function CompassGlyph() {
   return (
-    <svg viewBox="0 0 24 24" aria-hidden="true" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <svg
+      viewBox="0 0 24 24"
+      aria-hidden="true"
+      width="20"
+      height="20"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
       <circle cx="12" cy="12" r="10" />
       <polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76" fill="currentColor" />
     </svg>
@@ -131,7 +163,17 @@ function CompassGlyph() {
 
 function FilmGlyph() {
   return (
-    <svg viewBox="0 0 24 24" aria-hidden="true" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <svg
+      viewBox="0 0 24 24"
+      aria-hidden="true"
+      width="20"
+      height="20"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
       <rect x="2" y="2" width="20" height="20" rx="4" />
       <path d="M7 2v20M17 2v20M2 12h20M2 7h5M2 17h5M17 7h5M17 17h5" />
     </svg>
@@ -140,7 +182,17 @@ function FilmGlyph() {
 
 function SortGlyph() {
   return (
-    <svg viewBox="0 0 24 24" aria-hidden="true" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+    <svg
+      viewBox="0 0 24 24"
+      aria-hidden="true"
+      width="14"
+      height="14"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
       <path d="M3 6h18M6 12h12M10 18h4" />
     </svg>
   )
@@ -148,7 +200,17 @@ function SortGlyph() {
 
 function RefreshGlyph() {
   return (
-    <svg viewBox="0 0 24 24" aria-hidden="true" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+    <svg
+      viewBox="0 0 24 24"
+      aria-hidden="true"
+      width="20"
+      height="20"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
       <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
       <path d="M3 3v5h5" />
       <path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16" />
@@ -291,9 +353,7 @@ function NowPlayingBar() {
 
   if (!playback || open) return null
   const isPlayingNow = Boolean(
-    playing ||
-    playback.status === 'playing' ||
-    (playback.isLive && playback.status !== 'paused')
+    playing || playback.status === 'playing' || (playback.isLive && playback.status !== 'paused'),
   )
   const live = isInHost() && isPlayingNow
 
@@ -513,11 +573,7 @@ function RecommendTabContent({
       )}
 
       <section className="bili-section">
-        <VideoList
-          key={refreshKey}
-          layout="grid"
-          question={getQuestion}
-        />
+        <VideoList key={refreshKey} layout="grid" question={getQuestion} />
       </section>
     </div>
   )
@@ -638,17 +694,14 @@ function DynamicTimeline({ refreshKey }: { refreshKey?: number }) {
               )}
 
               {item.video && (
-                <div
-                  className="bili-timeline-video"
-                  onClick={() => play(item.video!, true)}
-                  role="button"
-                  tabIndex={0}
-                >
+                <div className="bili-timeline-video" onClick={() => play(item.video!, true)} role="button" tabIndex={0}>
                   <Thumbnail video={item.video} />
                   <div className="bili-timeline-video-meta">
                     <span className="bili-title">{item.video.title}</span>
                     <span className="bili-sub">
-                      {[item.video.author, item.video.playCount ? `▶ ${item.video.playCount}` : ''].filter(Boolean).join(' · ')}
+                      {[item.video.author, item.video.playCount ? `▶ ${item.video.playCount}` : '']
+                        .filter(Boolean)
+                        .join(' · ')}
                     </span>
                   </div>
                 </div>
@@ -660,9 +713,7 @@ function DynamicTimeline({ refreshKey }: { refreshKey?: number }) {
 
       {status === 'loading' && <Skeletons layout="rows" count={items.length > 0 ? 2 : 4} />}
 
-      {status === 'done' && items.length === 0 && (
-        <p className="bili-note">暂无关注 UP 主动态</p>
-      )}
+      {status === 'done' && items.length === 0 && <p className="bili-note">暂无关注 UP 主动态</p>}
 
       {status === 'failed' && (
         <p className="bili-note">
@@ -772,9 +823,7 @@ function PopularTabContent({ refreshKey }: { refreshKey?: number }) {
 
       {status === 'loading' && <Skeletons layout="grid" count={videos.length > 0 ? 2 : 6} />}
 
-      {status === 'done' && videos.length === 0 && (
-        <p className="bili-note">暂无热门视频</p>
-      )}
+      {status === 'done' && videos.length === 0 && <p className="bili-note">暂无热门视频</p>}
 
       {status === 'failed' && (
         <p className="bili-note">
@@ -1013,9 +1062,7 @@ function LiveTabContent({ signedIn, refreshKey }: { signedIn: boolean; refreshKe
 
         {status === 'loading' && <Skeletons layout="grid" count={liveRooms.length > 0 ? 2 : 6} />}
 
-        {status === 'done' && liveRooms.length === 0 && (
-          <p className="bili-note">当前分类暂无直播</p>
-        )}
+        {status === 'done' && liveRooms.length === 0 && <p className="bili-note">当前分类暂无直播</p>}
 
         {status === 'failed' && (
           <p className="bili-note">
@@ -1184,32 +1231,20 @@ function MovieTabContent({ refreshKey }: { refreshKey?: number }) {
               )}
 
               {/* Badge: 大会员 / 独家 / 出品 / 限免 */}
-              {movie.badge && (
-                <span className={`bili-movie-badge ${getBadgeClass(movie.badge)}`}>
-                  {movie.badge}
-                </span>
-              )}
+              {movie.badge && <span className={`bili-movie-badge ${getBadgeClass(movie.badge)}`}>{movie.badge}</span>}
 
               {/* Rating score badge */}
-              {movie.score && (
-                <span className="bili-movie-score-badge">
-                  ⭐ {movie.score}
-                </span>
-              )}
+              {movie.score && <span className="bili-movie-score-badge">⭐ {movie.score}</span>}
 
               {/* Update progress / Episode count */}
-              {movie.indexShow && (
-                <span className="bili-movie-status-pill">
-                  {movie.indexShow}
-                </span>
-              )}
+              {movie.indexShow && <span className="bili-movie-status-pill">{movie.indexShow}</span>}
             </div>
 
             <div className="bili-movie-meta">
-              <span className="bili-movie-title" title={movie.title}>{movie.title}</span>
-              <span className="bili-movie-sub">
-                {movie.subTitle || movie.order || '哔哩哔哩影视'}
+              <span className="bili-movie-title" title={movie.title}>
+                {movie.title}
               </span>
+              <span className="bili-movie-sub">{movie.subTitle || movie.order || '哔哩哔哩影视'}</span>
             </div>
           </div>
         ))}
@@ -1229,9 +1264,7 @@ function MovieTabContent({ refreshKey }: { refreshKey?: number }) {
         </div>
       )}
 
-      {status === 'done' && movies.length === 0 && (
-        <p className="bili-note">暂无相关影视内容</p>
-      )}
+      {status === 'done' && movies.length === 0 && <p className="bili-note">暂无相关影视内容</p>}
 
       {status === 'failed' && (
         <p className="bili-note">
@@ -1308,11 +1341,7 @@ function SearchOverlay({
                 <HistoryGlyph />
                 <span>最近搜索</span>
               </div>
-              <button
-                type="button"
-                className="bili-clear-history-btn"
-                onClick={clearSearches}
-              >
+              <button type="button" className="bili-clear-history-btn" onClick={clearSearches}>
                 <TrashGlyph />
                 <span>清空</span>
               </button>
@@ -1320,11 +1349,7 @@ function SearchOverlay({
             <div className="bili-history-tags">
               {searches.map((s) => (
                 <div key={s} className="bili-history-tag">
-                  <button
-                    type="button"
-                    className="bili-history-text-btn"
-                    onClick={() => onSearch(s)}
-                  >
+                  <button type="button" className="bili-history-text-btn" onClick={() => onSearch(s)}>
                     {s}
                   </button>
                   <button
@@ -1362,20 +1387,16 @@ function SearchOverlay({
                     item.rank === 1
                       ? 'bili-hot-rank rank-1'
                       : item.rank === 2
-                      ? 'bili-hot-rank rank-2'
-                      : item.rank === 3
-                      ? 'bili-hot-rank rank-3'
-                      : 'bili-hot-rank rank-normal'
+                        ? 'bili-hot-rank rank-2'
+                        : item.rank === 3
+                          ? 'bili-hot-rank rank-3'
+                          : 'bili-hot-rank rank-normal'
                   }
                 >
                   {item.rank}
                 </span>
                 <span className="bili-hot-text">{item.title}</span>
-                {item.tag && (
-                  <span className={`bili-hot-tag ${item.tag === '热' ? 'hot' : 'new'}`}>
-                    {item.tag}
-                  </span>
-                )}
+                {item.tag && <span className={`bili-hot-tag ${item.tag === '热' ? 'hot' : 'new'}`}>{item.tag}</span>}
               </div>
             ))}
           </div>
@@ -1401,14 +1422,8 @@ function SearchOverlay({
 
             return (
               <div key={`${isPast}:${s}`} className="bili-suggestion-row">
-                <button
-                  type="button"
-                  className="bili-suggestion-main"
-                  onClick={() => onSearch(s)}
-                >
-                  <span className="bili-sug-icon">
-                    {isPast ? <HistoryGlyph /> : <SearchGlyph />}
-                  </span>
+                <button type="button" className="bili-suggestion-main" onClick={() => onSearch(s)}>
+                  <span className="bili-sug-icon">{isPast ? <HistoryGlyph /> : <SearchGlyph />}</span>
                   <span className="bili-sug-label">
                     {isMatch ? (
                       <>
@@ -1510,7 +1525,9 @@ function ChannelPage({ channel: known }: { channel: { mid: string; name: string;
             <div className="bili-channel-text">
               <h2>{channel.name}</h2>
               <span className="bili-sub">
-                {[channel.fans ? `${channel.fans} 粉丝` : '', channel.videos ? `${channel.videos} 视频` : ''].filter(Boolean).join(' · ')}
+                {[channel.fans ? `${channel.fans} 粉丝` : '', channel.videos ? `${channel.videos} 视频` : '']
+                  .filter(Boolean)
+                  .join(' · ')}
               </span>
               {channel.sign && <p className="bili-sign">{channel.sign}</p>}
             </div>
@@ -1562,13 +1579,10 @@ function PlaylistPage({ video }: { video: BilibiliVideo }) {
         <Thumbnail video={video} />
         <div className="bili-playlist-text">
           <h2>{video.title}</h2>
-          <span className="bili-sub">{video.author} · 共 {pages.length} P</span>
-          <button
-            type="button"
-            className="bili-play-all"
-            disabled={pages.length === 0}
-            onClick={() => playPart(1)}
-          >
+          <span className="bili-sub">
+            {video.author} · 共 {pages.length} P
+          </span>
+          <button type="button" className="bili-play-all" disabled={pages.length === 0} onClick={() => playPart(1)}>
             <PlayGlyph />
             播放全部
           </button>
@@ -1680,7 +1694,9 @@ function VideoList({
           )}
           <span className="bili-row-text">
             <span className="bili-title">{ch.name}</span>
-            <span className="bili-sub">{[ch.fans ? `${ch.fans}粉丝` : '', ch.videos ? `${ch.videos}视频` : ''].filter(Boolean).join(' · ')}</span>
+            <span className="bili-sub">
+              {[ch.fans ? `${ch.fans}粉丝` : '', ch.videos ? `${ch.videos}视频` : ''].filter(Boolean).join(' · ')}
+            </span>
             {ch.sign && <span className="bili-sign-small">{ch.sign}</span>}
           </span>
         </button>
@@ -1740,9 +1756,7 @@ function VideoList({
 
       {status === 'loading' && <Skeletons layout={layout} count={videos.length > 0 ? 2 : 6} />}
 
-      {status === 'done' && videos.length === 0 && channels.length === 0 && (
-        <p className="bili-note">暂无相关视频</p>
-      )}
+      {status === 'done' && videos.length === 0 && channels.length === 0 && <p className="bili-note">暂无相关视频</p>}
 
       {status === 'failed' && (
         <p className="bili-note">

@@ -27,7 +27,7 @@ const WALLPAPERS: &str = "wallpapers";
 const ICONS: &str = "icons";
 
 /// An icon's file name (without its extension), and the role the cabin page knows it by.
-pub const ICON_ROLES: [(&str, &str); 15] = [
+pub const ICON_ROLES: [(&str, &str); 16] = [
     ("maps", "maps"),
     ("music", "music"),
     ("bilibili", "bilibili"),
@@ -43,6 +43,7 @@ pub const ICON_ROLES: [(&str, &str); 15] = [
     ("weather", "weather"),
     ("youtube", "youtube"),
     ("player", "player"),
+    ("freight", "freight"),
 ];
 
 /// The kinds of image a wallpaper can be.

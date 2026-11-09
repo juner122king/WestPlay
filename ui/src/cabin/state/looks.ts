@@ -34,6 +34,8 @@ const ROLES: AppIconRole[] = [
   'music',
   'bilibili',
   'ximalaya',
+  'douyin',
+  'hongguo',
   'netease',
   'podcasts',
   'messages',
@@ -43,6 +45,7 @@ const ROLES: AppIconRole[] = [
   'weather',
   'youtube',
   'player',
+  'freight',
 ]
 
 /** Every icon file an icon set (`null`: WestPlay's own) can show, in both looks. */

@@ -3,14 +3,7 @@ import type { CustomLayerInterface, CustomRenderMethodInput } from 'maplibre-gl'
 import type { Appearance } from '../state/appearance'
 import { METRES_PER_DEGREE } from './projection'
 import type { RaisedLine, SurfaceAt } from './route'
-import {
-  OVER_ROUTE_LAYER,
-  ROUTE_LOWEST_LAYER,
-  SURFACE_SOURCE,
-  raisedColours,
-  routeColours,
-  routeWidth,
-} from './style'
+import { OVER_ROUTE_LAYER, ROUTE_LOWEST_LAYER, SURFACE_SOURCE, raisedColours, routeColours, routeWidth } from './style'
 
 /**
  * The roads at their real heights, where one passes over another: MapLibre can't draw these (a line has no height, a

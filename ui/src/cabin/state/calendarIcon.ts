@@ -50,7 +50,9 @@ export function useCalendarIcon(on: boolean, look: 'light' | 'dark', weekday: st
     let gone = false
     void card(look).then((svg) => {
       if (gone) return
-      setIcon({ url: `data:image/svg+xml;charset=utf-8,${encodeURIComponent(calendarIconSvg(svg, look, weekday, day))}` })
+      setIcon({
+        url: `data:image/svg+xml;charset=utf-8,${encodeURIComponent(calendarIconSvg(svg, look, weekday, day))}`,
+      })
     })
     return () => {
       gone = true

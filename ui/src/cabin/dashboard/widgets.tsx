@@ -17,12 +17,7 @@ import {
   useXimalaya,
   useXimalayaSource,
 } from '../apps/ximalaya/ximalaya'
-import {
-  playOrPause as playOrPauseDouyin,
-  skip as skipDouyin,
-  useDouyin,
-  useDouyinSource,
-} from '../apps/douyin/douyin'
+import { playOrPause as playOrPauseDouyin, skip as skipDouyin, useDouyin, useDouyinSource } from '../apps/douyin/douyin'
 import {
   playOrPause as playOrPauseHongguo,
   skip as skipHongguo,

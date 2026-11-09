@@ -24,16 +24,7 @@ interface TextFieldProps {
  * so WestPlay draws its own field, caret and all, and the keyboard (store.ts) writes into it. Pressing it
  * selects it and brings the keyboard up; it lets go when it leaves the screen.
  */
-export function TextField({
-  id,
-  value,
-  onChange,
-  onSubmit,
-  returnKind = 'done',
-  hint,
-  label,
-  icon,
-}: TextFieldProps) {
+export function TextField({ id, value, onChange, onSubmit, returnKind = 'done', hint, label, icon }: TextFieldProps) {
   const text = useText()
   const typing = useKeyboard((state) => state.field?.id === id)
   const language = keyboardLanguage(useLanguage())

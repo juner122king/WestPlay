@@ -1703,7 +1703,6 @@
   scrollbar-width: none;
 }
 
-
 .shell .am-up-next h3 {
   margin: 0 0 8px;
   font-size: calc(28px * var(--text-scale, 1));

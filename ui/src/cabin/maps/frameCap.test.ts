@@ -28,7 +28,7 @@ describe('the map drawn at most 60 a second', () => {
     expect(Math.max(...gaps)).toBe(27)
   })
 
-  it('draws 60 of a 144 Hz display\'s, every 2nd or 3rd', () => {
+  it("draws 60 of a 144 Hz display's, every 2nd or 3rd", () => {
     const gaps = drawn(144)
     expect(gaps.length + 1).toBeGreaterThanOrEqual(59)
     expect(new Set(gaps)).toEqual(new Set([14, 21]))

@@ -108,7 +108,9 @@ describe('helpers', () => {
     // In 12-hour time, each language's way.
     const twelve = (language: string) => ({ hours24: false, period: stringsFor(language).timeOfDay })
     expect(formatDeadline(now + 60, now, text.days, twelve('en_us'))).toBe('3:00 PM')
-    expect(formatDeadline(now + 2 * 1440 - 4 * 60, now, stringsFor('zh_cn').days, twelve('zh_cn'))).toBe('周六 上午10:00')
+    expect(formatDeadline(now + 2 * 1440 - 4 * 60, now, stringsFor('zh_cn').days, twelve('zh_cn'))).toBe(
+      '周六 上午10:00',
+    )
   })
 
   it('finds the nearest city, by the name the map shows', () => {

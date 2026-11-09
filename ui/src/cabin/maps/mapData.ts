@@ -131,7 +131,11 @@ function load(base: string, built: number | null): Promise<MapData | null> {
               maxzoom: manifest.maxzoom,
               bounds: manifest.bounds,
               world: manifest.world?.file
-                ? { url: `${base}/${manifest.world.file}`, bounds: manifest.world.bounds, cut: manifest.world.cut ?? [null, null, null, null] }
+                ? {
+                    url: `${base}/${manifest.world.file}`,
+                    bounds: manifest.world.bounds,
+                    cut: manifest.world.cut ?? [null, null, null, null],
+                  }
                 : null,
               centre: manifest.centre,
               labels: manifest.labels ?? [],

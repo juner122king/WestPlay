@@ -1,11 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest'
-import {
-  ask,
-  positionOf,
-  receivePlayback,
-  stopVideo,
-  useBilibili,
-} from './bilibili'
+import { ask, positionOf, receivePlayback, stopVideo, useBilibili } from './bilibili'
 
 describe('Bilibili app state and functions', () => {
   beforeEach(() => {

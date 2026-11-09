@@ -14,16 +14,7 @@ describe('navigate', () => {
   it('opens an app and moves it to the front of the recents', () => {
     const state = navigate(INITIAL_NAVIGATION, { type: 'openApp', app: 'youtube' })
     expect(state.route).toEqual({ kind: 'app', app: 'youtube' })
-    expect(state.recents).toEqual([
-      'youtube',
-      'maps',
-      'music',
-      'netease',
-      'bilibili',
-      'ximalaya',
-      'douyin',
-      'hongguo',
-    ])
+    expect(state.recents).toEqual(['youtube', 'maps', 'music', 'netease', 'bilibili', 'ximalaya', 'douyin', 'hongguo'])
   })
 
   it('adds a new app to the recents, keeping every app used', () => {
@@ -93,11 +84,7 @@ describe('sidebarApps', () => {
   it('shows one app of each kind, the last used of it, in a fixed order', () => {
     // Maps, the last used music app, then Phone or Messages (YouTube, Weather and Settings never take a slot).
     expect(sidebarApps(['weather', 'bilibili', 'youtube', 'music', 'maps'], 3)).toEqual(['maps', 'bilibili', 'phone'])
-    expect(sidebarApps(['netease', 'messages', 'bilibili', 'phone'], 3)).toEqual([
-      'maps',
-      'netease',
-      'messages',
-    ])
+    expect(sidebarApps(['netease', 'messages', 'bilibili', 'phone'], 3)).toEqual(['maps', 'netease', 'messages'])
   })
 
   it("takes each kind's first app until one of it is used", () => {

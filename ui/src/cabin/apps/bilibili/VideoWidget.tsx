@@ -10,9 +10,7 @@ export function BilibiliVideoWidget() {
   const playback = useBilibili((store) => store.playback)
   const playing = useBilibili((store) => store.playing)
   const isPlayingNow = Boolean(
-    playing ||
-    playback?.status === 'playing' ||
-    (playback?.isLive && playback?.status !== 'paused')
+    playing || playback?.status === 'playing' || (playback?.isLive && playback?.status !== 'paused'),
   )
   const ended = playback?.status === 'ended'
   const [controls, setControls] = useState(false)

@@ -81,7 +81,10 @@ export function currentSong(state: Pick<PlayerState, 'songs' | 'playback'>): Pla
 export function useCurrentSong(): PlayerSong | null {
   const songs = usePlayer((state) => state.songs)
   const file = usePlayer((state) => state.playback?.file ?? null)
-  return useMemo(() => (file ? currentSong({ songs, playback: { file } as PlayerState['playback'] }) : null), [songs, file])
+  return useMemo(
+    () => (file ? currentSong({ songs, playback: { file } as PlayerState['playback'] }) : null),
+    [songs, file],
+  )
 }
 
 /** Where the song is now (seconds): the time runs on from what the host said while it plays. */

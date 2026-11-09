@@ -196,7 +196,7 @@ export function nearestTrafficLightAhead(
 
     // In front: -5m (at stop line/overhead gantry) to 350m
     if (forward < -5 || forward > 350) continue
-    const lateral = Math.abs(dx * (-fz) + dz * fx)
+    const lateral = Math.abs(dx * -fz + dz * fx)
     // Lateral corridor within 45 meters
     if (lateral > 45) continue
 

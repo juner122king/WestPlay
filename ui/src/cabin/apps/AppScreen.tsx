@@ -16,6 +16,7 @@ import { DouyinApp } from './douyin/DouyinApp'
 import { HongguoApp } from './hongguo/HongguoApp'
 import { WeatherApp } from './weather/WeatherApp'
 import { YouTubeApp } from './youtube/YouTubeApp'
+import { FreightApp } from './freight/FreightApp'
 import './apps.css'
 
 /**
@@ -102,6 +103,8 @@ function AppContent({ app }: { app: AppId }) {
       return <CalendarApp />
     case 'player':
       return <PlayerApp />
+    case 'freight':
+      return <FreightApp />
     default:
       return <NotBuiltYet app={app} />
   }

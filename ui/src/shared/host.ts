@@ -43,6 +43,18 @@ export interface Telemetry {
   leftBlinker: boolean
   rightBlinker: boolean
   paused: boolean
+  nextRestStop?: number
+  cargoDamage?: number
+  wearEngine?: number
+  wearTransmission?: number
+  wearCabin?: number
+  wearChassis?: number
+  wearWheels?: number
+  wearTrailerChassis?: number
+  wearTrailerWheels?: number
+  wearTrailerBody?: number
+  brakeAirPressure?: number
+  brakeAirPressureWarning?: boolean
 }
 
 /** The time the cab's clock shows (minutes since day 0, 00:00): the game's, or in a Convoy session the

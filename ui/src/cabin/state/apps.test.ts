@@ -13,6 +13,7 @@ describe('the apps this release has', () => {
       'hongguo',
       'youtube',
       'player',
+      'freight',
       'phone',
       'messages',
       'calendar',

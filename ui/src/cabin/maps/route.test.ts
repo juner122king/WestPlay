@@ -262,7 +262,10 @@ describe('the route on raised roads', () => {
       [line[3], 4],
     ])
     const { flat, raised } = cutRaised(line, (point) => high.get(point) ?? 0)
-    expect(flat).toEqual([[line[0], line[1]], [line[4], line[5]]])
+    expect(flat).toEqual([
+      [line[0], line[1]],
+      [line[4], line[5]],
+    ])
     expect(raised).toEqual([
       [
         [10, 0, 0],

@@ -1,0 +1,890 @@
+/* ==========================================================================
+   Automotive In-Cabin Fullscreen Freight HUD Cockpit
+   Spacious, Calm, Breathable 4-Quadrant Display (1280x720 Screen Optimized)
+   ========================================================================== */
+
+.freight-app.logitrack-fullscreen-hud {
+  position: absolute;
+  left: var(--content-left, 170px);
+  right: var(--edge);
+  top: var(--edge);
+  bottom: var(--edge);
+  box-sizing: border-box;
+  background: #090c15;
+  color: #f8fafc;
+  font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'Instrument Sans', sans-serif;
+  overflow: hidden;
+  user-select: none;
+  border-radius: var(--panel-radius, 16px);
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ==========================================================================
+   1. 2x2 Glancable Fullscreen Grid
+   ========================================================================== */
+
+.hud-main-grid {
+  flex: 1;
+  width: 100%;
+  height: 100%;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: 1fr 1fr;
+  gap: 12px;
+  box-sizing: border-box;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.hud-card {
+  background: #111524;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 16px;
+  padding: 14px 18px;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.35);
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* Common Card Header */
+.card-header-line {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+  flex-shrink: 0;
+}
+
+.card-title-badge {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.panel-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: #ffffff;
+  margin: 0;
+  letter-spacing: -0.2px;
+}
+
+.status-pill {
+  padding: 4px 12px;
+  border-radius: 14px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.status-pill.in-transit {
+  background: rgba(59, 130, 246, 0.2);
+  border: 1px solid rgba(59, 130, 246, 0.45);
+  color: #60a5fa;
+}
+
+.status-pill.pickup {
+  background: rgba(245, 158, 11, 0.2);
+  border: 1px solid rgba(245, 158, 11, 0.45);
+  color: #fbbf24;
+}
+
+.special-transport-badge {
+  background: rgba(168, 85, 247, 0.2);
+  border: 1px solid rgba(168, 85, 247, 0.4);
+  color: #c084fc;
+  padding: 4px 12px;
+  border-radius: 14px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.truck-model-pill {
+  font-size: 12px;
+  color: #cbd5e1;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  padding: 3px 10px;
+  border-radius: 10px;
+  font-weight: 500;
+}
+
+/* ==========================================================================
+   2. Panel 1: 装卸地流程状态 (Pickup / Delivery Process & Route)
+   ========================================================================== */
+
+.process-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 10px;
+  min-height: 0;
+}
+
+.process-stepper-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  background: rgba(255, 255, 255, 0.02);
+  padding: 10px 16px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.step-node {
+  display: flex;
+  flex-direction: column;
+  min-width: 120px;
+}
+
+.step-node.destination {
+  align-items: flex-end;
+  text-align: right;
+}
+
+.node-kicker {
+  font-size: 11.5px;
+  color: #94a3b8;
+  font-weight: 500;
+  margin-bottom: 2px;
+}
+
+.node-city {
+  font-size: 17px;
+  font-weight: 700;
+  color: #ffffff;
+  white-space: nowrap;
+}
+
+.node-company {
+  font-size: 12px;
+  color: #64748b;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 150px;
+}
+
+.step-connector {
+  flex: 1;
+  position: relative;
+  height: 26px;
+  display: flex;
+  align-items: center;
+}
+
+.connector-line {
+  width: 100%;
+  height: 4px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 2px;
+  position: relative;
+  overflow: hidden;
+}
+
+.connector-active-flow {
+  height: 100%;
+  background: linear-gradient(90deg, #38bdf8 0%, #6366f1 100%);
+  border-radius: 2px;
+}
+
+.truck-stepper-icon {
+  position: absolute;
+  top: 1px;
+  transform: translateX(-50%);
+  color: #38bdf8;
+  filter: drop-shadow(0 0 6px rgba(56, 189, 248, 0.8));
+}
+
+.progress-metrics-block {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 2px 4px;
+}
+
+.progress-bar-track {
+  width: 100%;
+  height: 8px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.progress-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #38bdf8 0%, #818cf8 100%);
+  border-radius: 4px;
+  box-shadow: 0 0 10px rgba(129, 140, 248, 0.6);
+  transition: width 0.3s ease;
+}
+
+.progress-stats-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+}
+
+.pstat-item {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.pstat-item.right {
+  align-items: flex-end;
+}
+
+.pstat-label {
+  font-size: 11.5px;
+  color: #94a3b8;
+}
+
+.pstat-val {
+  font-size: 15px;
+  font-weight: 700;
+  color: #ffffff;
+}
+
+.pstat-val.highlight {
+  color: #38bdf8;
+}
+
+.pstat-item.main-percent {
+  align-items: center;
+}
+
+.huge-percent-num {
+  font-size: 26px;
+  font-weight: 800;
+  color: #ffffff;
+  letter-spacing: -0.5px;
+  line-height: 1;
+}
+
+.deadline-buffer-strip {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.04);
+  padding: 8px 14px;
+  border-radius: 10px;
+}
+
+.deadline-cell {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: #cbd5e1;
+}
+
+.cell-texts {
+  display: flex;
+  flex-direction: column;
+}
+
+.cell-sub {
+  font-size: 11px;
+  color: #94a3b8;
+}
+
+.cell-main {
+  font-size: 14px;
+  font-weight: 700;
+  color: #ffffff;
+}
+
+.buffer-cell {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 10px;
+  border-radius: 8px;
+}
+
+.buffer-kicker {
+  font-size: 11.5px;
+  color: #94a3b8;
+}
+
+.buffer-val {
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.buffer-tag {
+  font-size: 11.5px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 6px;
+}
+
+.buffer-cell.buffer-ample {
+  background: rgba(16, 185, 129, 0.12);
+  color: #34d399;
+}
+.buffer-cell.buffer-ample .buffer-tag {
+  background: rgba(16, 185, 129, 0.2);
+}
+
+.buffer-cell.buffer-tight {
+  background: rgba(245, 158, 11, 0.12);
+  color: #fbbf24;
+}
+.buffer-cell.buffer-tight .buffer-tag {
+  background: rgba(245, 158, 11, 0.2);
+}
+
+.buffer-cell.buffer-late {
+  background: rgba(239, 68, 68, 0.12);
+  color: #f87171;
+}
+.buffer-cell.buffer-late .buffer-tag {
+  background: rgba(239, 68, 68, 0.2);
+}
+
+/* ==========================================================================
+   3. Panel 2: 货物明细与收益 (Cargo Details & Payout)
+   ========================================================================== */
+
+.cargo-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 0;
+}
+
+.cargo-hero-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  background: rgba(255, 255, 255, 0.02);
+  padding: 10px 16px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.cargo-primary-info {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.cargo-kicker {
+  font-size: 11.5px;
+  color: #94a3b8;
+  margin-bottom: 2px;
+}
+
+.cargo-huge-title {
+  font-size: 20px;
+  font-weight: 700;
+  color: #ffffff;
+  margin: 0;
+  letter-spacing: -0.3px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cargo-weight-chip {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  background: rgba(99, 102, 241, 0.15);
+  border: 1px solid rgba(99, 102, 241, 0.35);
+  padding: 4px 12px;
+  border-radius: 10px;
+}
+
+.weight-label {
+  font-size: 10.5px;
+  color: #a5b4fc;
+}
+
+.weight-val {
+  font-size: 17px;
+  font-weight: 700;
+  color: #ffffff;
+}
+
+.cargo-twin-cards {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  flex: 1;
+  min-height: 0;
+}
+
+.twin-cell {
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 12px;
+  padding: 12px 16px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  min-width: 0;
+}
+
+.twin-label {
+  font-size: 12px;
+  color: #94a3b8;
+  font-weight: 500;
+}
+
+.huge-payout-num {
+  font-size: 26px;
+  font-weight: 800;
+  color: #34d399;
+  letter-spacing: -0.4px;
+  margin: 2px 0;
+}
+
+.rate-subtext {
+  font-size: 12px;
+  color: #818cf8;
+  font-weight: 600;
+}
+
+.damage-stat-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 4px 0;
+}
+
+.damage-status-text {
+  font-size: 17px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.damage-status-text.safe {
+  color: #34d399;
+}
+
+.damage-status-text.damaged {
+  color: #f87171;
+}
+
+.damage-safe-sub {
+  font-size: 12px;
+  color: #94a3b8;
+}
+
+.deduction-warn {
+  font-size: 12px;
+  color: #f87171;
+  font-weight: 600;
+}
+
+/* ==========================================================================
+   4. Panel 3: 卡车车况检测 (Overall Health & Wear Bars ONLY)
+   ========================================================================== */
+
+.condition-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-height: 0;
+}
+
+.overall-health-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  padding: 8px 14px;
+  border-radius: 12px;
+  flex-shrink: 0;
+}
+
+.health-lead-group {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.health-dial-ring {
+  flex-shrink: 0;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  padding-top: 10px;
+  box-sizing: border-box;
+  background: rgba(16, 185, 129, 0.12);
+  border: 2.5px solid #10b981;
+}
+
+.health-dial-ring.rating-fair {
+  background: rgba(245, 158, 11, 0.12);
+  border-color: #f59e0b;
+}
+
+.health-dial-ring.rating-critical {
+  background: rgba(239, 68, 68, 0.12);
+  border-color: #ef4444;
+}
+
+.health-score-huge {
+  font-size: 18px;
+  font-weight: 800;
+  color: #ffffff;
+}
+
+.health-unit {
+  font-size: 10px;
+  color: #94a3b8;
+}
+
+.health-dial-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.hdial-kicker {
+  font-size: 11px;
+  color: #94a3b8;
+}
+
+.hdial-rating {
+  font-size: 13.5px;
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.hdial-rating.rating-excellent,
+.hdial-rating.rating-good {
+  color: #34d399;
+}
+.hdial-rating.rating-fair {
+  color: #fbbf24;
+}
+.hdial-rating.rating-critical {
+  color: #f87171;
+}
+
+.health-status-badge {
+  flex-shrink: 0;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 3px 10px;
+  border-radius: 10px;
+}
+.health-status-badge.rating-excellent,
+.health-status-badge.rating-good {
+  background: rgba(16, 185, 129, 0.16);
+  border: 1px solid rgba(16, 185, 129, 0.4);
+  color: #34d399;
+}
+.health-status-badge.rating-fair {
+  background: rgba(245, 158, 11, 0.16);
+  border: 1px solid rgba(245, 158, 11, 0.4);
+  color: #fbbf24;
+}
+.health-status-badge.rating-critical {
+  background: rgba(239, 68, 68, 0.16);
+  border: 1px solid rgba(239, 68, 68, 0.4);
+  color: #f87171;
+}
+
+/* 3 columns x 2 rows wear grid: Expands upward and fills 100% of remaining height */
+.wear-grid-list {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  grid-template-rows: 1fr 1fr;
+  gap: 10px 12px;
+}
+
+.wear-item {
+  background: rgba(255, 255, 255, 0.025);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 10px;
+  padding: 8px 12px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  min-width: 0;
+}
+
+.witem-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+}
+
+.witem-name-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.witem-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.witem-dot.grade-good {
+  background: #10b981;
+  box-shadow: 0 0 6px rgba(16, 185, 129, 0.6);
+}
+.witem-dot.grade-warn {
+  background: #f59e0b;
+  box-shadow: 0 0 6px rgba(245, 158, 11, 0.6);
+}
+.witem-dot.grade-bad {
+  background: #ef4444;
+  box-shadow: 0 0 6px rgba(239, 68, 68, 0.6);
+}
+
+.wname {
+  font-size: 13px;
+  color: #e2e8f0;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.wval {
+  font-size: 13px;
+  font-weight: 700;
+}
+.wval.grade-good {
+  color: #34d399;
+}
+.wval.grade-warn {
+  color: #fbbf24;
+}
+.wval.grade-bad {
+  color: #f87171;
+}
+
+.wbar-track {
+  width: 100%;
+  height: 6px;
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 3px;
+  overflow: hidden;
+  margin: 3px 0;
+}
+
+.wbar-fill {
+  height: 100%;
+  border-radius: 3px;
+  transition: width 0.3s ease;
+}
+.wbar-fill.grade-good {
+  background: #10b981;
+}
+.wbar-fill.grade-warn {
+  background: #f59e0b;
+}
+.wbar-fill.grade-bad {
+  background: #ef4444;
+}
+
+.witem-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.witem-sub-label {
+  font-size: 11px;
+  color: #94a3b8;
+}
+
+.witem-tag {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 1px 6px;
+  border-radius: 4px;
+}
+.witem-tag.grade-good {
+  background: rgba(16, 185, 129, 0.15);
+  color: #34d399;
+}
+.witem-tag.grade-warn {
+  background: rgba(245, 158, 11, 0.15);
+  color: #fbbf24;
+}
+.witem-tag.grade-bad {
+  background: rgba(239, 68, 68, 0.15);
+  color: #f87171;
+}
+
+/* ==========================================================================
+   5. Panel 4: 驾驶工时与疲劳规划 (HOS & Fatigue Planning)
+   ========================================================================== */
+
+.fatigue-badge {
+  font-size: 12px;
+  font-weight: 700;
+  padding: 4px 12px;
+  border-radius: 14px;
+}
+
+.fatigue-badge.level-fresh {
+  background: rgba(16, 185, 129, 0.18);
+  color: #34d399;
+}
+
+.fatigue-badge.level-normal {
+  background: rgba(99, 102, 241, 0.18);
+  color: #818cf8;
+}
+
+.fatigue-badge.level-tired {
+  background: rgba(239, 68, 68, 0.18);
+  color: #f87171;
+}
+
+.hos-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 10px;
+  min-height: 0;
+}
+
+.hos-hero-cluster {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  padding: 10px 16px;
+  border-radius: 12px;
+}
+
+.rest-timer-box {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.rtimer-sub {
+  font-size: 11.5px;
+  color: #94a3b8;
+}
+
+.huge-rest-timer {
+  font-size: 26px;
+  font-weight: 800;
+  color: #ffffff;
+  letter-spacing: -0.4px;
+  line-height: 1.15;
+}
+
+.rtimer-note {
+  font-size: 11px;
+  color: #64748b;
+}
+
+.rest-timeline-bar-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 0 2px;
+}
+
+.gantt-strip {
+  display: flex;
+  height: 24px;
+  border-radius: 8px;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.gsegment {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  font-size: 11.5px;
+  font-weight: 600;
+}
+
+.gsegment.nav {
+  background: rgba(56, 189, 248, 0.28);
+  color: #7dd3fc;
+}
+.gsegment.rest {
+  background: rgba(168, 85, 247, 0.28);
+  color: #d8b4fe;
+}
+.gsegment.buffer {
+  background: rgba(16, 185, 129, 0.22);
+  color: #6ee7b7;
+}
+
+.gantt-strip-labels {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+  color: #64748b;
+}
+
+.smart-advice-pill {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  border-radius: 10px;
+}
+
+.smart-advice-pill.safe {
+  background: rgba(16, 185, 129, 0.1);
+  border: 1px solid rgba(16, 185, 129, 0.25);
+  color: #a7f3d0;
+}
+
+.smart-advice-pill.warning {
+  background: rgba(245, 158, 11, 0.1);
+  border: 1px solid rgba(245, 158, 11, 0.25);
+  color: #fde68a;
+}
+
+.advice-icon-cell {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+}
+
+.advice-msg {
+  font-size: 12px;
+  line-height: 1.35;
+}

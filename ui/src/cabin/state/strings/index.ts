@@ -487,6 +487,138 @@ export interface Strings {
     mute: string
     unmute: string
   }
+  /** Freight Assistant app strings. */
+  freight: {
+    title: string
+    tabs: {
+      dashboard: string
+      shipments: string
+      drivers: string
+      mapTracking: string
+      vehicles: string
+      alerts: string
+      analytics: string
+      reports: string
+      settings: string
+      support: string
+      waybill: string
+      inspection: string
+      hos: string
+    }
+    dashboard: {
+      searchPlaceholder: string
+      totalShipments: string
+      onTimeDelivery: string
+      vehiclesOnRoad: string
+      delayedShipments: string
+      vsLastWeek: string
+      availability: string
+      destinationMap: string
+      liveTracking: string
+      liveRoute: string
+      destination: string
+      speed: string
+      eta: string
+      liveVehicleTracking: string
+      viewAll: string
+      tripProgress: string
+      fuel: string
+      engine: string
+      good: string
+      currentLocation: string
+      nextStop: string
+      alertsTitle: string
+      critical: string
+      warning: string
+      ontime: string
+      delayed: string
+      returned: string
+      thisWeek: string
+      thisMonth: string
+      today: string
+    }
+    waybill: {
+      noJobTitle: string
+      noJobDesc: string
+      statusPickup: string
+      statusInTransit: string
+      specialTransport: string
+      cargoLabel: string
+      cargoWeight: string
+      routeLabel: string
+      origin: string
+      destination: string
+      plannedDistance: string
+      distanceLeft: string
+      distanceCovered: string
+      progress: string
+      payout: string
+      ratePerKm: string
+      ratePerMi: string
+      deadline: string
+      remainingTime: string
+      bufferTime: string
+      timeAmple: string
+      timeTight: string
+      timeLate: string
+    }
+    inspection: {
+      cargoDamage: string
+      cargoDamageDesc: string
+      estimatedDeduction: string
+      safe: string
+      damaged: string
+      overallHealth: string
+      healthExcellent: string
+      healthGood: string
+      healthFair: string
+      healthCritical: string
+      interactiveTip: string
+      truckWearTitle: string
+      trailerWearTitle: string
+      trailerConnected: string
+      trailerDetached: string
+      engine: string
+      transmission: string
+      cabin: string
+      chassis: string
+      wheels: string
+      body: string
+      frontSteerAxle: string
+      driveAxle: string
+      trailerAxles: string
+      brakeTitle: string
+      parkingBrake: string
+      airPressure: string
+      airWarning: string
+      normal: string
+      warning: string
+      engaged: string
+      released: string
+    }
+    hos: {
+      title: string
+      tachographTitle: string
+      restDueIn: string
+      fatigueRate: string
+      statusFresh: string
+      statusNormal: string
+      statusTired: string
+      adviceTitle: string
+      adviceNonStop: string
+      adviceRestNeeded: string
+      simulationNote: string
+      timelineTitle: string
+      timelineCurrent: string
+      timelineDirectArrival: string
+      timelineRestArrival: string
+      timelineDeadline: string
+      restStop8h: string
+      restPunctual: string
+      restTightRisk: string
+      nonStopCapable: string
+    }
+  }
 }
 
 const STRINGS: Record<string, Strings> = Object.fromEntries(

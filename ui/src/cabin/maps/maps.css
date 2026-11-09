@@ -931,9 +931,17 @@
   box-shadow: none;
   pointer-events: none;
   user-select: none;
-  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-family:
+    system-ui,
+    -apple-system,
+    BlinkMacSystemFont,
+    'Segoe UI',
+    Roboto,
+    sans-serif;
   transform: translate(-50%, -50%);
-  transition: opacity 0.2s ease, transform 0.2s ease;
+  transition:
+    opacity 0.2s ease,
+    transform 0.2s ease;
   z-index: 10;
   filter: drop-shadow(0 6px 14px rgba(0, 0, 0, 0.65));
 }
@@ -984,7 +992,9 @@
   height: 12px;
   border-radius: 50%;
   flex-shrink: 0;
-  transition: background-color 0.2s ease, box-shadow 0.2s ease;
+  transition:
+    background-color 0.2s ease,
+    box-shadow 0.2s ease;
 }
 
 /* Idle / off states */
@@ -1008,7 +1018,9 @@
 
 .traffic-green .lamp-green {
   background-color: #34c759;
-  box-shadow: 0 0 8px #34c759, 0 0 16px rgba(52, 199, 89, 0.95);
+  box-shadow:
+    0 0 8px #34c759,
+    0 0 16px rgba(52, 199, 89, 0.95);
 }
 
 /* Yellow / Amber light */
@@ -1019,7 +1031,9 @@
 
 .traffic-yellow .lamp-yellow {
   background-color: #ff9f0a;
-  box-shadow: 0 0 8px #ff9f0a, 0 0 16px rgba(255, 159, 10, 0.95);
+  box-shadow:
+    0 0 8px #ff9f0a,
+    0 0 16px rgba(255, 159, 10, 0.95);
 }
 
 /* Red light */
@@ -1030,7 +1044,9 @@
 
 .traffic-red .lamp-red {
   background-color: #ff3b30;
-  box-shadow: 0 0 8px #ff3b30, 0 0 16px rgba(255, 59, 48, 0.95);
+  box-shadow:
+    0 0 8px #ff3b30,
+    0 0 16px rgba(255, 59, 48, 0.95);
 }
 
 /* Red + Amber */
@@ -1082,20 +1098,28 @@
 
 .guidance-signal.traffic-green .guidance-signal-dot {
   background-color: #34c759;
-  box-shadow: 0 0 10px #34c759, 0 0 18px rgb(52 199 89 / 0.95);
+  box-shadow:
+    0 0 10px #34c759,
+    0 0 18px rgb(52 199 89 / 0.95);
 }
 
 .guidance-signal.traffic-yellow .guidance-signal-dot {
   background-color: #ff9f0a;
-  box-shadow: 0 0 10px #ff9f0a, 0 0 18px rgb(255 159 10 / 0.95);
+  box-shadow:
+    0 0 10px #ff9f0a,
+    0 0 18px rgb(255 159 10 / 0.95);
 }
 
 .guidance-signal.traffic-red .guidance-signal-dot {
   background-color: #ff3b30;
-  box-shadow: 0 0 10px #ff3b30, 0 0 18px rgb(255 59 48 / 0.95);
+  box-shadow:
+    0 0 10px #ff3b30,
+    0 0 18px rgb(255 59 48 / 0.95);
 }
 
 .guidance-signal.traffic-red-amber .guidance-signal-dot {
   background: linear-gradient(135deg, #ff3b30 50%, #ff9f0a 50%);
-  box-shadow: 0 0 10px #ff9f0a, 0 0 18px rgb(255 159 10 / 0.95);
+  box-shadow:
+    0 0 10px #ff9f0a,
+    0 0 18px rgb(255 159 10 / 0.95);
 }

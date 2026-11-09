@@ -284,7 +284,15 @@ function roadColor(
     tunnels ? ['case', IN_TUNNEL, tunnel, color] : color
   if (!far || far === near) return open(near, palette.tunnel)
   const farTunnel = part === 'casing' ? far : (palette.tunnelFar ?? palette.tunnel)
-  return ['interpolate', ['linear'], ['zoom'], ROAD_NEAR_ZOOMS[0], open(far, farTunnel), ROAD_NEAR_ZOOMS[1], open(near, palette.tunnel)]
+  return [
+    'interpolate',
+    ['linear'],
+    ['zoom'],
+    ROAD_NEAR_ZOOMS[0],
+    open(far, farTunnel),
+    ROAD_NEAR_ZOOMS[1],
+    open(near, palette.tunnel),
+  ]
 }
 
 /**
@@ -420,7 +428,15 @@ function surfaceRoadColor(palette: Palette, part: 'fill' | 'casing'): string | E
     roads.minor[part],
   ]
   if (!palette.roadsFar) return by(palette.roads)
-  return ['interpolate', ['linear'], ['zoom'], ROAD_NEAR_ZOOMS[0], by(palette.roadsFar), ROAD_NEAR_ZOOMS[1], by(palette.roads)]
+  return [
+    'interpolate',
+    ['linear'],
+    ['zoom'],
+    ROAD_NEAR_ZOOMS[0],
+    by(palette.roadsFar),
+    ROAD_NEAR_ZOOMS[1],
+    by(palette.roads),
+  ]
 }
 
 /** Nothing of a road on the flat map once the road itself is drawn at its height (raisedRoads.ts). */
@@ -469,12 +485,31 @@ function surfaceLayers(palette: Palette, level: number): LayerSpecification[] {
   return [
     fill('surface-water', kind('water'), { 'fill-color': palette.water, 'fill-antialias': true }),
     fill('surface-quiet', kind('quiet'), { 'fill-color': palette.areas[0], 'fill-opacity': GONE_WHEN_RAISED }),
-    { id: 'surface-service', type: 'fill', source: SURFACE_SOURCE, 'source-layer': 'service', paint: { 'fill-color': palette.service } },
-    fill('surface-building', kind('building'), { 'fill-color': palette.areas[2], 'fill-opacity': near }, NEAR_ZOOM - NEAR_FADE),
+    {
+      id: 'surface-service',
+      type: 'fill',
+      source: SURFACE_SOURCE,
+      'source-layer': 'service',
+      paint: { 'fill-color': palette.service },
+    },
+    fill(
+      'surface-building',
+      kind('building'),
+      { 'fill-color': palette.areas[2], 'fill-opacity': near },
+      NEAR_ZOOM - NEAR_FADE,
+    ),
     fill('surface-rail', kind('rail'), { 'fill-color': palette.roads.rail.fill, 'fill-opacity': GONE_WHEN_RAISED }),
     fill('surface-tunnel', kind('tunnel'), {
       'fill-color': palette.tunnelFar
-        ? ['interpolate', ['linear'], ['zoom'], ROAD_NEAR_ZOOMS[0], palette.tunnelFar, ROAD_NEAR_ZOOMS[1], palette.tunnel]
+        ? [
+            'interpolate',
+            ['linear'],
+            ['zoom'],
+            ROAD_NEAR_ZOOMS[0],
+            palette.tunnelFar,
+            ROAD_NEAR_ZOOMS[1],
+            palette.tunnel,
+          ]
         : palette.tunnel,
     }),
     {
@@ -520,7 +555,17 @@ function areaLayers(palette: Palette, over: boolean, surfaces: boolean): LayerSp
       'fill-color': color,
       'fill-antialias': true,
       ...(surfaces && index < 2
-        ? { 'fill-opacity': ['interpolate', ['linear'], ['zoom'], SURFACE_ROADS_ZOOM, 1, SURFACE_ROADS_ZOOM + LINES_FADE, 0] }
+        ? {
+            'fill-opacity': [
+              'interpolate',
+              ['linear'],
+              ['zoom'],
+              SURFACE_ROADS_ZOOM,
+              1,
+              SURFACE_ROADS_ZOOM + LINES_FADE,
+              0,
+            ],
+          }
         : {}),
     },
   })) as LayerSpecification[]
@@ -884,7 +929,11 @@ const TRANSIT_MIN_ZOOM = 10
 
 /** The map's style, drawing `data`'s tiles (`null`: no source, for reading paint properties alone, of a map with
  * `surfaces` or not). */
-export function mapStyle(appearance: Appearance, data: MapData | null, surfaces = Boolean(data?.surfaces)): StyleSpecification {
+export function mapStyle(
+  appearance: Appearance,
+  data: MapData | null,
+  surfaces = Boolean(data?.surfaces),
+): StyleSpecification {
   const palette = PALETTES[appearance]
   const roads = roadLayers(palette, surfaces)
   const [ground, ...raised] = roads.levels
@@ -971,7 +1020,10 @@ export function mapStyle(appearance: Appearance, data: MapData | null, surfaces 
 }
 
 /** Every paint property of the style for `appearance`, to restyle a live map (at once, see TRANSITION). */
-export function paintFor(appearance: Appearance, surfaces = true): { layer: string; property: string; value: unknown }[] {
+export function paintFor(
+  appearance: Appearance,
+  surfaces = true,
+): { layer: string; property: string; value: unknown }[] {
   // With the layers only a map with its data has (the routes offered, traffic, players), too: they'd keep
   // the appearance the map was made in otherwise (owner 2026-10-21: the other routes offered stayed dark
   // in light mode).

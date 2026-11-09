@@ -23,7 +23,17 @@ describe('Player', () => {
   })
 
   it('runs the time on while it plays, never past the song’s end, and holds it paused or loading', () => {
-    const base = { file: 'a.mp3', position: 10, duration: 12, shuffle: false, repeat: 'off' as const, volume: 1, index: 0, count: 1, at: 1000 }
+    const base = {
+      file: 'a.mp3',
+      position: 10,
+      duration: 12,
+      shuffle: false,
+      repeat: 'off' as const,
+      volume: 1,
+      index: 0,
+      count: 1,
+      at: 1000,
+    }
     expect(positionOf({ ...base, playing: true, loading: false }, 2500)).toBe(11.5)
     expect(positionOf({ ...base, playing: true, loading: false }, 9000)).toBe(12)
     expect(positionOf({ ...base, playing: false, loading: false }, 9000)).toBe(10)

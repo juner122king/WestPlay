@@ -473,7 +473,9 @@ function PlaceCard({
         </p>
       ) : (
         from && (
-          <p className="destination-away">{text.destinations.straightLine(distanceText(place, from, text, scale, mph))}</p>
+          <p className="destination-away">
+            {text.destinations.straightLine(distanceText(place, from, text, scale, mph))}
+          </p>
         )
       )}
       {problem && (

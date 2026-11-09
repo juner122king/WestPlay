@@ -29,7 +29,13 @@ describe('keyRows', () => {
   it('switches between layers from the bottom row and the third', () => {
     // English alone has no globe key.
     expect(keyRows('en', 'letters')[3].map((key) => key.kind)).toEqual(['layer', 'space', 'hide', 'return'])
-    expect(keyRows('en', 'letters', true)[3].map((key) => key.kind)).toEqual(['layer', 'globe', 'space', 'hide', 'return'])
+    expect(keyRows('en', 'letters', true)[3].map((key) => key.kind)).toEqual([
+      'layer',
+      'globe',
+      'space',
+      'hide',
+      'return',
+    ])
     expect(keyRows('en', 'letters')[3][0]).toEqual({ kind: 'layer', to: 'numbers' })
     expect(keyRows('en', 'numbers')[3][0]).toEqual({ kind: 'layer', to: 'letters' })
     expect(keyRows('en', 'numbers')[2][0]).toEqual({ kind: 'layer', to: 'symbols' })

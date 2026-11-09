@@ -63,7 +63,7 @@ describe('keybinds', () => {
     expect(binds.press('volumeUp')).toEqual({ volume: 0.55 })
   })
 
-  it("changes the song of the player playing here as its own Next and Back, a volume key held", () => {
+  it('changes the song of the player playing here as its own Next and Back, a volume key held', () => {
     const spotify = player(0.5)
     const youtube = player(0.8, true)
     const binds = keybinds([spotify.it, youtube.it])

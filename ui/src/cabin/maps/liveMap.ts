@@ -711,7 +711,8 @@ export function showLiveMap(
     live?.map.remove()
     live = create(data, appearance)
     // Development: the map, for inspecting it from the browser's console.
-    if (import.meta.env.DEV) Object.assign(window, { westplayMap: live.map, westplayRaised: live.raised, westplayMeshes: live.meshes })
+    if (import.meta.env.DEV)
+      Object.assign(window, { westplayMap: live.map, westplayRaised: live.raised, westplayMeshes: live.meshes })
   }
   live.wanted = appearance
   syncAppearance(live)
@@ -1100,7 +1101,8 @@ function updateCamera(target: LiveMap, now: number, dt: number) {
     puck.setOffset(target.raised.screenLift(shown[0], shown[1], target.puckHeight))
     // The flag at the end of the route too, on the road the route ends on.
     const end = target.routeShown?.spans.at(-1)?.at(-1)
-    if (end) target.destination.setOffset(target.raised.screenLift(end[0], end[1], target.routeShown?.heights.get(end) ?? 0))
+    if (end)
+      target.destination.setOffset(target.raised.screenLift(end[0], end[1], target.routeShown?.heights.get(end) ?? 0))
   }
   if (!puck.getElement().isConnected) puck.addTo(map)
 

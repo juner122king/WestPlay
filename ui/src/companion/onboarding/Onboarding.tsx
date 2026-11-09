@@ -66,17 +66,7 @@ import {
 import { useDemo } from '../room/useDemo'
 import { chosenLanguage, count, list, percent, wordsFor } from './words'
 
-const STEPS = [
-  'welcome',
-  'game',
-  'check',
-  'install',
-  'map',
-  'controls',
-  'accounts',
-  'appleMusic',
-  'tutorial',
-] as const
+const STEPS = ['welcome', 'game', 'check', 'install', 'map', 'controls', 'accounts', 'appleMusic', 'tutorial'] as const
 type StepId = (typeof STEPS)[number]
 
 const POSES: Record<StepId, Pose> = {

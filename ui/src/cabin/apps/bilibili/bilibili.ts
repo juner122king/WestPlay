@@ -619,7 +619,9 @@ export function receiveState(signedIn: boolean | null, playing: boolean | null, 
     const isLive = Boolean(state.playback?.isLive || state.playback?.bvid?.startsWith('live:'))
     const effectivePlaying =
       state.playback && state.playback.status
-        ? (isLive ? state.playback.status !== 'paused' : state.playback.status === 'playing')
+        ? isLive
+          ? state.playback.status !== 'paused'
+          : state.playback.status === 'playing'
         : (playing ?? state.playing)
     return { signedIn, playing: effectivePlaying, signingIn }
   })
@@ -640,18 +642,16 @@ export function receivePlayback(playback: BilibiliPlayback | null): void {
       const isPlaceholderTitle = (t?: string) => !t || t === '正在直播' || t === '哔哩哔哩直播' || t === '哔哩哔哩视频'
       const isPlaceholderAuthor = (a?: string) => !a || a === '主播' || a === 'UP主'
 
-      const effectiveTitle =
-        !isPlaceholderTitle(playback.title)
-          ? playback.title
-          : current?.title && !isPlaceholderTitle(current.title)
-            ? current.title
-            : playback.title
-      const effectiveAuthor =
-        !isPlaceholderAuthor(playback.artist)
-          ? playback.artist
-          : current?.author && !isPlaceholderAuthor(current.author)
-            ? current.author
-            : playback.artist
+      const effectiveTitle = !isPlaceholderTitle(playback.title)
+        ? playback.title
+        : current?.title && !isPlaceholderTitle(current.title)
+          ? current.title
+          : playback.title
+      const effectiveAuthor = !isPlaceholderAuthor(playback.artist)
+        ? playback.artist
+        : current?.author && !isPlaceholderAuthor(current.author)
+          ? current.author
+          : playback.artist
       const effectiveMid = playback.mid ?? current?.mid
       const effectiveArtwork = playback.artwork ?? current?.artwork
       const isLive = Boolean(playback.isLive ?? current?.isLive ?? playback.bvid?.startsWith('live:'))
@@ -744,7 +744,7 @@ export function play(video?: BilibiliVideo, openPlayer = true, page?: number): v
         artist: video.author,
         artwork: video.artwork,
         mid: video.mid,
-        duration: isLive ? 0 : (video.duration || 300),
+        duration: isLive ? 0 : video.duration || 300,
         position: 0,
         status: 'playing',
         at: now,
@@ -802,9 +802,7 @@ export function replay(): void {
     send({ action: 'seek', seconds: 0 })
     send({ action: 'play' })
     useBilibili.setState((state) => ({
-      playback: state.playback
-        ? { ...state.playback, position: 0, status: 'playing', at: performance.now() }
-        : null,
+      playback: state.playback ? { ...state.playback, position: 0, status: 'playing', at: performance.now() } : null,
       playing: true,
     }))
   }

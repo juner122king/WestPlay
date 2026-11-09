@@ -55,7 +55,10 @@ describe('the map style', () => {
       [2, 2],
     ])
     const world = { url: 'world.json', bounds: [-9, -9, 9, 9] as [number, number, number, number] }
-    const cut = { ...data, world: { ...world, cut: [null, -1.5, 1.2, 1.7] as [number | null, number | null, number | null, number | null] } }
+    const cut = {
+      ...data,
+      world: { ...world, cut: [null, -1.5, 1.2, 1.7] as [number | null, number | null, number | null, number | null] },
+    }
     expect(cameraBounds(cut)).toEqual([
       [-2, -1.5],
       [1.2, 1.7],

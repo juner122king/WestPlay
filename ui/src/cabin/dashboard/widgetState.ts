@@ -16,7 +16,16 @@ export function useDestinationView() {
   return useLive(
     useShallow((state) => {
       const end = state.route?.nodes.at(-1)?.position ?? null
-      const view = destinationView(state.job, end, state.telemetry, labels ?? [], text, state.clockShift, clock, state.mph)
+      const view = destinationView(
+        state.job,
+        end,
+        state.telemetry,
+        labels ?? [],
+        text,
+        state.clockShift,
+        clock,
+        state.mph,
+      )
       return view ?? EMPTY
     }),
   )

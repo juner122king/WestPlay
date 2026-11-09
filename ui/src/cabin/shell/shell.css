@@ -289,11 +289,9 @@ body,
   z-index: 35;
   pointer-events: none;
   background:
-    radial-gradient(circle at 100% 100%, var(--corner)) top left / var(--screen-radius) var(--screen-radius)
-      no-repeat,
+    radial-gradient(circle at 100% 100%, var(--corner)) top left / var(--screen-radius) var(--screen-radius) no-repeat,
     radial-gradient(circle at 0 100%, var(--corner)) top right / var(--screen-radius) var(--screen-radius) no-repeat,
-    radial-gradient(circle at 100% 0, var(--corner)) bottom left / var(--screen-radius) var(--screen-radius)
-      no-repeat,
+    radial-gradient(circle at 100% 0, var(--corner)) bottom left / var(--screen-radius) var(--screen-radius) no-repeat,
     radial-gradient(circle at 0 0, var(--corner)) bottom right / var(--screen-radius) var(--screen-radius) no-repeat;
   /* Over the screen changes' snapshots too, unmoving (transitions.css). */
   view-transition-name: screen-corners;
