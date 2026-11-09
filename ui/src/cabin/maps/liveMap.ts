@@ -29,6 +29,7 @@ import { labelLines, placeLabels } from './labels'
 import { NO_ENTRY_ICON, drawNoEntry, drawPlaceIcon, parsePlaceIcon } from './placeIcons'
 import { type BuildingMeshes, buildingMeshes } from './buildingMeshes'
 import { type RaisedRoads, raisedRoads } from './raisedRoads'
+import { createTrafficLightPool, syncTrafficLights, type TrafficLightPool } from './trafficLights'
 import { cameraBounds, type MapData } from './mapData'
 import { loadView, type SavedView, saveView } from './mapView'
 import { fromLngLat, labelRange, metresBetween, toLngLat } from './projection'
@@ -145,6 +146,8 @@ interface LiveMap {
   canopies: { hidden: string; at: number }
   /** Place names, most important first, with their size on screen. */
   labels: { marker: maplibregl.Marker; at: [number, number]; width: number; height: number }[]
+  /** Traffic light markers with real-time countdown timers. */
+  trafficLights: TrafficLightPool
   /** The appearance the page wants, and the one the map is painted in (they differ until it's restyled). */
   wanted: Appearance
   painted: Appearance
@@ -335,6 +338,7 @@ function create(data: MapData, appearance: Appearance): LiveMap {
     progress: null,
     canopies: { hidden: '', at: -Infinity },
     labels,
+    trafficLights: createTrafficLightPool(),
     wanted: appearance,
     painted: appearance,
     garagesShown: null,
@@ -756,6 +760,7 @@ function place() {
       syncRouteTraffic(current, now)
       syncRoute(current, now)
       syncCanopies(current, now)
+      syncTrafficLights(current.map, current.trafficLights)
       current.raised?.update(now)
       current.meshes?.update(now)
       updateCamera(current, now, dt)

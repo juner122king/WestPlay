@@ -18,6 +18,27 @@ CARGO_BIN = os.path.expanduser(r"~/.cargo/bin")
 CARGO_EXE = os.path.join(CARGO_BIN, "cargo.exe")
 
 ATS_PLUGINS = r"D:\Program Files (x86)\Steam\steamapps\common\American Truck Simulator\bin\win_x64\plugins"
+ETS2_PLUGINS = r"D:\Program Files (x86)\Steam\steamapps\common\Euro Truck Simulator 2\bin\win_x64\plugins"
+
+def safe_copy(src, dest):
+    os.makedirs(os.path.dirname(dest), exist_ok=True)
+    try:
+        shutil.copy2(src, dest)
+        print(f"Deployed: {dest}")
+    except PermissionError:
+        # If the DLL is currently locked by a running game process, rename it first
+        old_path = dest + ".old"
+        if os.path.exists(old_path):
+            try:
+                os.remove(old_path)
+            except Exception:
+                pass
+        try:
+            os.rename(dest, old_path)
+            shutil.copy2(src, dest)
+            print(f"Deployed (after rename of locked DLL): {dest}")
+        except Exception as e:
+            print(f"Failed to copy to {dest}: {e}")
 
 def build():
     env = os.environ.copy()
@@ -52,10 +73,15 @@ def build():
 
     print(f"Successfully built: {built_dll} ({os.path.getsize(built_dll)} bytes)")
 
+    # Copy to target/release/westplay.dll for packaging
+    pkg_target = os.path.join(REPO_ROOT, "target", "release", "westplay.dll")
+    safe_copy(built_dll, pkg_target)
+
     if os.path.isdir(ATS_PLUGINS):
-        dest = os.path.join(ATS_PLUGINS, "westplay.dll")
-        shutil.copy2(built_dll, dest)
-        print(f"Deployed to ATS plugins: {dest}")
+        safe_copy(built_dll, os.path.join(ATS_PLUGINS, "westplay.dll"))
+
+    if os.path.isdir(ETS2_PLUGINS):
+        safe_copy(built_dll, os.path.join(ETS2_PLUGINS, "westplay.dll"))
 
 if __name__ == "__main__":
     build()

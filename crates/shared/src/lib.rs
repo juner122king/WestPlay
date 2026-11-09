@@ -28,7 +28,7 @@ pub fn bridge_name() -> String {
     format!("Local\\WestPlay.Bridge.v{BRIDGE_VERSION}")
 }
 pub const BRIDGE_MAGIC: u32 = u32::from_le_bytes(*b"WPB7");
-pub const BRIDGE_VERSION: u32 = 26;
+pub const BRIDGE_VERSION: u32 = 27;
 
 /// Size of the app's frames, and the base size of the screen textures in the mod (`westplay_setup::game_mod`
 /// builds them from these).
@@ -273,6 +273,8 @@ pub struct PluginBlock {
     pub pointer: PointerBlock,
     /// Under TruckersMP: the players around the player, from TruckersMP's SDK (the plugin's `truckersmp`).
     pub nearby: SeqLock<Nearby>,
+    /// Traffic light semaphores around the player, read from game memory by the plugin.
+    pub semaphores: SeqLock<SemaphoresBlock>,
     /// Each [`Keybind`]'s presses so far: the plugin counts them, the app acts on each new one.
     pub keybind_presses: [AtomicU32; KEYBIND_COUNT],
     /// Each [`Keybind`]'s holds so far ([`KEYBIND_HOLD_MS`]: the volume keys held change the song), counted as
@@ -323,6 +325,51 @@ impl Nearby {
     /// The players it holds.
     pub fn players(&self) -> &[NearbyPlayer] {
         &self.players[..(self.count as usize).min(NEARBY_MAX)]
+    }
+}
+
+/// The most traffic light semaphores around the player the bridge carries.
+pub const SEMAPHORES_MAX: usize = 32;
+
+/// A traffic light semaphore in the world: its position (x, y, z in metres), orientation heading (turns 0..1),
+/// state (0: Green, 1: Yellow/Amber, 2: Red, 3: Red-Amber, 4: Off), remaining countdown seconds,
+/// and total phase duration.
+#[repr(C)]
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize))]
+#[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
+pub struct Semaphore {
+    pub x: f64,
+    pub y: f64,
+    pub z: f64,
+    pub heading: f32,
+    pub state: u8,
+    pub countdown: f32,
+    pub duration: f32,
+}
+
+/// The traffic light semaphores around the player, written each frame by the plugin.
+#[repr(C)]
+#[derive(Clone, Copy, Debug)]
+pub struct SemaphoresBlock {
+    pub frame: u64,
+    pub count: u32,
+    pub semaphores: [Semaphore; SEMAPHORES_MAX],
+}
+
+impl Default for SemaphoresBlock {
+    fn default() -> Self {
+        Self {
+            frame: 0,
+            count: 0,
+            semaphores: [Semaphore::default(); SEMAPHORES_MAX],
+        }
+    }
+}
+
+impl SemaphoresBlock {
+    pub fn semaphores(&self) -> &[Semaphore] {
+        &self.semaphores[..(self.count as usize).min(SEMAPHORES_MAX)]
     }
 }
 
@@ -768,6 +815,8 @@ unsafe impl Plain for TruckInfo {}
 unsafe impl Plain for JobInfo {}
 // SAFETY: integers and floats only (see `Plain`); a count read torn is bounded by `Nearby::players`.
 unsafe impl Plain for Nearby {}
+// SAFETY: integers and floats only (see `Plain`); a count read torn is bounded by `SemaphoresBlock::semaphores`.
+unsafe impl Plain for SemaphoresBlock {}
 
 // SAFETY: the value is only ever written by one writer at a time (`write`'s contract) and read whole, a
 // read that overlapped a write being thrown away (`read`).
@@ -907,6 +956,8 @@ mod tests {
 
     #[test]
     fn the_bridges_name_carries_its_version() {
+        println!("telemetry: {}", std::mem::offset_of!(Bridge, plugin.telemetry));
+        println!("semaphores: {}", std::mem::offset_of!(Bridge, plugin.semaphores));
         assert_eq!(super::bridge_name(), format!("Local\\WestPlay.Bridge.v{}", super::BRIDGE_VERSION));
     }
 

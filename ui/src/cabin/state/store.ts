@@ -11,6 +11,7 @@ import {
   type KeybindAction,
   isInHost,
   postToHost,
+  type SemaphoreInfo,
   subscribeHostMessages,
   type Telemetry,
   toEqualizer,
@@ -334,6 +335,8 @@ export interface LiveState {
   truckersmpGame: 'ets2' | 'ats' | null
   /** Under TruckersMP, the players around the player from its SDK, as the host last said (`null`: none). */
   nearby: Nearby | null
+  /** Traffic light semaphores around the truck: coordinates, heading, state, countdown. */
+  semaphores: readonly SemaphoreInfo[]
   /** The music's spectrum as the host last said it (Settings › Equalizer's, `HostMessage` `spectrum`). */
   spectrum: readonly number[]
   /** The host draws the screen's cursor (`cursor` message): the page draws none of its own then. */
@@ -373,6 +376,7 @@ export const useLive = create<LiveState>()(() => ({
   truckersmp: false,
   truckersmpGame: null,
   nearby: null,
+  semaphores: [],
   spectrum: [],
   cursorByHost: false,
 }))
@@ -380,7 +384,7 @@ export const useLive = create<LiveState>()(() => ({
 /** Plain browser previews have no game to report the screen: `?layout=scania-2025` stands in for it. */
 /** In a browser, `?truck=scania.s_2016` drives that truck (its screen profile). */
 function previewTruck(): TruckInfo | null {
-  if (isInHost()) return null
+  if (isInHost() || typeof location === 'undefined') return null
   const model = new URLSearchParams(location.search).get('truck')
   if (!model) return null
   const brandId = model.split('.')[0]
@@ -388,7 +392,7 @@ function previewTruck(): TruckInfo | null {
 }
 
 function previewLayout(): ScreenLayoutId | null {
-  if (isInHost()) return null
+  if (isInHost() || typeof location === 'undefined') return null
   const layout = new URLSearchParams(location.search).get('layout')
   return isScreenLayoutId(layout) ? layout : null
 }
@@ -582,11 +586,14 @@ function receiveHostMessage(now: () => number): (message: HostMessage) => void {
               : { server: message.server, local: message.local, players: message.players, at: now() },
         })
         break
+      case 'semaphores':
+        useLive.setState({ semaphores: message.data })
+        break
       case 'game':
         // The game closed: the screen goes off as with the truck's electrics (the kept apps go with it), and
         // the next game's first telemetry powers it on afresh.
         if (!message.running) {
-          useLive.setState({ telemetry: null })
+          useLive.setState({ telemetry: null, semaphores: [] })
           useCabin.getState().powerEvent({ type: 'electrics', on: false, at: now() })
         }
         break

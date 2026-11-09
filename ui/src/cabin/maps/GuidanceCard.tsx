@@ -5,6 +5,7 @@ import { useLive } from '../state/store'
 import { type Strings, useText } from '../state/text'
 import { guidanceOf, type Maneuver, NOW_WITHIN, type Step } from './guidance'
 import { ManeuverGlyph } from './ManeuverGlyph'
+import { nearestTrafficLightAhead, trafficLightStateClass } from './trafficLights'
 
 /** A step as the store can compare it: the maneuver itself (the route's own object, the same from one
  * read to the next) or `'arrive'`. */
@@ -147,12 +148,35 @@ export function GuidanceCard({ variant }: { variant: 'widget' | 'banner' }) {
   return card
 }
 
+function useUpcomingTrafficLight(): { stateClass: string; countdown: number } | null {
+  const semaphores = useLive((state) => state.semaphores)
+  const telemetry = useLive((state) => state.telemetry)
+  const nearest = useMemo(() => nearestTrafficLightAhead(semaphores, telemetry), [semaphores, telemetry])
+
+  if (!nearest) return null
+
+  const s = nearest.semaphore
+  return {
+    stateClass: trafficLightStateClass(s.state),
+    countdown: Math.max(0, Math.ceil(s.countdown)),
+  }
+}
+
 function StepLines({ shown, size, text }: { shown: Shown; size: number; text: Strings }) {
+  const signal = useUpcomingTrafficLight()
   return (
     <>
       <ManeuverGlyph step={shown.step} size={size} />
       <div>
-        <div className="guidance-distance">{shown.distance}</div>
+        <div className="guidance-distance-row">
+          <div className="guidance-distance">{shown.distance}</div>
+          {signal && (
+            <div className={`guidance-signal ${signal.stateClass}`}>
+              <span className="guidance-signal-dot" />
+              {signal.countdown > 0 && <span className="guidance-signal-timer">{signal.countdown}s</span>}
+            </div>
+          )}
+        </div>
         <div className="guidance-instruction">{instructionFor(shown.step, text)}</div>
       </div>
     </>

@@ -334,6 +334,8 @@ pub fn run(mut config: Config, stop: Arc<AtomicBool>) -> Result<(), Error> {
     // frame they're from, and when that was last sent.
     let mut nearby_sent: Option<u64> = None;
     let mut last_nearby_post = Instant::now();
+    let mut semaphores_sent: Option<u64> = None;
+    let mut last_semaphores_post = Instant::now();
     let mut last_telemetry: Option<Telemetry> = None;
     let mut last_truck: Option<TruckInfo> = None;
     let mut last_job: Option<JobInfo> = None;
@@ -883,6 +885,7 @@ pub fn run(mut config: Config, stop: Arc<AtomicBool>) -> Result<(), Error> {
                     last_job = None;
                     last_layout = None;
                     typing_state = None;
+                    semaphores_sent = None;
                     let route = route_message
                         .iter()
                         .chain(&route_stops_message)
@@ -1790,6 +1793,18 @@ pub fn run(mut config: Config, stop: Arc<AtomicBool>) -> Result<(), Error> {
             }
         }
 
+        // Traffic light semaphores around the player: to the page as they change (each
+        // game frame's), at most 20 times a second; none when the game isn't running.
+        if last_semaphores_post.elapsed() >= SEMAPHORES_POST_EVERY {
+            last_semaphores_post = Instant::now();
+            let semaphores = if game_running { bridge.bridge().plugin.semaphores.read() } else { None };
+            let frame = semaphores.as_ref().map(|s| s.frame).filter(|&frame| frame != 0);
+            if frame != semaphores_sent {
+                semaphores_sent = frame;
+                let _ = webview.post_json(&semaphores_message(semaphores.as_ref().filter(|_| frame.is_some())));
+            }
+        }
+
         if last_telemetry_post.elapsed() >= Duration::from_millis(50) {
             last_telemetry_post = Instant::now();
             let plugin = &bridge.bridge().plugin;
@@ -2098,6 +2113,34 @@ fn has_module(pid: u32, names: &[&str]) -> bool {
 
 /// How often the players around the player under TruckersMP may go to the page.
 const NEARBY_POST_EVERY: Duration = Duration::from_millis(33);
+
+/// How often the traffic light semaphores around the player may go to the page.
+const SEMAPHORES_POST_EVERY: Duration = Duration::from_millis(50);
+
+/// `{"type":"semaphores","data":[{"x":…, "y":…, "z":…, "heading":…, "state":…, "countdown":…, "duration":…}, …]}`
+fn semaphores_message(semaphores: Option<&westplay_shared::SemaphoresBlock>) -> String {
+    match semaphores {
+        None => serde_json::json!({ "type": "semaphores", "data": [] }).to_string(),
+        Some(block) => {
+            let data = block
+                .semaphores()
+                .iter()
+                .map(|s| {
+                    serde_json::json!({
+                        "x": s.x,
+                        "y": s.y,
+                        "z": s.z,
+                        "heading": s.heading,
+                        "state": s.state,
+                        "countdown": s.countdown,
+                        "duration": s.duration,
+                    })
+                })
+                .collect::<Vec<_>>();
+            serde_json::json!({ "type": "semaphores", "data": data }).to_string()
+        }
+    }
+}
 
 /// `{"type":"nearby","server":…,"local":…,"players":[[id, x, z, heading], …]}`: TruckersMP's players around
 /// the player (`server` its game server's id, `local` the player's own number; `null` for none: not under
@@ -2804,6 +2847,26 @@ mod tests {
             r#"{"local":113,"players":[[7,-6175.5,2139.0,0.25]],"server":4,"type":"nearby"}"#
         );
         assert_eq!(super::nearby_message(None), r#"{"local":null,"players":[],"server":null,"type":"nearby"}"#);
+    }
+
+    #[test]
+    fn tells_the_page_semaphores_around_the_player() {
+        use westplay_shared::{Semaphore, SemaphoresBlock};
+        let mut block = SemaphoresBlock { frame: 12, count: 1, ..SemaphoresBlock::default() };
+        block.semaphores[0] = Semaphore {
+            x: 100.0,
+            y: 10.0,
+            z: 200.0,
+            heading: 0.5,
+            state: 0,
+            countdown: 15.0,
+            duration: 30.0,
+        };
+        assert_eq!(
+            super::semaphores_message(Some(&block)),
+            r#"{"data":[{"countdown":15.0,"duration":30.0,"heading":0.5,"state":0,"x":100.0,"y":10.0,"z":200.0}],"type":"semaphores"}"#
+        );
+        assert_eq!(super::semaphores_message(None), r#"{"data":[],"type":"semaphores"}"#);
     }
 
     #[test]

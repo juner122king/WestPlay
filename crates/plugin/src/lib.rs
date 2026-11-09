@@ -17,6 +17,7 @@ mod mod_mount;
 mod navigation;
 mod screens;
 mod scs;
+mod semaphores;
 mod telemetry;
 mod truckersmp;
 mod typing;
@@ -91,6 +92,10 @@ unsafe fn init(version: u32, params: *const TelemetryInitParamsV100) -> i32 {
         }
         if let Err(e) = keyboard::install() {
             log!("keyboard hook install failed: {e}");
+        }
+        // Traffic light semaphores: hook actor updates to extract states and countdowns
+        if let Err(e) = semaphores::install() {
+            log!("semaphores hook install failed: {e}");
         }
         let status = match d3d::install().and_then(|()| hooks::enable_all()) {
             Ok(()) => {

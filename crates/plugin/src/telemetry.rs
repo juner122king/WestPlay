@@ -238,11 +238,14 @@ unsafe fn on_game_event(event: u32, info: *const c_void) {
                     bridge.plugin.telemetry.write(&published);
                 }
                 let (speed, paused) = (snapshot.speed, snapshot.paused);
+                let (truck_x, truck_z) = (snapshot.x, snapshot.z);
                 drop(snapshot);
                 // Whether the player's keys type into WestPlay's field: they stop the moment the truck moves.
                 crate::typing::update(speed, paused);
                 // The end of a frame is on the game's main thread, where its navigator may be changed.
                 crate::navigation::serve();
+                // Publish traffic light semaphores around the truck to the bridge.
+                crate::semaphores::publish(truck_x, truck_z);
             }
             _ => {}
         }

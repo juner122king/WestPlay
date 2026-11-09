@@ -65,6 +65,20 @@ export interface TruckInfo {
   name: string
 }
 
+export interface SemaphoreInfo {
+  x: number
+  y: number
+  z: number
+  /** Turns (0..1), 0 = north, clockwise. */
+  heading: number
+  /** 0 = Green, 1 = Yellow, 2 = Red, 3 = Red+Amber, 4 = Off. */
+  state: number
+  /** Seconds left until phase change. */
+  countdown: number
+  /** Total phase duration in seconds. */
+  duration: number
+}
+
 /** The player's job (`westplay_shared::JobInfo`): names localized by the game. */
 export interface JobInfo {
   /** There is a job. */
@@ -205,6 +219,8 @@ export type HostMessage =
    * player's own number on it, and each other player's number, world x and z (m) and heading (turns); `null`s
    * and none when there are none to tell. */
   | { type: 'nearby'; server: number | null; local: number | null; players: [number, number, number, number][] }
+  /** Traffic light semaphores around the player: coordinates, heading, state and countdown timer. */
+  | { type: 'semaphores'; data: SemaphoreInfo[] }
   /** Whether YouTube is signed in, and the picture to show for the player: nothing else of the account. */
   | { type: 'youtubeAccount'; signedIn: boolean; avatar: string | null }
   /** Whether Google's sign-in window is open on the PC's desktop. */

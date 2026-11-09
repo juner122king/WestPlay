@@ -250,10 +250,12 @@ pub fn running() -> bool {
 
 /// Whether a process of one of these names (as Windows names them) is running.
 fn running_processes(names: &[&str]) -> bool {
-    use windows::Win32::Foundation::CloseHandle;
+    use windows::Win32::Foundation::{CloseHandle, WAIT_TIMEOUT};
     use windows::Win32::System::Diagnostics::ToolHelp::{
         CreateToolhelp32Snapshot, PROCESSENTRY32W, Process32FirstW, Process32NextW, TH32CS_SNAPPROCESS,
     };
+    use windows::Win32::System::Threading::{OpenProcess, PROCESS_SYNCHRONIZE, WaitForSingleObject};
+
     // SAFETY: a snapshot of the PC's processes, closed below.
     let Ok(snapshot) = (unsafe { CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0) }) else { return false };
     let mut entry = PROCESSENTRY32W { dwSize: size_of::<PROCESSENTRY32W>() as u32, ..Default::default() };
@@ -263,9 +265,20 @@ fn running_processes(names: &[&str]) -> bool {
     while more {
         let length = entry.szExeFile.iter().position(|&c| c == 0).unwrap_or(entry.szExeFile.len());
         let name = String::from_utf16_lossy(&entry.szExeFile[..length]);
-        if names.iter().any(|wanted| name.eq_ignore_ascii_case(wanted)) {
-            found = true;
-            break;
+        if names.iter().any(|wanted| name.eq_ignore_ascii_case(wanted)) && entry.cntThreads > 0 {
+            let is_alive = unsafe {
+                if let Ok(process) = OpenProcess(PROCESS_SYNCHRONIZE, false, entry.th32ProcessID) {
+                    let alive = WaitForSingleObject(process, 0) == WAIT_TIMEOUT;
+                    let _ = CloseHandle(process);
+                    alive
+                } else {
+                    true
+                }
+            };
+            if is_alive {
+                found = true;
+                break;
+            }
         }
         // SAFETY: as above: the open snapshot, and `entry` with its size set.
         more = unsafe { Process32NextW(snapshot, &mut entry) }.is_ok();
