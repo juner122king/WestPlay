@@ -11,7 +11,7 @@ use crate::webview::{self, OffscreenWebView, Stage};
 pub const HOME: &str = "https://music.163.com/";
 
 #[derive(Clone, Debug, PartialEq, serde::Deserialize, serde::Serialize)]
-#[serde(tag = "action", rename_all = "camelCase")]
+#[serde(tag = "action", rename_all = "camelCase", rename_all_fields = "camelCase")]
 pub enum Command {
     Start,
     SignIn,
@@ -36,7 +36,7 @@ pub enum Command {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, serde::Deserialize, serde::Serialize)]
-#[serde(tag = "ask", rename_all = "camelCase")]
+#[serde(tag = "ask", rename_all = "camelCase", rename_all_fields = "camelCase")]
 pub enum Question {
     Search { query: String },
     Recommend,
@@ -56,6 +56,10 @@ pub struct Playlist {
     pub cover_img_url: Option<String>,
     #[serde(default)]
     pub track_count: u32,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub play_count: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub subscribed: Option<bool>,
 }
 
 #[derive(Clone, Debug, PartialEq, serde::Deserialize, serde::Serialize)]
@@ -72,6 +76,10 @@ pub struct Track {
     pub duration: f64,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub url: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub fee: Option<u32>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub playable: Option<bool>,
 }
 
 #[derive(Clone, Debug, PartialEq, serde::Deserialize, serde::Serialize)]
@@ -84,6 +92,10 @@ pub struct Playback {
     pub duration: f64,
     pub position: f64,
     pub status: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub track_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub error: Option<String>,
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq, serde::Deserialize, serde::Serialize)]
@@ -297,4 +309,57 @@ pub fn answer_message(answer: &Answer) -> String {
         "lyric": answer.lyric,
     })
     .to_string()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn playlist_tracks_question_uses_camel_case_playlist_id() {
+        let incoming = r#"{"action":"ask","id":20,"question":{"ask":"playlistTracks","playlistId":"987654321"}}"#;
+        let cmd: Command = serde_json::from_str(incoming).expect("deserialize playlistTracks command");
+        assert_eq!(
+            cmd,
+            Command::Ask { id: 20, question: Question::PlaylistTracks { playlist_id: "987654321".to_owned() } }
+        );
+
+        let outgoing = serde_json::to_value(&cmd).expect("serialize command");
+        assert_eq!(outgoing["question"]["ask"], "playlistTracks");
+        assert_eq!(outgoing["question"]["playlistId"], "987654321");
+    }
+
+    #[test]
+    fn playlist_deserializes_with_optional_subscribed_and_play_count() {
+        let json = r#"{"id":"123","name":"我喜欢的音乐","trackCount":42,"subscribed":false}"#;
+        let pl: Playlist = serde_json::from_str(json).expect("deserialize playlist");
+        assert_eq!(pl.id, "123");
+        assert_eq!(pl.track_count, 42);
+        assert_eq!(pl.subscribed, Some(false));
+        assert_eq!(pl.play_count, None);
+    }
+
+    #[test]
+    fn playback_and_track_preserve_vip_and_error_fields() {
+        let track_json =
+            r#"{"id":"287398","title":"我不难过","artist":"孙燕姿","duration":283,"fee":1,"playable":true}"#;
+        let track: Track = serde_json::from_str(track_json).expect("deserialize track");
+        assert_eq!(track.fee, Some(1));
+        assert_eq!(track.playable, Some(true));
+
+        let pb = Playback {
+            title: "我不难过".to_owned(),
+            artist: "孙燕姿".to_owned(),
+            artwork: None,
+            duration: 283.0,
+            position: 0.0,
+            status: "paused".to_owned(),
+            track_id: Some("287398".to_owned()),
+            error: Some("vip_required".to_owned()),
+        };
+        let encoded = playback_message(Some(&pb));
+        let parsed: serde_json::Value = serde_json::from_str(&encoded).expect("parse encoded playback message");
+        assert_eq!(parsed["playback"]["trackId"], "287398");
+        assert_eq!(parsed["playback"]["error"], "vip_required");
+    }
 }

@@ -641,6 +641,8 @@ export interface NeteasePlaylist {
   name: string
   coverImgUrl?: string
   trackCount: number
+  playCount?: number
+  subscribed?: boolean
 }
 
 export interface NeteaseTrack {
@@ -651,6 +653,8 @@ export interface NeteaseTrack {
   artwork?: string
   duration?: number
   url?: string
+  fee?: number
+  playable?: boolean
 }
 
 export interface NeteasePlayback {
@@ -660,6 +664,8 @@ export interface NeteasePlayback {
   duration: number
   position: number
   status: string
+  trackId?: string
+  error?: string
 }
 
 export interface NeteaseAnswers {
