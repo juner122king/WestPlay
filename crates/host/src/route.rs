@@ -112,6 +112,7 @@ pub enum RouteUpdate {
         id: u32,
         paths: Vec<(usize, Vec<[f32; 2]>)>,
         maneuvers: Vec<(usize, Maneuver)>,
+        lane_hints: Vec<westplay_mapdata::lane_guidance::LaneHint>,
         shifts: Vec<(usize, f32)>,
     },
     /// The ways of route `index` offered for the page's request `id` (planner.rs), each as it's read: a route across the
@@ -422,7 +423,9 @@ fn resolve_junctions(pending: Receiver<Job>, sender: Sender<RouteUpdate>, played
                             let maneuvers =
                                 found.junctions.iter().filter_map(|junction| Some((junction.span, junction.maneuver?))).collect();
                             let paths = found.junctions.into_iter().map(|junction| (junction.span, junction.path)).collect();
-                            if sender.send(RouteUpdate::Paths { id, paths, maneuvers, shifts: found.shifts }).is_err() {
+                            if sender.send(RouteUpdate::Paths {
+                                id, paths, maneuvers, shifts: found.shifts, lane_hints: found.lane_hints,
+                            }).is_err() {
                                 return;
                             }
                         }

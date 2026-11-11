@@ -4,6 +4,8 @@ import { formatTripDistance } from '../../shared/format'
 import { useLive } from '../state/store'
 import { type Strings, useText } from '../state/text'
 import { guidanceOf, type Maneuver, NOW_WITHIN, type Step } from './guidance'
+import { LaneRibbon } from './LaneRibbon'
+import { useLaneHint } from './useLaneHint'
 import { ManeuverGlyph } from './ManeuverGlyph'
 import { nearestTrafficLightAhead, trafficLightStateClass } from './trafficLights'
 
@@ -110,7 +112,19 @@ function useKept<T>(value: T | null): T | null {
  */
 export function GuidanceCard({ variant }: { variant: 'widget' | 'banner' }) {
   const text = useText()
-  const { step, distance, then } = useGuidance()
+  const base = useGuidance()
+  const lane = useLaneHint()
+  const laneBeforeTurn = lane.hint !== null && (base.step?.kind !== 'turn' || lane.hint.node < base.step.maneuver.node)
+  const step = useMemo<Step | null>(
+    () =>
+      laneBeforeTurn && lane.hint
+        ? { kind: 'turn', maneuver: { node: lane.hint.node, turn: 'straight', angle: 0, exit: null } }
+        : base.step,
+    [laneBeforeTurn, lane.hint, base.step],
+  )
+  const distance = laneBeforeTurn ? lane.distance : base.distance
+  const then = laneBeforeTurn ? null : base.then
+  const activeLanes = step?.kind === 'turn' && step.maneuver.node === lane.hint?.node ? lane.hint : null
   const current = useMemo(() => (step ? { key: keyOf(step), step, distance, then } : null), [step, distance, then])
   const { shown, leaving, closing } = useStepChange(current)
   const thenShown = useKept(shown?.then ?? null)
@@ -131,6 +145,7 @@ export function GuidanceCard({ variant }: { variant: 'widget' | 'banner' }) {
           <StepLines shown={shown} size={glyphSize} text={text} />
         </div>
       </div>
+      {!closing && activeLanes && <LaneRibbon hint={activeLanes} />}
       <div className={`guidance-then-slot${shown.then && !closing ? ' open' : ''}`}>
         <div className="guidance-then-clip">
           <div className="guidance-then">

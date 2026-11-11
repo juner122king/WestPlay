@@ -1,6 +1,14 @@
 import { useEffect, useRef, useState } from 'react'
 import { useText } from '../state/text'
-import { followBearing, northUpLiveMap, recentreLiveMap, useMapBrowsing, zoomLiveMap } from './liveMap'
+import { useLive } from '../state/store'
+import {
+  followBearing,
+  northUpLiveMap,
+  overviewLiveRoute,
+  recentreLiveMap,
+  useMapBrowsing,
+  zoomLiveMap,
+} from './liveMap'
 
 /**
  * The Maps app's buttons over the map, like CarPlay's: zoom in and out; the compass right over the zoom pair,
@@ -11,12 +19,14 @@ import { followBearing, northUpLiveMap, recentreLiveMap, useMapBrowsing, zoomLiv
 export function MapControls() {
   const browsing = useMapBrowsing((state) => state.browsing)
   const text = useText()
+  const overview = useMapBrowsing((state) => state.routeOverview)
+  const hasRoute = useLive((state) => state.route !== null && (state.telemetry?.navigationDistance ?? 0) > 0)
   return (
     <div className="map-controls">
       <button
         type="button"
         className={browsing ? 'map-control map-recentre glass shown' : 'map-control map-recentre glass'}
-        aria-label={text.recentre}
+        aria-label={overview ? text.returnToNavigation : text.recentre}
         aria-hidden={!browsing}
         tabIndex={browsing ? 0 : -1}
         onClick={recentreLiveMap}
@@ -25,6 +35,21 @@ export function MapControls() {
           <path d="M20.5 3.5 3.8 10.6c-.8.4-.7 1.6.2 1.8l6.6 1.1 1.1 6.6c.2.9 1.4 1 1.8.2Z" fill="currentColor" />
         </svg>
       </button>
+      {hasRoute && (
+        <button
+          type="button"
+          className={`map-control map-overview glass${overview ? ' selected' : ''}`}
+          aria-label={text.routeOverview}
+          aria-pressed={overview}
+          onClick={overviewLiveRoute}
+        >
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <circle cx="5" cy="18" r="2" />
+            <circle cx="19" cy="6" r="2" />
+            <path d="M5 16v-4a3 3 0 0 1 3-3h8a3 3 0 0 0 3-3" />
+          </svg>
+        </button>
+      )}
       <MapCompass label={text.northUp} />
       <MapZoom />
     </div>

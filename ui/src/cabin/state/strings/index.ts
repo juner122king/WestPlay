@@ -33,6 +33,11 @@ export interface Strings {
   roundabout: (exit: number) => string
   /** Maps. */
   recentre: string
+  routeOverview: string
+  returnToNavigation: string
+  laneGuidance: string
+  recommendedLane: string
+  unavailableLane: string
   /** The compass: turns the map north up, seen from above. */
   northUp: string
   zoomIn: string

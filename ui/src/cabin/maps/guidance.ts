@@ -11,6 +11,7 @@
  */
 
 export type TurnKind =
+  | 'straight'
   | 'slight-left'
   | 'left'
   | 'sharp-left'

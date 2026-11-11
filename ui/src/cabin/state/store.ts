@@ -11,6 +11,7 @@ import {
   type JobInfo,
   IS_DEMO,
   type KeybindAction,
+  type LaneHint,
   isInHost,
   postToHost,
   type SemaphoreInfo,
@@ -20,6 +21,7 @@ import {
   type TruckInfo,
 } from '../../shared/host'
 import type { Maneuver, TurnKind } from '../maps/guidance'
+import { validLaneHints } from '../maps/laneGuidance'
 import {
   receiveAnswer as receiveAppleMusicAnswer,
   receivePlayback as receiveAppleMusicPlayback,
@@ -314,6 +316,7 @@ export interface LiveState {
     /** How high each node is in the game, metres. */
     heights: number[]
     paths: ReadonlyMap<number, Point[]>
+    laneHints?: LaneHint[]
     maneuvers: Maneuver[]
     shifts: ReadonlyMap<number, number>
   } | null
@@ -518,6 +521,7 @@ function receiveHostMessage(now: () => number): (message: HostMessage) => void {
                   heights: message.nodes.map((node) => node[5]),
                   paths: new Map(),
                   maneuvers: [],
+                  laneHints: [],
                   shifts: new Map(),
                 },
           routeNext: 0,
@@ -537,7 +541,15 @@ function receiveHostMessage(now: () => number): (message: HostMessage) => void {
           exit,
         }))
         const shifts = new Map(message.shifts ?? [])
-        useLive.setState({ route: { ...route, paths: new Map(message.paths), maneuvers, shifts } })
+        useLive.setState({
+          route: {
+            ...route,
+            paths: new Map(message.paths),
+            maneuvers,
+            shifts,
+            laneHints: validLaneHints(message.laneHints, route.nodes.length),
+          },
+        })
         break
       }
       case 'routeNext':

@@ -201,6 +201,7 @@ export type HostMessage =
       paths: [number, [number, number][]][]
       maneuvers: [number, string, number, number | null][]
       shifts: [number, number][]
+      laneHints?: LaneHint[]
     }
   /** The truck's progress along the route: the index of the map node ahead of it. */
   | { type: 'routeNext'; next: number }
@@ -1256,4 +1257,13 @@ export function postToHost(message: PageMessage): void {
 /** A truck with no identity (the SDK reports empty strings when there is no truck). */
 export function hasTruck(truck: TruckInfo | null): truck is TruckInfo {
   return truck !== null && truck.brandId !== ''
+}
+
+/** Lane advice, from actual truck-permitted prefab connections, left to right in travel direction. */
+export type LaneDirection = 'straight' | 'left' | 'right' | 'slight-left' | 'slight-right' | 'u-turn'
+export interface LaneHint {
+  node: number
+  start: number
+  end: number
+  lanes: { directions: LaneDirection[]; recommended: boolean }[]
 }

@@ -35,8 +35,8 @@
    alone (owner 2026-11-06: changing the map's width each frame laid the screen out and redrew the map at a new
    size each frame, under 60 fps): the map's tile is laid out the whole width, and what shows of it is cut by its
    window (MapView.tsx), which slides right as the column does. Its content slides against the window by half as
-   much, so the map stays centred in what shows of it, as it did while the map changed its width; the speeds
-   against it all the way, standing still. Resting with the widgets shown, the content is only as wide as what
+   much, so the map stays centred in what shows of it, as it did while the map changed its width; the speed
+   capsule moves with the window’s right edge. Resting with the widgets shown, the content is only as wide as what
    shows (the map draws no more than that); just before the map grows it becomes the whole width at once, moved
    so nothing shows a change (Dashboard.tsx: map-wide), and after it has shrunk back, the other way. The column
    keeps its width all the while, so its widgets never lay themselves out anew. */
@@ -53,10 +53,6 @@
   transform: translateX(calc(-34.5% - var(--tile-gap, 16px)));
 }
 
-.has-widgets:not(.map-grown) .map-still {
-  transform: translateX(calc(34.5% + var(--tile-gap, 16px)));
-}
-
 /* Resting: the content just what shows. */
 .has-widgets:not(.map-wide) .map-content {
   left: calc(34.5% + var(--tile-gap, 16px));
@@ -67,7 +63,7 @@
   transform: translateX(calc(17.25% + var(--tile-gap, 16px) / 2));
 }
 
-.map-moving :is(.map-window, .map-shadow-moving, .map-still, .map-content) {
+.map-moving :is(.map-window, .map-shadow-moving, .map-content) {
   transition: transform var(--motion-duration) var(--motion-ease);
 }
 

@@ -147,9 +147,9 @@ const PALETTES: Record<Appearance, Palette> = {
   // white roads through them: near white, they hid those roads (a service area's slip roads, which showed
   // when paved was #d6d1c6 on #e6e2d9).
   light: {
-    ground: '#f4f1eb',
-    water: '#8fdaf8',
-    areas: ['#eae9e3', '#eae9e3', '#e9e9e2', '#bee89c'],
+    ground: '#f5f5f1',
+    water: '#a9def0',
+    areas: ['#eae9e3', '#eae9e3', '#e9e9e2', '#ccefc5'],
     service: '#e0ded6',
     buildings: '#e2e2db',
     roads: {
@@ -164,7 +164,7 @@ const PALETTES: Record<Appearance, Palette> = {
     roadShadow: 'rgb(50 42 25 / 0.42)',
     bridgeEdge: '#aeb0b4',
     tunnel: '#e0dbcd',
-    route: { fill: '#2f7cf6', casing: '#1559c9' },
+    route: { fill: '#6035ed', casing: '#3415a5' },
     offered: { fill: '#a9c7f5', casing: '#7d9fd6' },
   },
   // Apple's dark map (sampled from the owner's screenshots of it, 2026-10-22): slate-blue ground, its
@@ -194,7 +194,7 @@ const PALETTES: Record<Appearance, Palette> = {
     bridgeEdge: '#56667e',
     tunnel: '#334457',
     tunnelFar: '#56667e',
-    route: { fill: '#3d8bff', casing: '#1b4a96' },
+    route: { fill: '#a88bff', casing: '#4e3194' },
     // Lighter than the ground (the old dark grey-blue vanished into the slate).
     offered: { fill: '#7f9bcb', casing: '#45608f' },
   },

@@ -14,7 +14,7 @@
 .map-clip,
 .map-window,
 .map-content,
-.map-still,
+.map-speed-layer,
 .map-shadow-clip,
 .map-shadow {
   position: absolute;
@@ -34,11 +34,11 @@
   background: var(--map-ground);
 }
 
-.map-still {
+.map-speed-layer {
   pointer-events: none;
 }
 
-.map-still > * {
+.map-speed-layer > * {
   pointer-events: auto;
 }
 
@@ -81,7 +81,7 @@
 }
 
 .appearance-light .map-tile {
-  --map-ground: #f4f1eb;
+  --map-ground: #f5f5f1;
 }
 
 .appearance-light .map-light {
@@ -114,87 +114,168 @@
 }
 
 .eta-pill {
-  position: absolute;
-  left: 50%;
-  bottom: 24px;
-  transform: translateX(-50%);
-  padding: 10px 24px;
-  border-radius: 999px;
-  white-space: nowrap;
-  font-size: calc(24px * var(--text-scale, 1));
-  font-weight: 500;
-  color: #fff;
-  background: rgb(20 22 26 / 0.55);
-}
-
-.appearance-light .eta-pill {
-  color: #14161a;
-  background: rgb(255 255 255 / 0.72);
-}
-
-.eta-pill b {
-  font-weight: 700;
-}
-
-.eta-pill .dot {
-  margin: 0 4px;
-  opacity: 0.6;
-}
-
-/* The road's speed limit over the live speed, bottom left, as on Apple's map. */
-.speed-stack {
+  --glass: rgb(23 36 42 / 0.85);
   position: absolute;
   left: 22px;
-  bottom: 22px;
+  bottom: 24px;
+  max-width: calc(100% - 140px);
+  padding: 16px 26px;
+  border-radius: 30px;
+  color: #f1f5f4;
+  background: rgb(23 36 42 / 0.85);
+  font-variant-numeric: tabular-nums;
+}
+.appearance-light .eta-pill {
+  --glass: rgb(255 255 255 / 0.78);
+  color: #141b1d;
+  background: rgb(255 255 255 / 0.78);
+}
+.eta-arrival {
+  font-size: calc(34px * var(--text-scale, 1));
+  font-weight: 550;
+  line-height: 1.15;
+}
+.eta-arrival b {
+  font-weight: 720;
+  letter-spacing: -0.035em;
+}
+.eta-remaining {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 9px;
+  margin-top: 6px;
+  font-size: calc(24px * var(--text-scale, 1));
+}
+.eta-remaining > span:first-child {
+  color: #69dc9b;
+  font-weight: 600;
+}
+.appearance-light .eta-remaining > span:first-child {
+  color: #10853f;
+}
+.eta-pill .dot {
+  opacity: 0.55;
+}
+
+/* One black capsule, a region-specific sign and a large white actual speed, by day and night. */
+.speed-stack {
+  position: absolute;
+  top: 22px;
+  right: 22px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 4px 18px 4px 4px;
+  border-radius: 999px;
+  background: #1d1e20;
+  color: #fff;
+  box-shadow: 0 5px 15px rgb(0 0 0 / 0.28);
+  font-variant-numeric: tabular-nums;
+}
+.speed-limit {
+  box-sizing: border-box;
+  width: 90px;
+  height: 90px;
+  display: grid;
+  place-content: center;
+  border: 7px solid #ee302b;
+  border-radius: 50%;
+  background: #fff;
+  color: #101112;
+  font-size: calc(42px * var(--text-scale, 1));
+  font-weight: 750;
+  letter-spacing: -0.04em;
+  line-height: 1;
+  box-shadow: 0 0 0 2px #141517;
+}
+.speed-stack.american {
+  padding-left: 7px;
+}
+.american .speed-limit {
+  width: 70px;
+  height: 84px;
+  border-radius: 5px;
+  border: 2px solid #111;
+  outline: 2px solid #fff;
+  font-size: calc(39px * var(--text-scale, 1));
+  gap: 2px;
+  text-align: center;
+}
+.speed-limit-heading {
+  font-size: 11px;
+  line-height: 1.05;
+  letter-spacing: -0.02em;
+  font-weight: 800;
+}
+.speed-reading {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 10px;
+  min-width: 60px;
+  padding: 4px 0;
 }
-
-/* The European sign: white, a red ring, black figures (the same by night, as the real one). */
-.speed-limit {
-  width: 66px;
-  height: 66px;
-  box-sizing: border-box;
-  border-radius: 50%;
-  display: grid;
-  place-items: center;
-  background: #fff;
-  border: 7px solid #e3141b;
-  box-shadow: 0 2px 8px rgb(0 0 0 / 0.3);
-  color: #111;
-  font-size: calc(25px * var(--text-scale, 1));
-  font-weight: 700;
-  letter-spacing: -0.02em;
-  font-variant-numeric: tabular-nums;
-}
-
 .speed-badge {
-  width: 74px;
-  height: 74px;
-  border-radius: 50%;
-  display: grid;
-  place-items: center;
-  background: rgb(20 22 26 / 0.7);
-  color: #fff;
+  font-size: calc(48px * var(--text-scale, 1));
+  font-weight: 750;
+  letter-spacing: -0.045em;
+  line-height: 0.98;
+}
+.speed-unit {
+  font-size: 21px;
+  color: #d1d1d3;
+  font-weight: 550;
+  line-height: 1.1;
+}
+.speed-badge.over {
+  color: #ff6257;
+}
+.speed-stack:not(:has(.speed-limit)) {
+  padding-left: 20px;
+}
+.appearance-dark .speed-stack {
+  background: #17191d;
+}
+.appearance-dark .speed-limit {
+  background: #e4e7e8;
+}
+
+.map-guidance-layer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+.map-guidance-layer,
+.eta-pill,
+.speed-stack {
   transition:
-    color var(--motion-duration) var(--motion-ease),
-    background-color var(--motion-duration) var(--motion-ease);
-  font-size: 30px;
-  font-weight: 700;
-  font-variant-numeric: tabular-nums;
+    opacity 240ms ease,
+    visibility 240ms ease;
 }
-
-.appearance-light .speed-badge {
-  color: #14161a;
-  background: rgb(255 255 255 / 0.85);
+.route-overview :is(.map-guidance-layer, .eta-pill, .speed-stack),
+.map-navigation:has(.map-search:not(.closing)) :is(.map-guidance-layer, .eta-pill, .speed-stack) {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
 }
-
-/* Faster than the limit: the speed turns red, as on Apple's. */
-.speed-badge.over,
-.appearance-light .speed-badge.over {
-  color: #ff453a;
+.dashboard .speed-stack {
+  top: 18px;
+  right: 18px;
+  transform: scale(0.78);
+  transform-origin: top right;
+}
+.dashboard .eta-pill {
+  left: 18px;
+  bottom: 18px;
+  padding: 12px 20px;
+  border-radius: 24px;
+}
+.dashboard .eta-arrival {
+  font-size: calc(26px * var(--text-scale, 1));
+}
+.dashboard .eta-remaining {
+  font-size: calc(20px * var(--text-scale, 1));
+  gap: 6px;
 }
 
 /* A map WestPlay doesn't allow: the tile says so instead of showing it (MapView). */
@@ -238,13 +319,12 @@
   bottom: calc(var(--panel-radius) - 32px);
 }
 
-/* The Dashboard's map on a short screen (the 7" Scania's, its UI scaled up: about 395 x 400 in its own
-   units): the arrival pill, the speeds and the zoom pair don't fit side by side along its bottom (owner
-   2026-10-21: they overlapped). The pill goes to the top, where nothing else is, and all three are smaller. */
+/* Compact Dashboard maps: arrival stays at the lower left, speed at the upper right, and
+   smaller zoom controls keep their own lower-right corner. */
 @container carplay (max-height: 520px) {
   .dashboard .eta-pill {
-    top: 14px;
-    bottom: auto;
+    bottom: 14px;
+    top: auto;
     padding: 6px 14px;
     font-size: calc(17px * var(--text-scale, 1));
   }
@@ -254,22 +334,15 @@
   }
 
   .dashboard .speed-stack {
-    left: 14px;
-    bottom: 14px;
-    gap: 8px;
+    top: 14px;
+    right: 14px;
+    transform: scale(0.64);
   }
-
-  .dashboard .speed-limit {
-    width: 46px;
-    height: 46px;
-    border-width: 5px;
-    font-size: calc(18px * var(--text-scale, 1));
+  .dashboard .eta-arrival {
+    font-size: calc(22px * var(--text-scale, 1));
   }
-
-  .dashboard .speed-badge {
-    width: 52px;
-    height: 52px;
-    font-size: calc(21px * var(--text-scale, 1));
+  .dashboard .eta-remaining {
+    font-size: calc(16px * var(--text-scale, 1));
   }
 
   .dashboard .map-controls {
@@ -294,4 +367,31 @@
   .dashboard .map-zoom-divider {
     width: 24px;
   }
+}
+
+@container carplay (max-height: 520px) {
+  .map-navigation .speed-stack {
+    transform: scale(0.78);
+    transform-origin: top right;
+  }
+  .map-navigation .eta-arrival {
+    font-size: calc(28px * var(--text-scale, 1));
+  }
+  .map-navigation .eta-remaining {
+    font-size: calc(20px * var(--text-scale, 1));
+  }
+  .map-navigation .eta-pill {
+    padding: 12px 20px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .map-guidance-layer,
+  .eta-pill,
+  .speed-stack {
+    transition: none;
+  }
+}
+
+.route-overview .map-shade {
+  opacity: 0;
 }

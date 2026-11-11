@@ -15,21 +15,20 @@
 .map-puck {
   display: grid;
   place-items: center;
-  width: 46px;
-  height: 46px;
+  width: 78px;
+  height: 78px;
   border-radius: 50%;
-  color: #fff;
-  background: #0a84ff;
-  border: 4px solid #fff;
-  box-shadow:
-    0 0 0 9px rgb(10 132 255 / 0.2),
-    0 4px 12px rgb(0 0 0 / 0.35);
+  color: #1875ef;
+  background: rgb(245 253 255 / 0.92);
+  box-shadow: 0 5px 18px rgb(0 0 0 / 0.18);
 }
-
 .map-puck svg {
-  width: 24px;
-  height: 24px;
-  margin-top: -2px;
+  width: 56px;
+  height: 56px;
+  margin-top: -3px;
+}
+.appearance-dark .map-puck {
+  background: rgb(205 227 244 / 0.88);
 }
 
 /* Place names: WestPlay's type with a halo of the ground colour, so they read over anything. */
@@ -197,8 +196,8 @@
    and away as the next rises in, the "then" row opens and closes, and the card fades away when the route
    ends (the durations: STEP_CHANGE_MS and CLOSE_MS). */
 .guidance {
-  --glass: rgb(10 112 235 / 0.78);
-  --glass-rim: rgb(140 196 255 / 0.55);
+  --glass: #0d6266;
+  --glass-rim: rgb(183 237 229 / 0.35);
   color: #fff;
   animation: guidance-open var(--motion-spring-duration) var(--motion-ease) both;
 }
@@ -1122,4 +1121,185 @@
   box-shadow:
     0 0 10px #ff9f0a,
     0 0 18px rgb(255 159 10 / 0.95);
+}
+
+/* Navigation information hierarchy: teal instruction, inset lane ribbon, quiet secondary step. */
+.appearance-dark .guidance {
+  --glass: #124c53;
+  --glass-rim: rgb(172 219 220 / 0.22);
+}
+.guidance-instruction {
+  text-wrap: pretty;
+  overflow-wrap: anywhere;
+}
+.guidance-step > div {
+  min-width: 0;
+}
+.lane-guidance {
+  display: flex;
+  align-items: stretch;
+  justify-content: center;
+  background: rgb(0 28 32 / 0.25);
+  border-radius: 15px;
+  padding: 8px 12px;
+  margin-top: 14px;
+}
+.lane-guidance-lane {
+  position: relative;
+  color: rgb(207 235 235 / 0.34);
+  padding: 0 7px 4px;
+  flex: 0 1 64px;
+  min-width: 0;
+}
+.lane-guidance-lane + .lane-guidance-lane {
+  border-left: 1px dashed rgb(210 240 240 / 0.12);
+}
+.lane-guidance-lane svg {
+  display: block;
+  width: 100%;
+  max-width: 48px;
+  height: 44px;
+  margin: auto;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 3;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.lane-guidance-lane.recommended {
+  color: #fff;
+}
+.lane-guidance-lane.recommended svg {
+  stroke-width: 4;
+}
+.lane-recommended-mark {
+  position: absolute;
+  width: 14px;
+  height: 3px;
+  bottom: 0;
+  left: calc(50% - 7px);
+  border-radius: 2px;
+  background: #a6f2df;
+}
+.guidance-widget .lane-guidance {
+  margin-top: 10px;
+  padding: 5px 8px;
+}
+.guidance-widget .lane-guidance-lane svg {
+  height: 32px;
+}
+.guidance-widget .guidance-distance {
+  font-size: calc(36px * var(--text-scale, 1));
+}
+.guidance-widget .guidance-instruction {
+  font-size: calc(22px * var(--text-scale, 1));
+}
+.map-navigation .map-search-button,
+.map-navigation .map-search-button.guided {
+  left: auto;
+  right: 102px;
+  top: auto;
+  bottom: 24px;
+}
+.map-controls .map-overview.selected {
+  background: #1266e9;
+  color: #fff;
+}
+@container carplay (max-height: 520px) {
+  .map-navigation .map-controls {
+    gap: 10px;
+  }
+  .map-navigation .map-control {
+    width: 48px;
+    height: 48px;
+  }
+  .map-navigation .map-compass {
+    width: 36px;
+    height: 36px;
+  }
+  .map-navigation .map-zoom {
+    border-radius: 24px;
+  }
+  .map-navigation .map-control svg {
+    width: 24px;
+    height: 24px;
+  }
+  .map-navigation .guidance-banner {
+    padding: 14px 18px;
+    max-width: min(460px, 58%);
+  }
+  .map-navigation .guidance-distance {
+    font-size: calc(34px * var(--text-scale, 1));
+  }
+  .map-navigation .guidance-instruction {
+    font-size: calc(21px * var(--text-scale, 1));
+  }
+  .map-navigation .maneuver-glyph {
+    width: 52px;
+    height: 52px;
+  }
+  .map-navigation .lane-guidance {
+    padding: 5px 8px;
+    margin-top: 10px;
+  }
+  .map-navigation .lane-guidance-lane svg {
+    height: 32px;
+  }
+  .map-navigation .map-search-button {
+    right: 86px;
+    width: 48px;
+    height: 48px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .guidance,
+  .guidance-step,
+  .guidance-then-slot {
+    animation: none;
+    transition: none;
+  }
+}
+
+.guidance-banner {
+  width: min(500px, 54%);
+  box-sizing: border-box;
+}
+.map-overview {
+  border-radius: 50%;
+}
+.map-route-stop {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: 3px solid #fff;
+  color: #fff;
+  background: #6035ed;
+  font-weight: 750;
+  box-shadow: 0 2px 8px rgb(0 0 0 / 0.25);
+}
+@container widgets (max-width: 300px) or (max-height: 520px) {
+  .guidance-widget .lane-guidance {
+    padding: 4px;
+    margin-top: 7px;
+  }
+  .guidance-widget .lane-guidance-lane {
+    padding-inline: 3px;
+  }
+  .guidance-widget .lane-guidance-lane svg {
+    height: 27px;
+  }
+}
+
+/* Markers stay above place labels, but inside the map below navigation overlays. */
+.road-map {
+  isolation: isolate;
+}
+.map-puck {
+  z-index: 5;
+}
+.map-destination,
+.map-route-stop {
+  z-index: 4;
 }

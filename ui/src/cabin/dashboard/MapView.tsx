@@ -1,17 +1,19 @@
 import { useShallow } from 'zustand/react/shallow'
-import { formatGameTime, formatTripDistance, formatTripTime, roadSpeed } from '../../shared/format'
+import { formatGameTime, formatTripDistance, formatTripTime } from '../../shared/format'
+import { cabClock } from '../../shared/host'
 import { hvtMapMessage } from '../maps/blockedMap'
+import { useMapBrowsing } from '../maps/liveMap'
 import { GuidanceCard } from '../maps/GuidanceCard'
 import { DashboardMapControls, MapControls } from '../maps/MapControls'
 import { MapSearch } from '../maps/MapSearch'
 import { nextStop } from '../maps/nextStop'
 import { useMapData } from '../maps/mapData'
 import { RoadMap } from '../maps/RoadMap'
+import { SpeedDisplay } from '../maps/SpeedDisplay'
 import { useClockStyle } from '../state/hooks'
 import { useLive } from '../state/store'
 import { useText } from '../state/text'
 import './map.css'
-import { cabClock } from '../../shared/host'
 
 /**
  * The map tile (Dashboard and the Maps app): the live map following the truck (with the game's GPS route),
@@ -23,12 +25,10 @@ import { cabClock } from '../../shared/host'
  * On a map WestPlay doesn't allow (by HVT), it says so instead, in the game's language.
  */
 export function MapView({ interactive = false }: { interactive?: boolean }) {
-  const speed = useLive((state) => (state.telemetry ? roadSpeed(state.telemetry.speed, state.mph) : 0))
-  const limit = useLive((state) => (state.telemetry ? roadSpeed(state.telemetry.navigationSpeedLimit, state.mph) : 0))
+  const overview = useMapBrowsing((state) => state.routeOverview) && interactive
   const data = useMapData()
   const hvtMap = useLive((state) => state.hvtMap)
   const chosen = useLive((state) => state.chosenLanguage)
-  const text = useText()
 
   if (hvtMap) {
     return (
@@ -44,10 +44,10 @@ export function MapView({ interactive = false }: { interactive?: boolean }) {
 
   // Layered so the Dashboard's map grows and shrinks by transforms alone (dashboard.css): the tile and its clip
   // stand still, the window (the map's right edge, its zoom pair) slides, the content (the map, centred in what
-  // shows of it) slides against it, and the speeds against it all the way, standing still; its shadow in two
+  // shows of it) slides against it, and the speed capsule moves with the window’s right edge; its shadow in two
   // parts, the left one still, the rest sliding. In the Maps app, all of them simply the tile.
   return (
-    <div className="map-tile">
+    <div className={`map-tile${interactive ? ' map-navigation' : ''}${overview ? ' route-overview' : ''}`}>
       <div className="map-shadow map-shadow-left" aria-hidden />
       <div className="map-shadow-clip" aria-hidden>
         <div className="map-shadow map-shadow-moving" />
@@ -71,19 +71,16 @@ export function MapView({ interactive = false }: { interactive?: boolean }) {
               )
             )}
             <div className="map-shade" />
-            <TripPill />
+            <TripPill concealed={overview} />
           </div>
-          <div className="map-still">
-            <div className="speed-stack">
-              {limit > 0 && (
-                <div className="speed-limit" aria-label={text.speedLimit(limit)}>
-                  {limit}
-                </div>
-              )}
-              {speed > 0 && <div className={`speed-badge${limit > 0 && speed > limit ? ' over' : ''}`}>{speed}</div>}
+          <div className="map-speed-layer" aria-hidden={overview}>
+            <SpeedDisplay />
+          </div>
+          {interactive && (
+            <div className="map-guidance-layer" aria-hidden={overview}>
+              <GuidanceCard variant="banner" />
             </div>
-          </div>
-          {interactive && <GuidanceCard variant="banner" />}
+          )}
           {data && interactive && <MapControls />}
           {data && !interactive && <DashboardMapControls />}
           {data && interactive && <MapSearch />}
@@ -99,7 +96,7 @@ export function MapView({ interactive = false }: { interactive?: boolean }) {
  * its own GPS shows). With a stop of the player's ahead, the time to it first ("30 min | 3 h 5 min"), the
  * next one's only, the one after once it's reached (owner 2026-10-21).
  */
-function TripPill() {
+function TripPill({ concealed }: { concealed: boolean }) {
   const text = useText()
   const clock = useClockStyle()
   const trip = useLive(
@@ -127,8 +124,15 @@ function TripPill() {
   if (!trip) return null
   const [arrival, time, distance] = trip
   return (
-    <div className="eta-pill glass">
-      <b>{arrival}</b> {text.arrival} <span className="dot">·</span> {time} <span className="dot">·</span> {distance}
+    <div className="eta-pill glass" aria-hidden={concealed}>
+      <div className="eta-arrival">
+        <b>{arrival}</b> <span>{text.arrival}</span>
+      </div>
+      <div className="eta-remaining">
+        <span>{time}</span>
+        <span className="dot">·</span>
+        <span>{distance}</span>
+      </div>
     </div>
   )
 }

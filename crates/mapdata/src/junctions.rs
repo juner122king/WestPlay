@@ -17,10 +17,14 @@ use std::path::Path;
 
 use crate::files::{FileError, GameFiles};
 use crate::geometry::{self, Point, PrefabPlacement};
+use crate::lane_guidance::{self, LaneHint};
 use crate::lanes::{self, Carriageways};
 use crate::prefab::Prefab;
 use crate::sector::ItemData;
-use crate::surface::{self, roads::{self, Looks, Section}};
+use crate::surface::{
+    self,
+    roads::{self, Looks, Section},
+};
 use crate::world::{self, Definitions, MapError, Prefabs};
 
 /// A map node of a route: its uid and where it is.
@@ -92,6 +96,7 @@ pub struct Junction {
 /// across its roads.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct Ways {
+    pub lane_hints: Vec<LaneHint>,
     pub junctions: Vec<Junction>,
     /// For each node of the route on a road (its index), how far to the right of the way the route goes the
     /// route runs there, metres (only those off the road's line).
@@ -146,6 +151,15 @@ impl Junctions {
         }
         let mut prefabs = Prefabs::new(&self.files, &self.definitions);
         let shifted = shifted_nodes(&map, &self.definitions, &self.looks, &mut prefabs, &prefabs_at, nodes);
+        let roads: HashMap<(u64, u64), u64> = map
+            .items
+            .iter()
+            .filter_map(|item| match item.data {
+                ItemData::Road { start_node, end_node, look, .. } => Some(((start_node, end_node), look)),
+                _ => None,
+            })
+            .collect();
+        let mut lane_hints = Vec::new();
         let mut junctions = Vec::new();
         for (span, pair) in nodes.windows(2).enumerate() {
             let (from, to) = (pair[0], pair[1]);
@@ -169,6 +183,45 @@ impl Junctions {
                 let Some(path) = prefab.path(own(a), own(b)) else { continue };
                 let placement = PrefabPlacement::new(origin_node, first);
                 let placed: Vec<Point> = path.iter().map(|&p| placement.place(p)).collect();
+                if let Some(lanes) = lane_guidance::lanes_at(prefab, own(a), own(b)) {
+                    // Only ordinary, same-count roads prove a continuous approach. Infer its driving
+                    // side from the actual entrance, not the country or a right-hand-traffic default.
+                    let entrance = &prefab.nodes[own(a)];
+                    let side = entrance.curves_in.first().and_then(|&i| prefab.curves.get(i)).and_then(|curve| {
+                        let point = placement.place(curve.start);
+                        let forward = geometry::node_forward(map.nodes.get(&from.uid)?);
+                        let right =
+                            (point[0] - from.position[0]) * -forward[1] + (point[1] - from.position[1]) * forward[0];
+                        (right.abs() > 0.5).then_some(right > 0.0)
+                    });
+                    let mut start = span;
+                    if let Some(side) = side {
+                        let entering_along = span.checked_sub(1).and_then(|prev| {
+                            let pair = (nodes[prev].uid, from.uid);
+                            roads.get(&pair).map(|_| true).or_else(|| roads.get(&(pair.1, pair.0)).map(|_| false))
+                        });
+                        if let Some(along) = entering_along {
+                            let keeps_right = side == along;
+                            start = lane_guidance::approach_start(span, lanes.len(), |previous| {
+                                let pair = (nodes[previous].uid, nodes[previous + 1].uid);
+                                let (look, along) = roads
+                                    .get(&pair)
+                                    .map(|&look| (look, true))
+                                    .or_else(|| roads.get(&(pair.1, pair.0)).map(|&look| (look, false)))?;
+                                let look = self.looks.get(look)?;
+                                Some(
+                                    look.lane_offsets
+                                        .iter()
+                                        .filter(|&&offset| (offset > 0.0) == (keeps_right == along))
+                                        .count(),
+                                )
+                            });
+                        }
+                    }
+                    if start < span {
+                        lane_hints.push(LaneHint { node: span, start, end: span + 1, lanes });
+                    }
+                }
                 junctions.push(Junction { span, path: placed, maneuver: maneuver(prefab, own(a), own(b)) });
                 break;
             }
@@ -203,8 +256,9 @@ impl Junctions {
                 shifted.filter(|&(_, shift, _)| shift != 0.0).map(|(_, shift, _)| (node, shift))
             })
             .collect();
-        let forward = nodes.iter().map(|node| map.nodes.get(&node.uid).map_or([1.0, 0.0], geometry::node_forward)).collect();
-        Ok(Ways { junctions, shifts, forward })
+        let forward =
+            nodes.iter().map(|node| map.nodes.get(&node.uid).map_or([1.0, 0.0], geometry::node_forward)).collect();
+        Ok(Ways { junctions, shifts, forward, lane_hints })
     }
 }
 
@@ -390,7 +444,9 @@ fn shifted_nodes(
         let before = (0..index).rev().find(|&node| !between_junctions(node));
         let after = (index + 1..nodes.len()).find(|&node| !between_junctions(node));
         let off = |node: Option<usize>| node.and_then(|node| off_lanes[node]).unwrap_or(0.0);
-        let along = |from: usize, to: usize| (from..to).map(|node| distance(nodes[node].position, nodes[node + 1].position)).sum::<f32>();
+        let along = |from: usize, to: usize| {
+            (from..to).map(|node| distance(nodes[node].position, nodes[node + 1].position)).sum::<f32>()
+        };
         let (first, last) = (before.unwrap_or(0), after.unwrap_or(nodes.len() - 1));
         off(before) + (off(after) - off(before)) * along(first, index) / along(first, last).max(1e-3)
     };

@@ -60,6 +60,8 @@ pub struct Look {
     lanes: Option<[f64; 2]>,
     /// Its two directions' lanes, as its definition lays them ([`lanes::directions_of`]).
     pub ways: Option<lanes::Carriageways>,
+    /// Exact lane centres used to verify the approach of a lane-guidance event.
+    pub lane_offsets: Vec<f32>,
 }
 
 /// A strip of a road edge model, outward from the road's edge.
@@ -120,6 +122,7 @@ impl Looks {
                 footpath: lanes == 0,
                 lanes: invisible.then(|| lanes_reach(&unit)),
                 ways: lanes::directions_of(&lanes::look_lanes(&unit)),
+                lane_offsets: lanes::look_lanes(&unit),
             };
             looks.insert(token, look);
         }

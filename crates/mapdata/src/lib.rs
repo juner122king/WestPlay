@@ -25,6 +25,7 @@ pub mod geometry;
 pub mod junctions;
 pub mod landmarks;
 pub mod lanes;
+pub mod lane_guidance;
 pub mod locale;
 pub mod meshes;
 pub mod no_entry;

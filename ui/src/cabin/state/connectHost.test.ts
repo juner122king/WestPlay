@@ -249,3 +249,40 @@ describe('media resource lifecycle', () => {
     disconnect()
   })
 })
+
+describe('lane advice host protocol', () => {
+  it('accepts current-route advice, ignores stale results, and clears on reroute and cancel', async () => {
+    const webview = fakeWebView()
+    vi.stubGlobal('window', { chrome: { webview: webview.bridge } })
+    const { connectHost, useLive } = await import('./store')
+    const disconnect = connectHost(() => 0)
+    const nodes: [number, number, number, number, number, number][] = [
+      [0, 0, 0, -1, 4000, 0],
+      [0, -100, 0, -1, 3000, 0],
+      [20, -200, 0, -1, 2000, 0],
+    ]
+    const hint = {
+      node: 1,
+      start: 0,
+      end: 2,
+      lanes: [
+        { directions: ['straight' as const], recommended: true },
+        { directions: ['right' as const], recommended: false },
+      ],
+    }
+    webview.send({ type: 'route', id: 1, nodes })
+    webview.send({ type: 'routePaths', id: 1, paths: [], maneuvers: [], shifts: [], laneHints: [hint] })
+    expect(useLive.getState().route?.laneHints).toEqual([hint])
+    webview.send({ type: 'routePaths', id: 0, paths: [], maneuvers: [], shifts: [], laneHints: [] })
+    expect(useLive.getState().route?.laneHints).toEqual([hint])
+    webview.send({ type: 'route', id: 2, nodes })
+    expect(useLive.getState().route?.laneHints).toEqual([])
+    webview.send({ type: 'routePaths', id: 1, paths: [], maneuvers: [], shifts: [], laneHints: [hint] })
+    expect(useLive.getState().route?.laneHints).toEqual([])
+    webview.send({ type: 'routePaths', id: 2, paths: [], maneuvers: [], shifts: [] })
+    expect(useLive.getState().route?.laneHints).toEqual([])
+    webview.send({ type: 'route', id: null, nodes: null })
+    expect(useLive.getState().route).toBeNull()
+    disconnect()
+  })
+})

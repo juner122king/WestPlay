@@ -2776,7 +2776,7 @@ fn route_message_for(update: &RouteUpdate) -> String {
                 .collect();
             serde_json::json!({ "type": "route", "id": id, "nodes": nodes }).to_string()
         }
-        RouteUpdate::Paths { id, paths, maneuvers, shifts } => {
+        RouteUpdate::Paths { id, paths, maneuvers, shifts, lane_hints } => {
             let maneuvers: Vec<serde_json::Value> = maneuvers
                 .iter()
                 .map(|(span, maneuver)| {
@@ -2788,7 +2788,22 @@ fn route_message_for(update: &RouteUpdate) -> String {
                 })
                 .collect();
             let shifts = rounded(shifts);
-            serde_json::json!({ "type": "routePaths", "id": id, "paths": paths, "maneuvers": maneuvers, "shifts": shifts })
+            let lane_hints: Vec<_> = lane_hints
+                .iter()
+                .map(|hint| {
+                    let lanes: Vec<_> = hint
+                        .lanes
+                        .iter()
+                        .map(|lane| {
+                            serde_json::json!({
+                                "directions": lane.directions, "recommended": lane.recommended,
+                            })
+                        })
+                        .collect();
+                    serde_json::json!({ "node": hint.node, "start": hint.start, "end": hint.end, "lanes": lanes })
+                })
+                .collect();
+            serde_json::json!({ "type": "routePaths", "id": id, "paths": paths, "maneuvers": maneuvers, "shifts": shifts, "laneHints": lane_hints })
                 .to_string()
         }
         RouteUpdate::Offered { id, index, route } => {
@@ -3283,6 +3298,7 @@ mod tests {
         assert_eq!(super::route_message_for(&RouteUpdate::Next(3)), r#"{"next":3,"type":"routeNext"}"#);
         assert_eq!(
             super::route_message_for(&RouteUpdate::Paths {
+                lane_hints: vec![],
                 id: 5,
                 paths: vec![(2, vec![[1.0, 2.0], [3.0, 4.0]])],
                 maneuvers: vec![
@@ -3291,9 +3307,40 @@ mod tests {
                 ],
                 shifts: vec![(3, 6.5)],
             }),
-            r#"{"id":5,"maneuvers":[[2,"roundabout",-90.0,3],[7,"exit-right",17.0,null]],"paths":[[2,[[1.0,2.0],[3.0,4.0]]]],"shifts":[[3,6.5]],"type":"routePaths"}"#
+            r#"{"id":5,"laneHints":[],"maneuvers":[[2,"roundabout",-90.0,3],[7,"exit-right",17.0,null]],"paths":[[2,[[1.0,2.0],[3.0,4.0]]]],"shifts":[[3,6.5]],"type":"routePaths"}"#
         );
         assert_eq!(super::route_message_for(&RouteUpdate::None), r#"{"id":null,"nodes":null,"type":"route"}"#);
+    }
+
+    #[test]
+    fn lane_advice_is_serialized_with_its_route_and_verified_approach() {
+        use westplay_mapdata::lane_guidance::{Lane, LaneHint};
+        let message = super::route_message_for(&crate::route::RouteUpdate::Paths {
+            id: 17,
+            paths: vec![],
+            maneuvers: vec![],
+            shifts: vec![],
+            lane_hints: vec![LaneHint {
+                node: 2,
+                start: 0,
+                end: 3,
+                lanes: vec![
+                    Lane { directions: vec!["straight", "right"], recommended: true },
+                    Lane { directions: vec!["left"], recommended: false },
+                ],
+            }],
+        });
+        let value: serde_json::Value = serde_json::from_str(&message).unwrap();
+        assert_eq!(value["id"], 17);
+        assert_eq!(
+            value["laneHints"][0],
+            serde_json::json!({
+                "node": 2, "start": 0, "end": 3, "lanes": [
+                    { "directions": ["straight", "right"], "recommended": true },
+                    { "directions": ["left"], "recommended": false },
+                ],
+            })
+        );
     }
 
     #[test]
@@ -3301,7 +3348,12 @@ mod tests {
         use crate::route::{OfferedWays, RouteUpdate};
         use westplay_mapdata::junctions::{Junction, Ways};
         let junction = Junction { span: 0, path: vec![[1.0, 2.0], [3.0, 4.0]], maneuver: None };
-        let ways = Ways { junctions: vec![junction], shifts: vec![(1, 6.504)], forward: vec![[0.0, -1.0], [1.0, 0.0]] };
+        let ways = Ways {
+            lane_hints: vec![],
+            junctions: vec![junction],
+            shifts: vec![(1, 6.504)],
+            forward: vec![[0.0, -1.0], [1.0, 0.0]],
+        };
         let route = OfferedWays { nodes: vec![[1.0, 2.0], [3.0, 4.0]], ways };
         assert_eq!(
             super::route_message_for(&RouteUpdate::Offered { id: 7, index: 1, route }),

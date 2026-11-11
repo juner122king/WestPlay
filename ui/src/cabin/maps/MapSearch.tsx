@@ -6,6 +6,7 @@ import { useLive } from '../state/store'
 import { useText } from '../state/text'
 import { Destinations } from './Destinations'
 import { guidanceOf } from './guidance'
+import { recentreLiveMap, useMapBrowsing } from './liveMap'
 
 /** How long the word that the game took a change stays over the map, ms. */
 const CONFIRMATION_MS = 2500
@@ -96,6 +97,7 @@ export function MapSearch() {
           className={guided ? 'map-search-button glass guided' : 'map-search-button glass'}
           aria-label={text.search}
           onClick={() => {
+            if (useMapBrowsing.getState().routeOverview) recentreLiveMap()
             setOpenedRight(guided)
             setPhase('open')
           }}

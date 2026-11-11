@@ -33,6 +33,7 @@ import { type RaisedRoads, raisedRoads } from './raisedRoads'
 import { createTrafficLightPool, syncTrafficLights, type TrafficLightPool } from './trafficLights'
 import { cameraBounds, type MapData } from './mapData'
 import { loadView, type SavedView, saveView } from './mapView'
+import { createOverviewSession, routeBounds } from './routeOverview'
 import { fromLngLat, labelRange, metresBetween, toLngLat } from './projection'
 import {
   approachLine,
@@ -105,6 +106,8 @@ const TEXT_SIZE_SETTLE_MS = 350
 /** Stops the map following the text size (the map's own, let go of when this module is replaced in
  * development: the store outlives it). */
 let stopTextSize: (() => void) | undefined
+/** Releases window-level gesture listeners when the map is disposed or replaced. */
+let stopInteractions: (() => void) | undefined
 /** Zoom levels per wheel notch (120 units). */
 const WHEEL_ZOOM = 0.5
 const MIN_ZOOM = 9
@@ -127,6 +130,7 @@ interface LiveMap {
   puckHeight: number
   /** The end of the route. */
   destination: maplibregl.Marker
+  stops: { key: string; markers: maplibregl.Marker[] }
   /** The route drawn (`route`, as the store has it), as spans, with the span the rest of it is drawn after
    * and where its head was last drawn from (`null`: not drawn yet). */
   routeShown: {
@@ -175,6 +179,9 @@ interface LiveMap {
   touched: number
   /** Showing the routes offered before Go (Directions): the map stays on them, not back on the truck. */
   overview: boolean
+  /** Current-route overview is separate from offered-route preview. */
+  routeOverviewZoom: number | null
+  overviewNeedsFit: boolean
   /** Picks one of the routes offered, by its index, as its line on the map is tapped (`null`: none offered). */
   offeredPick: ((index: number) => void) | null
   /** How far the player zoomed the following camera from its speed zoom. */
@@ -194,7 +201,10 @@ interface LiveMap {
 }
 
 /** Whether the map is browsing (moved away from the truck): the Maps app shows its recentre button. */
-export const useMapBrowsing = createStore<{ browsing: boolean }>()(() => ({ browsing: false }))
+export const useMapBrowsing = createStore<{ browsing: boolean; routeOverview: boolean }>()(() => ({
+  browsing: false,
+  routeOverview: false,
+}))
 
 /** Those following the map's bearing (the compass), told each time it turns. */
 const bearingListeners = new Set<(bearing: number) => void>()
@@ -212,6 +222,11 @@ export function followBearing(listener: (bearing: number) => void): () => void {
 }
 
 let live: LiveMap | null = null
+const currentOverview = createOverviewSession(
+  (routeOverview) => useMapBrowsing.setState({ routeOverview }),
+  () => recentreLiveMap(),
+)
+const reducedMotion = () => window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false
 
 /** The truck's recent positions, kept from the first map onwards so the camera never starts cold. */
 const samples: TruckSample[] = []
@@ -334,6 +349,7 @@ function create(data: MapData, appearance: Appearance): LiveMap {
     puckHeight: 0,
     puck,
     destination,
+    stops: { key: '', markers: [] },
     routeShown: null,
     progress: null,
     canopies: { hidden: '', at: -Infinity },
@@ -354,6 +370,8 @@ function create(data: MapData, appearance: Appearance): LiveMap {
     pressed: false,
     touched: 0,
     overview: false,
+    routeOverviewZoom: null,
+    overviewNeedsFit: false,
     offeredPick: null,
     zoomOffset: 0,
     browsedFrom: 0,
@@ -442,6 +460,7 @@ function restoreView(target: LiveMap) {
 
 /** Keeps the view, now and then, when it has changed. */
 function keepView(target: LiveMap, now: number) {
+  if (currentOverview.active()) return
   if (now - target.keptAt < KEEP_EVERY_MS) return
   target.keptAt = now
   const view = JSON.stringify(viewOf(target))
@@ -466,15 +485,31 @@ function viewOf({ map, mode, zoomOffset, browsedFrom }: LiveMap): SavedView {
 
 /** The player's hands on the map. */
 function listen(target: LiveMap) {
+  stopInteractions?.()
   const { map } = target
   const canvas = map.getCanvasContainer()
-  canvas.addEventListener('mousedown', () => {
+  canvas.addEventListener('pointerdown', () => {
     if (!target.interactive) return
     target.pressed = true
+    currentOverview.hold(true)
     target.touched = performance.now()
   })
-  window.addEventListener('mouseup', () => {
+  const release = () => {
+    if (!target.pressed) return
     target.pressed = false
+    currentOverview.hold(false)
+    if (currentOverview.active() && target.overviewNeedsFit) frameCurrentRoute(target)
+  }
+  window.addEventListener('pointerup', release)
+  window.addEventListener('pointercancel', release)
+  window.addEventListener('blur', release)
+  stopInteractions = () => {
+    window.removeEventListener('pointerup', release)
+    window.removeEventListener('pointercancel', release)
+    window.removeEventListener('blur', release)
+  }
+  canvas.addEventListener('click', () => {
+    if (target.interactive) currentOverview.touch()
   })
   // Dragging or turning it leaves the truck behind.
   const leave = (event: { originalEvent?: unknown }) => {
@@ -489,7 +524,10 @@ function listen(target: LiveMap) {
     if (target.interactive && target.offeredPick) pickOffered(target, event.point, target.offeredPick)
   })
   map.on('move', (event) => {
-    if (event.originalEvent) target.touched = performance.now()
+    if (event.originalEvent) {
+      target.touched = performance.now()
+      currentOverview.touch()
+    }
   })
   // The wheel, while following: closer or further, still following. (Browsing, MapLibre zooms.)
   canvas.addEventListener(
@@ -497,6 +535,7 @@ function listen(target: LiveMap) {
     (event) => {
       if (!target.interactive) return
       target.touched = performance.now()
+      currentOverview.touch()
       if (target.mode !== 'browse') {
         target.zoomOffset = clampZoomOffset(target.zoomOffset - (event.deltaY / 120) * WHEEL_ZOOM)
       }
@@ -533,6 +572,7 @@ function setInteractive(target: LiveMap, interactive: boolean) {
     else handler.disable()
   }
   if (!interactive) {
+    exitCurrentOverview(target)
     target.pressed = false
     follow(target)
     // Straight onto the truck.
@@ -706,15 +746,19 @@ const idleMap = idleDisposal(() => {
 })
 
 function disposeLiveMap() {
+  currentOverview.exit()
   idleMap.cancel()
   if (frame !== null) cancelAnimationFrame(frame)
   frame = null
   stopTextSize?.()
   stopTextSize = undefined
+  stopInteractions?.()
+  stopInteractions = undefined
   stopSamples?.()
   stopSamples = undefined
   samples.length = 0
   if (!live) return
+  live.stops.markers.forEach((marker) => marker.remove())
   live.meshes?.dispose()
   live.raised?.dispose()
   live.element.remove()
@@ -755,6 +799,7 @@ export function showLiveMap(
     const index = hosts.indexOf(entry)
     if (index < 0) return
     hosts.splice(index, 1)
+    if (entry.interactive && currentOverview.active()) recentreLiveMap()
     place()
   }
 }
@@ -765,6 +810,7 @@ function place() {
   const current = live
   const host = hosts.at(-1)
   if (!host) {
+    exitCurrentOverview(current)
     current.element.remove()
     if (frame !== null) cancelAnimationFrame(frame)
     frame = null
@@ -846,6 +892,7 @@ function panelCover(map: maplibregl.Map): number {
 export function showOfferedRoutes(lines: Point[][], picked: number | null, onPick?: (index: number) => void) {
   const source = live?.map.getSource<GeoJSONSource>(OFFERED_SOURCE)
   if (!live || !source) return
+  if (lines.length > 0 && currentOverview.active()) recentreLiveMap()
   live.offeredPick = lines.length > 0 ? (onPick ?? null) : null
   // Offered, the map shows them all, from above (as Apple Maps' Directions), in the part the search panel
   // leaves free; gone, it's back on the truck.
@@ -910,8 +957,66 @@ export function setLiveMapAppearance(appearance: Appearance) {
   syncAppearance(live)
 }
 
+/** Shows the complete remaining active route; does not enter Directions' offered-route mode. */
+export function overviewLiveRoute() {
+  if (
+    !live ||
+    !live.interactive ||
+    live.overview ||
+    !useLive.getState().route ||
+    (useLive.getState().telemetry?.navigationDistance ?? 0) <= 0
+  )
+    return
+  if (!currentOverview.active()) {
+    live.routeOverviewZoom = live.zoomOffset
+    browse(live)
+  }
+  currentOverview.enter()
+  live.map.stop()
+  frameCurrentRoute(live)
+}
+
+function frameCurrentRoute(target: LiveMap) {
+  const route = useLive.getState().route
+  if (!route) return
+  const spans =
+    target.routeShown?.route === route ? target.routeShown.spans : routeSpans(route.nodes, route.paths, route.shifts)
+  const progress = target.progress
+  const line = progress
+    ? [...headLine(spans, progress), ...restLine(spans, progress.span)]
+    : restLine(spans, Math.max(-1, useLive.getState().routeNext - 2))
+  const truck = useLive.getState().telemetry
+  const bounds = routeBounds(truck ? [[truck.x, truck.z], ...line] : line)
+  if (!bounds) return
+  const [[x0, z0], [x1, z1]] = bounds
+  target.overviewNeedsFit = false
+  const width = target.map.getContainer().clientWidth
+  // fitBounds adds its padding to the existing camera insets. Remove the chase camera's
+  // top inset first, otherwise the current-position marker is pushed against the bottom edge.
+  target.map.setPadding({ top: 0, bottom: 0, left: 0, right: 0 })
+  target.map.fitBounds([toLngLat(x0, z1), toLngLat(x1, z0)], {
+    padding: { top: 72, bottom: 90, left: 64, right: Math.min(140, width / 4) },
+    bearing: 0,
+    pitch: 0,
+    maxZoom: 17,
+    duration: reducedMotion() ? 0 : 850,
+  })
+}
+
+function exitCurrentOverview(target: LiveMap) {
+  currentOverview.exit()
+  if (target.routeOverviewZoom === null) return
+  target.map.stop()
+  target.zoomOffset = target.routeOverviewZoom
+  target.routeOverviewZoom = null
+  target.overviewNeedsFit = false
+  // Programmatic fit and manual overview zoom must not overwrite the driving zoom preference.
+  target.browsedFrom = target.map.getZoom()
+}
+
 /** Glides the map back onto the truck, behind it (the arrow): from a map moved away, or from north up. */
 export function recentreLiveMap() {
+  if (live) exitCurrentOverview(live)
   if (!live || (live.mode !== 'browse' && !live.northUp)) return
   live.northUp = false
   glideToTruck(live)
@@ -921,7 +1026,13 @@ export function recentreLiveMap() {
 /** Turns the map north up and looks down from above, following the truck still (the compass tapped, as
  * CarPlay's Maps does); the arrow appears, and brings the chase view back (owner 2026-10-21). */
 export function northUpLiveMap() {
-  if (!live || live.northUp) return
+  if (!live) return
+  if (currentOverview.active()) {
+    currentOverview.touch()
+    live.map.easeTo({ bearing: 0, pitch: 0, duration: reducedMotion() ? 0 : 300 })
+    return
+  }
+  if (live.northUp) return
   live.northUp = true
   glideToTruck(live)
   useMapBrowsing.setState({ browsing: true })
@@ -943,7 +1054,7 @@ function glideToTruck(target: LiveMap) {
       pitch: map.getPitch(),
     },
     fromTop: map.getPadding().top ?? 0,
-    started: performance.now(),
+    started: performance.now() - (reducedMotion() ? GLIDE_MS : 0),
   }
   target.mode = 'return'
   map.scrollZoom.disable()
@@ -953,6 +1064,7 @@ function glideToTruck(target: LiveMap) {
 export function zoomLiveMap(direction: 1 | -1) {
   if (!live) return
   live.touched = performance.now()
+  currentOverview.touch()
   // Browsing, or with no truck to follow (none yet: the camera only follows one), the map itself zooms.
   const following = truckAt(samples, performance.now() - FOLLOW_DELAY_MS) !== null
   if (live.mode === 'browse' || !following) {
@@ -1057,8 +1169,29 @@ function syncRoute(target: LiveMap, now: number) {
   const rest = map.getSource<GeoJSONSource>(ROUTE_SOURCE)
   const head = map.getSource<GeoJSONSource>(ROUTE_HEAD_SOURCE)
   target.progress = null
+  if (
+    currentOverview.active() &&
+    (!useLive.getState().route || (useLive.getState().telemetry?.navigationDistance ?? 0) <= 0)
+  ) {
+    recentreLiveMap()
+  }
   if (!rest || !head) return
-  const { route, routeNext } = useLive.getState()
+  const { route, routeNext, routeStops } = useLive.getState()
+  const stopsKey = `${route?.id ?? ''}:${routeStops.join(',')}`
+  if (target.stops.key !== stopsKey) {
+    target.stops.markers.forEach((marker) => marker.remove())
+    const markers = route
+      ? routeStops.flatMap((node, index) => {
+          const point = route.nodes[node]?.position
+          if (!point) return []
+          const element = document.createElement('div')
+          element.className = 'map-route-stop'
+          element.textContent = String(index + 1)
+          return [new maplibregl.Marker({ element }).setLngLat(toLngLat(...point)).addTo(map)]
+        })
+      : []
+    target.stops = { key: stopsKey, markers }
+  }
   if (target.routeShown?.route !== route) {
     target.routeShown = {
       route,
@@ -1070,6 +1203,7 @@ function syncRoute(target: LiveMap, now: number) {
       restRaised: [],
       headRaised: [],
     }
+    if (currentOverview.active()) target.overviewNeedsFit = true
     const end = route?.nodes.at(-1)
     if (end) {
       destination.setLngLat(toLngLat(...end.position))
@@ -1098,6 +1232,8 @@ function syncRoute(target: LiveMap, now: number) {
   target.progress = found && truck && approach ? { ...found, at: [truck.x, truck.z], distance: 0 } : found
   const progress = target.progress
   if (!progress) return
+  if (currentOverview.active() && target.overviewNeedsFit && !target.pressed && now - target.touched > 300)
+    frameCurrentRoute(target)
   const { heights } = shown
   if (progress.span !== shown.restAfter) {
     const { flat, raised } = cutRaised(restLine(shown.spans, progress.span), (point) => heights.get(point) ?? 0)
@@ -1143,7 +1279,8 @@ function updateCamera(target: LiveMap, now: number, dt: number) {
   if (!puck.getElement().isConnected) puck.addTo(map)
 
   if (target.mode === 'browse') {
-    if (!target.pressed && !target.overview && now - target.touched > AUTO_RECENTRE_MS) recentreLiveMap()
+    if (!target.pressed && !target.overview && !currentOverview.active() && now - target.touched > AUTO_RECENTRE_MS)
+      recentreLiveMap()
     return
   }
 
