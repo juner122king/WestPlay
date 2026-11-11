@@ -1,5 +1,7 @@
+import { automaticMediaCommand, postToHost, subscribeMediaIntent } from '../../shared/host'
+import { type MediaApp, MEDIA_APPS } from '../../shared/mediaGeneration'
 import { type LiveState, useCabin, useLive } from '../state/store'
-import { fadeOutAndPause, playAndFadeIn } from './fade'
+import { fadeOutAndPause, playAndFadeIn, stopFade } from './fade'
 import { poweredOff, withGame } from './youtube/withGame'
 
 /**
@@ -45,24 +47,43 @@ function isOff(): boolean {
  * function that stops it. */
 export function pauseMusicWithGame(player: MusicPlayer): () => void {
   let paused = false
+  const name = player.name === 'apple music' ? 'appleMusic' : player.name
+  const app = MEDIA_APPS.includes(name as MediaApp) ? (name as MediaApp) : null
+  const rememberPause = (value: boolean) => {
+    paused = value
+    if (app) postToHost({ type: 'mediaActivity', app, resumePending: value })
+  }
+  const automatic = {
+    ...player,
+    pauseHere: () => automaticMediaCommand(() => player.pauseHere()),
+    resumeHere: () => automaticMediaCommand(() => player.resumeHere()),
+  }
+  const intent = subscribeMediaIntent((target, action) => {
+    if (target === app || ['play', 'load', 'next', 'previous', 'selectEpisode'].includes(action)) {
+      if (paused) {
+        stopFade(player.name)
+        rememberPause(false)
+      }
+    }
+  })
   const game = useLive.subscribe((live, before) => {
     const away = isAway(live)
     const wasAway = isAway(before)
     if (away === wasAway) return
     const action = withGame(away, wasAway, player.playingHere(), paused, !isOff())
     if (action === 'pause') {
-      fadeOutAndPause(player)
-      paused = true
+      rememberPause(true)
+      fadeOutAndPause(automatic)
     } else if (action === 'play') {
-      playAndFadeIn(player)
+      playAndFadeIn(automatic)
     }
-    if (!away) paused = false
+    if (!away) rememberPause(false)
   })
   const power = useCabin.subscribe((cabin, before) => {
     if (!poweredOff(before.power.phase === 'off', cabin.power.phase === 'off')) return
     // Whatever it's doing, at once (no fade: owner 2026-10-21), and not played on after.
     if (player.playingHere()) player.pauseHere()
-    paused = false
+    rememberPause(false)
   })
   // Nothing plays while they're off: music that starts playing here then is paused as it starts.
   const dark = player.subscribe((started) => {
@@ -72,5 +93,7 @@ export function pauseMusicWithGame(player: MusicPlayer): () => void {
     game()
     power()
     dark()
+    intent()
+    rememberPause(false)
   }
 }

@@ -1161,3 +1161,27 @@ export function useHongguoSource(): { source: MediaSource; artwork: string | nul
     }
   }, [playback])
 }
+
+/** Release session data while keeping login and the player's preferences. */
+export function releaseResource(): void {
+  shows++
+  homeSeq++
+  feedSeq++
+  categorySeq++
+  rankSeq++
+  detailInFlight.clear()
+  for (const answer of waiting.values()) answer({ failed: true })
+  waiting.clear()
+  const before = useHongguo.getState()
+  const kept = {
+    searches: before.searches,
+    watched: before.watched,
+    favorites: before.favorites,
+    speed: before.speed,
+    autoNext: before.autoNext,
+    crop: before.crop,
+    volume: before.volume,
+    muted: before.muted,
+  }
+  useHongguo.setState({ ...useHongguo.getInitialState(), ...kept, signedIn: before.signedIn, playing: false })
+}

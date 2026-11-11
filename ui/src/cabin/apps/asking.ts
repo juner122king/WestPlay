@@ -20,6 +20,8 @@ export interface Asking<Q extends { ask: string }, A extends Record<Q['ask'], un
   ): { answer: A[T['ask']] | null; failed: boolean; retry(): void }
   /** Forgets every answer (signed in or out: the account's are another's). */
   clear(): void
+  /** Cancel pending questions and release the page's session cache. */
+  dispose(): void
 }
 
 /** How long the service has to answer (it asks its servers in turn). */
@@ -33,17 +35,28 @@ export function createAsking<Q extends { ask: string }, A extends Record<Q['ask'
   answered?: (question: Q, answer: unknown) => void,
 ): Asking<Q, A> {
   const answers = new Map<string, unknown>()
-  const waiting = new Map<number, { ask: Q['ask']; resolve(answer: unknown): void; reject(): void }>()
+  const waiting = new Map<number, { ask: Q['ask']; resolve(answer: unknown): void; reject(reason?: unknown): void }>()
   let nextQuestion = 1
+  let generation = 0
 
   const askHost = (question: Q) => {
     const id = nextQuestion++
     return new Promise<unknown>((resolve, reject) => {
-      waiting.set(id, { ask: question.ask, resolve, reject })
-      send(id, question)
-      setTimeout(() => {
+      const timer = setTimeout(() => {
         if (waiting.delete(id)) reject(new Error('not answered'))
       }, ANSWER_WAIT)
+      waiting.set(id, {
+        ask: question.ask,
+        resolve: (answer) => {
+          clearTimeout(timer)
+          resolve(answer)
+        },
+        reject: (reason) => {
+          clearTimeout(timer)
+          reject(reason)
+        },
+      })
+      send(id, question)
     })
   }
 
@@ -51,8 +64,10 @@ export function createAsking<Q extends { ask: string }, A extends Record<Q['ask'
     const key = JSON.stringify(question)
     const known = answers.get(key)
     if (known && !fresh) return Promise.resolve(known as A[T['ask']])
+    const instance = generation
     const asked = inHost() ? askHost(question) : preview(question)
     return asked.then((answer) => {
+      if (instance !== generation) throw new Error('page released')
       answers.set(key, answer)
       answered?.(question, answer)
       return answer as A[T['ask']]
@@ -109,5 +124,16 @@ export function createAsking<Q extends { ask: string }, A extends Record<Q['ask'
     }
   }
 
-  return { ask, receive, useAsked, clear: () => answers.clear() }
+  return {
+    ask,
+    receive,
+    useAsked,
+    clear: () => answers.clear(),
+    dispose: () => {
+      generation++
+      answers.clear()
+      for (const pending of waiting.values()) pending.reject(new Error('page released'))
+      waiting.clear()
+    },
+  }
 }

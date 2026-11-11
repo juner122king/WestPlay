@@ -757,3 +757,13 @@ export function useSongsEnd(): void {
     return () => clearInterval(timer)
   }, [playing])
 }
+
+/** Release session data while keeping login and the player's preferences. */
+export function releaseResource(): void {
+  asking.dispose()
+  stopExpecting()
+  clearTimeout(toastTimer)
+  const before = useAppleMusic.getState()
+  const kept = { signedIn: before.signedIn, avatar: before.avatar, libraryLooks: before.libraryLooks }
+  useAppleMusic.setState({ ...useAppleMusic.getInitialState(), ...kept })
+}

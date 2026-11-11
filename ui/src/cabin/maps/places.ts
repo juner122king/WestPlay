@@ -1,3 +1,4 @@
+import { MapResourceCache } from '../../shared/idleResources'
 import { useEffect, useState } from 'react'
 import { useMapData } from './mapData'
 import { metresBetween } from './projection'
@@ -41,18 +42,13 @@ export interface Destination {
   also?: string
 }
 
-const loading = new Map<string, Promise<Destination[] | null>>()
+const loading = new MapResourceCache<Destination[]>()
 
-/** The places of a map (its `places` file), each loaded once. */
+/** The places of a map, cached for the two most recently used versions. */
 function loadPlaces(url: string): Promise<Destination[] | null> {
-  let places = loading.get(url)
-  if (!places) {
-    places = fetch(url)
-      .then((response) => (response.ok ? (response.json() as Promise<Destination[]>) : null))
-      .catch(() => null)
-    loading.set(url, places)
-  }
-  return places
+  return loading.load(url, () =>
+    fetch(url).then((response) => (response.ok ? (response.json() as Promise<Destination[]>) : null)),
+  )
 }
 
 /** The places of the map shown, `null` if there are none, `undefined` while they load (first asked for when

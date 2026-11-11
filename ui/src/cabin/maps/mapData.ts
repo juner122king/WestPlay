@@ -1,3 +1,4 @@
+import { MapResourceCache } from '../../shared/idleResources'
 import { useEffect, useState } from 'react'
 import { create } from 'zustand'
 import { isInHost } from '../../shared/host'
@@ -109,14 +110,13 @@ export function showMapAt(base: string | null, built: number | null): void {
   useMapFolder.setState({ base, built })
 }
 
-const loading = new Map<string, Promise<MapData | null>>()
+const loading = new MapResourceCache<MapData>()
 
 /** The map at `base`, each build of it loaded once. */
 function load(base: string, built: number | null): Promise<MapData | null> {
   const key = `${base}#${built ?? ''}`
-  let map = loading.get(key)
-  if (!map) {
-    map = fetch(`${base}/map.json`, { cache: 'no-store' })
+  return loading.load(key, () =>
+    fetch(`${base}/map.json`, { cache: 'no-store' })
       .then((response) => (response.ok ? response.json() : null))
       .then((manifest) =>
         manifest
@@ -145,10 +145,8 @@ function load(base: string, built: number | null): Promise<MapData | null> {
             }
           : null,
       )
-      .catch(() => null)
-    loading.set(key, map)
-  }
-  return map
+      .catch(() => null),
+  )
 }
 
 /** The map shown now: `null` if there is none, `undefined` until it's known. */

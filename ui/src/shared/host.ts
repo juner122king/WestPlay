@@ -1,3 +1,4 @@
+import { type MediaApp, mediaApp, MediaGenerations } from './mediaGeneration'
 import type { CustomWallpaper, IconSet } from './customize'
 
 /**
@@ -117,6 +118,7 @@ export interface JobInfo {
 export type KeybindAction = 'volumeUp' | 'volumeDown' | 'playPause' | 'nextTrack' | 'previousTrack'
 
 export type HostMessage =
+  | { type: 'mediaResource'; app: MediaApp; generation: number; resident: boolean }
   | { type: 'telemetry'; data: Telemetry }
   | { type: 'truck'; data: TruckInfo }
   | { type: 'job'; data: JobInfo }
@@ -319,6 +321,8 @@ export function toEqualizer(value: unknown): Equalizer {
 }
 
 export type PageMessage =
+  | { type: 'mediaActivity'; app: MediaApp; foreground?: boolean; resumePending?: boolean }
+  | { type: 'mapResource'; resident: boolean }
   | { type: 'ready' }
   /** A startup stage reached (the boot screens shown), for the host's startup log. */
   | { type: 'startup'; stage: string }
@@ -1201,14 +1205,51 @@ export function isInHost(): boolean {
 export function subscribeHostMessages(listener: (message: HostMessage) => void): () => void {
   const webview = typeof window !== 'undefined' ? window.chrome?.webview : undefined
   if (!webview) return () => {}
-  const onMessage = (event: { data: HostMessage }) => listener(event.data)
+  const generations = new MediaGenerations()
+  mediaGenerations = generations
+  const onMessage = (event: { data: HostMessage & { generation?: number } }) => {
+    if (generations.accept(event.data)) listener(event.data)
+  }
   webview.addEventListener('message', onMessage)
   webview.postMessage({ type: 'ready' })
   return () => webview.removeEventListener('message', onMessage)
 }
 
+let mediaGenerations = new MediaGenerations()
+let automaticMediaDepth = 0
+const mediaIntents = new Set<(app: MediaApp, action: string) => void>()
+
+/** Marks only the synchronous command; delayed fades wrap their actual pause/play callback. */
+export function automaticMediaCommand(action: () => void): void {
+  automaticMediaDepth++
+  try {
+    action()
+  } finally {
+    automaticMediaDepth--
+  }
+}
+
+export function subscribeMediaIntent(listener: (app: MediaApp, action: string) => void): () => void {
+  mediaIntents.add(listener)
+  return () => mediaIntents.delete(listener)
+}
+
 /** Sends a message to the host (nothing happens in a plain browser preview). */
 export function postToHost(message: PageMessage): void {
+  const app = mediaApp(message.type)
+  if (app && 'command' in message) {
+    const action = message.command.action
+    if (
+      !automaticMediaDepth &&
+      ['pause', 'stop', 'close', 'play', 'load', 'next', 'previous', 'signOut', 'selectEpisode'].includes(action)
+    ) {
+      for (const listener of mediaIntents) listener(app, action)
+    }
+    const generation = mediaGenerations.generation(app)
+    const stamped = generation === undefined ? message : { ...message, generation }
+    window.chrome?.webview?.postMessage(stamped)
+    return
+  }
   window.chrome?.webview?.postMessage(message)
 }
 

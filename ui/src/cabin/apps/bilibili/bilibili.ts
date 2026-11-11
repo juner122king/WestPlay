@@ -1033,3 +1033,21 @@ export function useBilibiliSource(): { source: MediaSource; artwork: string | nu
     }
   }, [playback])
 }
+
+/** Release session data while keeping login and the player's preferences. */
+export function releaseResource(): void {
+  shows++
+  for (const answer of waiting.values()) answer({ failed: true })
+  waiting.clear()
+  const before = useBilibili.getState()
+  const kept = {
+    searches: before.searches,
+    watched: before.watched,
+    volume: before.volume,
+    muted: before.muted,
+    quality: before.quality,
+    rate: before.rate,
+    danmaku: before.danmaku,
+  }
+  useBilibili.setState({ ...useBilibili.getInitialState(), ...kept, signedIn: before.signedIn, playing: false })
+}

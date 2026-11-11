@@ -175,3 +175,10 @@ export function useXimalayaSource(): { source: MediaSource; artwork: string | nu
     }
   }, [playback])
 }
+
+/** Release session data while keeping login and the player's preferences. */
+export function releaseResource(): void {
+  const before = useXimalaya.getState()
+  const kept = { signedIn: before.signedIn, volume: before.volume }
+  useXimalaya.setState({ ...useXimalaya.getInitialState(), ...kept })
+}

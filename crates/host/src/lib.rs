@@ -30,6 +30,7 @@ mod planner;
 mod play_log;
 mod player;
 mod pointer;
+mod resources;
 pub mod route;
 mod route_change;
 pub mod settings;
@@ -485,6 +486,23 @@ pub fn run(mut config: Config, stop: Arc<AtomicBool>) -> Result<(), Error> {
     let mut browser_gone = false;
     let mut gpu_changed = false;
     let mut game_liveness = Liveness::default();
+    let mut last_resource_check = Instant::now();
+    // Keep controller presence and sign-in protection consistent at every synchronization point.
+    // Expand here rather than retaining borrows of controllers that the loop creates and releases.
+    macro_rules! sync_media_resources {
+        () => {
+            webview.media_sync(&[
+                (resources::App::Youtube, youtube.is_some(), youtube_window_open || youtube_confirming),
+                (resources::App::AppleMusic, apple_music.is_some(), apple_music_window_open || apple_music_confirming),
+                (resources::App::Bilibili, bilibili.is_some(), bilibili_window_open || bilibili_confirming),
+                (resources::App::Ximalaya, ximalaya.is_some(), ximalaya_window_open || ximalaya_confirming),
+                (resources::App::Douyin, douyin.is_some(), douyin_window_open || douyin_confirming),
+                (resources::App::Hongguo, hongguo.is_some(), hongguo_window_open || hongguo_confirming),
+                (resources::App::Netease, netease.is_some(), netease_window_open || netease_confirming),
+                (resources::App::Player, music_player.is_some(), false),
+            ]);
+        };
+    }
     while !stop.load(Ordering::Relaxed) {
         pump_messages();
         host.heartbeat.fetch_add(1, Ordering::Release);
@@ -734,7 +752,7 @@ pub fn run(mut config: Config, stop: Arc<AtomicBool>) -> Result<(), Error> {
                 if let Some(apple_music) = &apple_music {
                     profiles.push((performance::Profile::AppleMusic, apple_music.view().environment()));
                 }
-                let sample = status.game_connected.then(|| performance::Sample {
+                let sample = Some(performance::Sample {
                     game_frames: plugin.heartbeat.load(Ordering::Relaxed),
                     in_view: status.screen_drawing,
                     sent: frames,
@@ -881,10 +899,14 @@ pub fn run(mut config: Config, stop: Arc<AtomicBool>) -> Result<(), Error> {
         }
 
         for message in webview.take_page_messages() {
+            if !webview.media_command(&message) {
+                continue;
+            }
             match parse_page_message(&message) {
                 // The page announces itself when it (re)loads; it missed everything sent before, so send the
                 // current state again (some of it is otherwise only sent when it changes).
                 Some(PageMessage::Ready) => {
+                    webview.media_ready();
                     // A page loaded anew asks again if it wants it.
                     spectrum = false;
                     cursor_told = None;
@@ -976,6 +998,10 @@ pub fn run(mut config: Config, stop: Arc<AtomicBool>) -> Result<(), Error> {
                         (config.on_status)(&status);
                     }
                 }
+                Some(PageMessage::MediaActivity { app, foreground, resume_pending }) => {
+                    webview.media_activity(app, foreground, resume_pending);
+                }
+                Some(PageMessage::MapResource { resident }) => webview.map_resident(resident),
                 Some(PageMessage::Startup { stage }) => startup::mark(&format!("page: {stage}")),
                 Some(PageMessage::TruckStrip { strip }) => {
                     let mut settings = config.settings.get();
@@ -1142,6 +1168,7 @@ pub fn run(mut config: Config, stop: Arc<AtomicBool>) -> Result<(), Error> {
                 }
                 None => {}
             }
+            sync_media_resources!();
         }
         if let Some(routes) = planner.answer() {
             let _ = webview.post_json(&routes);
@@ -1258,6 +1285,8 @@ pub fn run(mut config: Config, stop: Arc<AtomicBool>) -> Result<(), Error> {
                 following = None;
             }
         }
+
+        sync_media_resources!();
 
         // How YouTube's player plays, for the page; its WebView failing closes it (the page opens it again).
         if let Some(player) = &youtube {
@@ -1733,6 +1762,82 @@ pub fn run(mut config: Config, stop: Arc<AtomicBool>) -> Result<(), Error> {
         if typing_state != Some(state) {
             typing_state = Some(state);
             let _ = webview.post_json(&typing::state_message(state));
+        }
+
+        // Recheck actual playback and login state before making an idle page non-resident.
+        if last_resource_check.elapsed() >= Duration::from_secs(1) {
+            last_resource_check = Instant::now();
+            sync_media_resources!();
+            for app in webview.media_due(last_resource_check) {
+                log!("[resources] {} idle for 30 s: releasing its page", app.name());
+                match app {
+                    resources::App::Youtube => {
+                        if let Some(closing) = youtube.take() {
+                            closing.close(&stage);
+                        }
+                        youtube_message = None;
+                        youtube_was_playing = false;
+                        youtube_picture = None;
+                        let _ = youtube_log.heard(None);
+                    }
+                    resources::App::AppleMusic => {
+                        if let Some(closing) = apple_music.take() {
+                            closing.close(&stage);
+                        }
+                        apple_music_state = None;
+                        apple_music_playback = None;
+                        let _ = apple_music_log.heard(None);
+                    }
+                    resources::App::Bilibili => {
+                        if let Some(closing) = bilibili.take() {
+                            closing.close(&stage);
+                        }
+                        bilibili_state = None;
+                        bilibili_playback = None;
+                        let _ = bilibili_log.heard(None);
+                    }
+                    resources::App::Ximalaya => {
+                        if let Some(closing) = ximalaya.take() {
+                            closing.close(&stage);
+                        }
+                        ximalaya_state = None;
+                        ximalaya_playback = None;
+                        let _ = ximalaya_log.heard(None);
+                    }
+                    resources::App::Douyin => {
+                        if let Some(closing) = douyin.take() {
+                            closing.close(&stage);
+                        }
+                        douyin_state = None;
+                        douyin_playback = None;
+                        let _ = douyin_log.heard(None);
+                    }
+                    resources::App::Hongguo => {
+                        if let Some(closing) = hongguo.take() {
+                            closing.close(&stage);
+                        }
+                        hongguo_state = None;
+                        hongguo_playback = None;
+                        let _ = hongguo_log.heard(None);
+                    }
+                    resources::App::Netease => {
+                        if let Some(closing) = netease.take() {
+                            closing.close(&stage);
+                        }
+                        netease_state = None;
+                        netease_playback = None;
+                        let _ = netease_log.heard(None);
+                    }
+                    resources::App::Player => {
+                        if let Some(closing) = music_player.take() {
+                            closing.close(&stage);
+                        }
+                        music_player_playback = None;
+                        let _ = music_player_log.heard(None);
+                    }
+                }
+                webview.media_sync(&[(app, false, false)]);
+            }
         }
 
         // YouTube's, Apple Music's, YouTube Music's and Spotify's sound from the truck's own speakers, heard from the
@@ -2462,14 +2567,32 @@ fn customize_list_message(customizations: &customize::Customizations) -> String 
 enum PageMessage {
     /// Posted when the page (re)loads.
     Ready,
+    MediaActivity {
+        app: resources::App,
+        #[serde(default)]
+        foreground: Option<bool>,
+        #[serde(default, rename = "resumePending")]
+        resume_pending: Option<bool>,
+    },
+    MapResource {
+        resident: bool,
+    },
     /// A startup stage the page reached (the boot screens shown), for the startup log (`startup`).
-    Startup { stage: String },
+    Startup {
+        stage: String,
+    },
     /// Whether WestPlay is open on the truck's screen: posted as the page loads and whenever it changes.
-    Westplay { open: bool },
+    Westplay {
+        open: bool,
+    },
     /// The wallpaper chosen in the cab's Settings (an id: `wallpapers.ts`), to keep with the settings.
-    Wallpaper { id: String },
+    Wallpaper {
+        id: String,
+    },
     /// The truck's information bar beside WestPlay, kept or not, chosen in the cab's Settings (Appearance).
-    TruckStrip { strip: settings::TruckStrip },
+    TruckStrip {
+        strip: settings::TruckStrip,
+    },
     /// The players' tone, set in the cab's Settings (Equalizer): the player's curve (bass, mid and treble, dB
     /// each), and whether it plays (Custom) or the speakers as tuned (Recommended).
     Equalizer {
@@ -2480,42 +2603,80 @@ enum PageMessage {
     },
     /// The music's spectrum wanted (the cab's Equalizer open) or not: the players measure it, and it's passed
     /// on to the page as they say it.
-    Spectrum { on: bool },
+    Spectrum {
+        on: bool,
+    },
     /// Whether what's under the cursor is light (it's drawn dark there: `cursor`).
-    CursorLight { light: bool },
+    CursorLight {
+        light: bool,
+    },
     /// Where the cursor may be seen (`cursor::Area`): the CarPlay area, under its black corners.
-    CursorArea { area: cursor::Area },
+    CursorArea {
+        area: cursor::Area,
+    },
     /// A command for YouTube's player (`youtube`): what to play, where it shows, and so on.
-    Youtube { command: youtube::Command },
+    Youtube {
+        command: youtube::Command,
+    },
     /// A command for Apple Music's web player (`appleMusic`): its sign-in, a question, its controls.
-    AppleMusic { command: apple_music::Command },
+    AppleMusic {
+        command: apple_music::Command,
+    },
     /// A command for Bilibili (`bilibili`): its sign-in, a question, its controls.
-    Bilibili { command: bilibili::Command },
+    Bilibili {
+        command: bilibili::Command,
+    },
     /// A command for Ximalaya (`ximalaya`): its sign-in, a question, its controls.
-    Ximalaya { command: ximalaya::Command },
+    Ximalaya {
+        command: ximalaya::Command,
+    },
     /// A command for Douyin (`douyin`): its sign-in, a question, its controls.
-    Douyin { command: douyin::Command },
+    Douyin {
+        command: douyin::Command,
+    },
     /// A command for Hongguo (`hongguo`): its sign-in, a question, its controls.
-    Hongguo { command: hongguo::Command },
+    Hongguo {
+        command: hongguo::Command,
+    },
     /// A command for NetEase Cloud Music (`netease`): its sign-in, a question, its controls.
-    Netease { command: netease::Command },
+    Netease {
+        command: netease::Command,
+    },
     /// A command for Player's own player (`player`): what to play from the music folder, its controls.
-    Player { command: music_folder::Command },
+    Player {
+        command: music_folder::Command,
+    },
     /// The text field selected on the page, a number that changes with every selection (0: none), for the
     /// player's own keyboard to type into (`typing`).
-    Typing { selection: u32 },
+    Typing {
+        selection: u32,
+    },
     /// A change to the game's route (Maps' search): at a map node (its uid in hex) to go or add a stop; `id`
     /// comes back with the game's answer (`route_change`).
-    Route { id: u32, action: PageRouteAction, node: Option<String> },
+    Route {
+        id: u32,
+        action: PageRouteAction,
+        node: Option<String>,
+    },
     /// The routes to a map node (its uid in hex), or to `also` if a route comes to that last (the other end of the lane
     /// past the place), from where the truck is, to offer before Go (`planner`); `id` comes back with them.
-    Routes { id: u32, node: String, also: Option<String> },
+    Routes {
+        id: u32,
+        node: String,
+        also: Option<String>,
+    },
     /// Go along the route at `index` of those offered for request `id`: handed to the game's GPS
     /// (`handover`); `{"type":"followed"}` comes back once the game follows it, or won't.
-    Follow { id: u32, index: usize },
+    Follow {
+        id: u32,
+        index: usize,
+    },
     /// What stopping at each of these map nodes (uids in hex) would add to the trip the game's route makes
     /// (`planner`); `{"type":"detours"}` comes back with `id`.
-    Detours { id: u32, nodes: Vec<String> },
+    Detours {
+        id: u32,
+        nodes: Vec<String>,
+    },
 }
 
 /// A route being handed to the game's GPS: the page's request, the hand-over (the route picked and the

@@ -61,3 +61,21 @@ describe('asking', () => {
     expect(sent).toHaveLength(3)
   })
 })
+
+describe('releasing a media page', () => {
+  it('cancels pending questions and forgets cached results before reopening', async () => {
+    const { asking, sent } = host()
+    const first = asking.ask({ ask: 'home', page: 1 })
+    asking.receive({ id: sent[0].id, home: 'cached' })
+    await first
+    const pending = asking.ask({ ask: 'library' })
+    const rejected = expect(pending).rejects.toThrow('page released')
+    asking.dispose()
+    await rejected
+    asking.receive({ id: sent[1].id, library: ['stale'] })
+    const reopened = asking.ask({ ask: 'home', page: 1 })
+    expect(sent).toHaveLength(3)
+    asking.receive({ id: sent[2].id, home: 'fresh' })
+    await expect(reopened).resolves.toBe('fresh')
+  })
+})

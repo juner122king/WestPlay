@@ -239,3 +239,10 @@ export function useDouyinSource(): { source: MediaSource; artwork: string | null
     }
   }, [playback])
 }
+
+/** Release session data while keeping login and the player's preferences. */
+export function releaseResource(): void {
+  const before = useDouyin.getState()
+  const kept = { signedIn: before.signedIn, volume: before.volume, liked: before.liked }
+  useDouyin.setState({ ...useDouyin.getInitialState(), ...kept })
+}

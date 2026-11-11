@@ -1260,3 +1260,32 @@ export function useNeteaseSource(): { source: MediaSource; artwork: string | nul
     }
   }, [playback])
 }
+
+/** Release session data while keeping login and the player's preferences. */
+export function releaseResource(): void {
+  inFlightAsks.clear()
+  savedTabTracks = null
+  playbackStartedInHost = false
+  playbackPendingTrackId = null
+  autoSkipVisitedIds.clear()
+  if (noticeTimer !== null) clearTimeout(noticeTimer)
+  noticeTimer = null
+  const before = useNetease.getState()
+  const kept = {
+    signedIn: before.signedIn,
+    volume: before.volume,
+    playMode: before.playMode,
+    likedTrackIds: before.likedTrackIds,
+    userProfile: before.userProfile,
+  }
+  useNetease.setState({
+    ...useNetease.getInitialState(),
+    ...kept,
+    tracks: [],
+    playlists: [],
+    recommendedPlaylists: [],
+    queue: [],
+    playback: null,
+    playing: false,
+  })
+}

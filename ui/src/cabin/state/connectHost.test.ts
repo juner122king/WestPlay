@@ -7,7 +7,7 @@ function fakeWebView() {
   const listeners = new Set<(event: { data: HostMessage }) => void>()
   return {
     posted,
-    send: (data: HostMessage) => listeners.forEach((listener) => listener({ data })),
+    send: (data: HostMessage & { generation?: number }) => listeners.forEach((listener) => listener({ data })),
     bridge: {
       addEventListener: (_: 'message', listener: (event: { data: HostMessage }) => void) => listeners.add(listener),
       removeEventListener: (_: 'message', listener: (event: { data: HostMessage }) => void) =>
@@ -209,6 +209,43 @@ describe('connectHost', () => {
     expect(text).toBe('Bar')
     webview.send({ type: 'typingState', state: 'paused' })
     expect(useKeyboard.getState().physical).toBe('paused')
+    disconnect()
+  })
+})
+
+describe('media resource lifecycle', () => {
+  it('reports the foreground app, releases its session state, and preserves login and preferences', async () => {
+    const webview = fakeWebView()
+    vi.stubGlobal('window', { chrome: { webview: webview.bridge } })
+    const { connectHost, useCabin } = await import('./store')
+    const { useBilibili } = await import('../apps/bilibili/bilibili')
+    const disconnect = connectHost(() => 0)
+    useCabin.setState({ navigation: { ...useCabin.getState().navigation, route: { kind: 'app', app: 'bilibili' } } })
+    expect(webview.posted).toContainEqual({ type: 'mediaActivity', app: 'bilibili', foreground: true })
+    useBilibili.setState({
+      signedIn: true,
+      volume: 42,
+      playing: true,
+      open: true,
+      current: { bvid: 'old', title: 'old', author: 'old', duration: 1, artwork: '' },
+    })
+    webview.send({ type: 'mediaResource', app: 'bilibili', generation: 1, resident: true })
+    webview.send({ type: 'mediaResource', app: 'bilibili', generation: 1, resident: false })
+    expect(useBilibili.getState()).toMatchObject({
+      signedIn: true,
+      volume: 42,
+      playing: false,
+      open: false,
+      current: null,
+      playback: null,
+      queue: null,
+      views: [],
+    })
+    webview.send({ type: 'mediaResource', app: 'bilibili', generation: 2, resident: true })
+    webview.send({ type: 'bilibili', generation: 1, signedIn: false, playing: true, signingIn: false })
+    expect(useBilibili.getState()).toMatchObject({ signedIn: true, playing: false })
+    webview.send({ type: 'bilibili', generation: 2, signedIn: true, playing: true, signingIn: false })
+    expect(useBilibili.getState().playing).toBe(true)
     disconnect()
   })
 })

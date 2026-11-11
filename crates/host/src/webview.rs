@@ -208,6 +208,7 @@ pub struct OffscreenWebView {
     /// The worst process failure since last taken (`take_failure`).
     failure: Rc<Cell<Option<Failure>>>,
     pub version: String,
+    resources: RefCell<crate::resources::Resources>,
 }
 
 impl OffscreenWebView {
@@ -322,7 +323,18 @@ impl OffscreenWebView {
         // SAFETY: the handler and the token are locals for the call; WebView2 keeps its own reference to the handler.
         unsafe { webview.add_ProcessFailed(&handler, &mut token)? };
 
-        Ok(Self { environment, root, host, composition, controller, webview, page_messages, failure, version })
+        Ok(Self {
+            environment,
+            root,
+            host,
+            composition,
+            controller,
+            webview,
+            page_messages,
+            failure,
+            version,
+            resources: RefCell::default(),
+        })
     }
 
     /// The worst WebView2 process failure since the last call, if any.
@@ -685,8 +697,73 @@ impl OffscreenWebView {
     }
 
     pub fn post_json(&self, json: &str) -> windows::core::Result<()> {
+        // Only media reports need instance tags; ordinary telemetry avoids parsing on this path.
+        let mut tagged = None;
+        if ["youtube", "appleMusic", "bilibili", "ximalaya", "douyin", "hongguo", "netease", "playerPlayback"]
+            .iter()
+            .any(|kind| json.contains(kind))
+            && let Ok(mut message) = serde_json::from_str::<serde_json::Value>(json)
+        {
+            self.resources.borrow_mut().report(&mut message, std::time::Instant::now());
+            tagged = Some(message.to_string());
+        }
+        self.post_raw(tagged.as_deref().unwrap_or(json))
+    }
+
+    fn post_raw(&self, json: &str) -> windows::core::Result<()> {
         // SAFETY: the WebView is alive as long as `self`; the message lives through the call.
         unsafe { self.webview.PostWebMessageAsJson(&HSTRING::from(json)) }
+    }
+
+    pub(crate) fn media_command(&self, json: &str) -> bool {
+        serde_json::from_str(json)
+            .map_or(true, |message| self.resources.borrow_mut().command(&message, std::time::Instant::now()))
+    }
+
+    pub(crate) fn media_activity(
+        &self,
+        app: crate::resources::App,
+        foreground: Option<bool>,
+        resume_pending: Option<bool>,
+    ) {
+        self.resources.borrow_mut().activity(app, foreground, resume_pending);
+    }
+
+    pub(crate) fn media_ready(&self) {
+        self.resources.borrow_mut().reset_activity();
+        let messages = self.resources.borrow().snapshot();
+        for message in messages {
+            let _ = self.post_raw(&message.to_string());
+        }
+    }
+
+    pub(crate) fn media_sync(&self, pages: &[(crate::resources::App, bool, bool)]) {
+        let now = std::time::Instant::now();
+        for &(app, resident, signing_in) in pages {
+            let message = self.resources.borrow_mut().sync(app, resident, signing_in, now);
+            if let Some(message) = message {
+                let _ = self.post_raw(&message.to_string());
+            }
+        }
+    }
+
+    pub(crate) fn media_due(&self, now: std::time::Instant) -> Vec<crate::resources::App> {
+        self.resources.borrow_mut().due(now)
+    }
+
+    pub(crate) fn resource_summary(&self, now: std::time::Instant) -> String {
+        self.resources.borrow().summary(now)
+    }
+
+    pub(crate) fn map_resident(&self, resident: bool) {
+        let mut resources = self.resources.borrow_mut();
+        if resources.map_resident != resident {
+            crate::log!(
+                "[resources] map {}",
+                if resident { "created for a visible host" } else { "released (idle or replaced)" }
+            );
+            resources.map_resident = resident;
+        }
     }
 
     /// Mouse input for the page, at `point` in page pixels (`data`: wheel delta, or which X button).
@@ -905,6 +982,114 @@ mod tests {
             )
             .unwrap();
         println!("page messages: {:?}\n{state}", view.take_page_messages());
+        let state: serde_json::Value = serde_json::from_str(&state).unwrap();
+        assert_eq!(state["ready"], "complete");
+        assert!(state["root"].as_u64().unwrap_or(0) > 0, "cab root was empty: {state}");
+        assert_eq!(state["shell"], true, "cab shell did not mount: {state}");
+        assert_eq!(state["errors"], serde_json::json!([]), "built cab raised errors: {state}");
+    }
+
+    /// Controlled allocation probe, not a claim about third-party media sites or real game performance.
+    #[test]
+    #[ignore = "runs isolated WebView2 pages and allocates 128 MiB for a memory comparison"]
+    fn idle_pages_memory_probe() {
+        use windows::Win32::System::Com::{COINIT_APARTMENTTHREADED, CoInitializeEx};
+        // SAFETY: COM is initialized once on this test thread, before creating any controllers.
+        unsafe { CoInitializeEx(None, COINIT_APARTMENTTHREADED).ok().unwrap() };
+        let root = std::env::temp_dir().join(format!("westplay-idle-probe-{}", std::process::id()));
+        let site = root.join("site");
+        std::fs::create_dir_all(&site).unwrap();
+        std::fs::write(site.join("index.html"), "<!doctype html><title>allocation probe</title>").unwrap();
+        let stage = Stage::new(320, 200).unwrap();
+        let cab = OffscreenWebView::new(&stage, 320, 200, &root.join("profile")).unwrap();
+        let pump = |seconds: u64| {
+            let until = std::time::Instant::now() + std::time::Duration::from_secs(seconds);
+            while std::time::Instant::now() < until {
+                crate::pump_messages();
+                std::thread::sleep(std::time::Duration::from_millis(20));
+            }
+        };
+        cab.map_folder("westplay.probe", &site).unwrap();
+        cab.navigate("https://westplay.probe/index.html").unwrap();
+        pump(2);
+        println!("probe baseline: {}", crate::performance::isolated_memory_sample());
+        for round in 1..=3 {
+            let now = std::time::Instant::now();
+            let mut pages = Vec::new();
+            for app in [
+                crate::resources::App::Bilibili,
+                crate::resources::App::Ximalaya,
+                crate::resources::App::Douyin,
+                crate::resources::App::Hongguo,
+            ] {
+                let page = OffscreenWebView::new(&stage, 320, 200, &root.join("profile")).unwrap();
+                page.map_folder(&format!("{}.probe", app.name()), &site).unwrap();
+                stage.add(&page, false).unwrap();
+                page.navigate(&format!("https://{}.probe/index.html", app.name())).unwrap();
+                pump(2);
+                page.evaluate("window.probe = new Uint8Array(32 * 1024 * 1024); probe.fill(97); probe.length").unwrap();
+                cab.media_sync(&[(app, true, false)]);
+                let _ = cab.post_json(&serde_json::json!({"type":app.name(), "playing":false}).to_string());
+                pages.push((app, page));
+            }
+            pump(3);
+            println!("probe round {round} retained pages: {}", crate::performance::isolated_memory_sample());
+            assert!(cab.media_due(now).is_empty());
+            let due = cab.media_due(now + crate::resources::IDLE);
+            assert_eq!(due.len(), 4);
+            for (app, page) in pages {
+                assert!(due.contains(&app));
+                stage.remove(&page).unwrap();
+                drop(page);
+                cab.media_sync(&[(app, false, false)]);
+            }
+            pump(5);
+            println!("probe round {round} after idle disposal: {}", crate::performance::isolated_memory_sample());
+            assert_eq!(cab.evaluate("document.title").unwrap(), "\"allocation probe\"");
+        }
+    }
+
+    /// Closing an idle controller must not clear its persistent login or close a shared-profile sibling.
+    #[test]
+    #[ignore = "runs isolated WebView2 pages"]
+    fn closing_a_page_keeps_login_and_its_sibling() {
+        use windows::Win32::System::Com::{COINIT_APARTMENTTHREADED, CoInitializeEx};
+        // SAFETY: COM belongs to this test's thread, initialized before any WebView calls.
+        unsafe { CoInitializeEx(None, COINIT_APARTMENTTHREADED).ok().unwrap() };
+        let root = std::env::temp_dir().join(format!("westplay-idle-pages-{}", std::process::id()));
+        let site = root.join("site");
+        std::fs::create_dir_all(&site).unwrap();
+        std::fs::write(site.join("index.html"), "<!doctype html><title>idle page</title>").unwrap();
+        let profile = root.join("profile");
+        let stage = Stage::new(320, 200).unwrap();
+        let pump = |seconds: u64| {
+            let until = std::time::Instant::now() + std::time::Duration::from_secs(seconds);
+            while std::time::Instant::now() < until {
+                crate::pump_messages();
+                std::thread::sleep(std::time::Duration::from_millis(20));
+            }
+        };
+        let cab = OffscreenWebView::new(&stage, 320, 200, &profile).unwrap();
+        cab.map_folder("westplay.idle", &site).unwrap();
+        cab.navigate("https://westplay.idle/index.html").unwrap();
+        pump(2);
+        let media = OffscreenWebView::new(&stage, 320, 200, &profile).unwrap();
+        stage.add(&media, false).unwrap();
+        media.map_folder("westplay.idle", &site).unwrap();
+        media.navigate("https://westplay.idle/index.html").unwrap();
+        pump(2);
+        media.evaluate("document.cookie = 'signed=in; max-age=3600; path=/'").unwrap();
+        assert!(media.evaluate("document.cookie").unwrap().contains("signed=in"));
+        stage.remove(&media).unwrap();
+        drop(media);
+        pump(1);
+        assert_eq!(cab.evaluate("document.title").unwrap(), "\"idle page\"");
+        let reopened = OffscreenWebView::new(&stage, 320, 200, &profile).unwrap();
+        reopened.map_folder("westplay.idle", &site).unwrap();
+        reopened.navigate("https://westplay.idle/index.html").unwrap();
+        pump(2);
+        assert!(reopened.evaluate("document.cookie").unwrap().contains("signed=in"));
+        assert_eq!(cab.evaluate("document.title").unwrap(), "\"idle page\"");
     }
 
     /// Signing out: a cookie set by a page is gone once `delete_cookies` comes back, for the page loaded right

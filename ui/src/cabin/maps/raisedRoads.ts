@@ -162,6 +162,7 @@ interface Tile {
 }
 
 export interface RaisedRoads {
+  dispose(): void
   /** Keeps the tiles round the view loaded. Called every frame; looks now and then. */
   update(now: number): void
   surfaceAt: SurfaceAt
@@ -253,6 +254,8 @@ function cellsOf(tile: Tile): NonNullable<Tile['cells']> {
 
 /** The raised roads of the map whose files are at `address`, painted in `appearance()`. */
 export function raisedRoads(map: maplibregl.Map, address: string, appearance: () => Appearance): RaisedRoads {
+  const requests = new AbortController()
+  let disposed = false
   const tiles = new Map<Key, Tile>()
   const loading = new Set<Key>()
   let known: Set<Key> | null = null
@@ -276,9 +279,10 @@ export function raisedRoads(map: maplibregl.Map, address: string, appearance: ()
   let routeRuns: { first: number; count: number }[] = []
   let routeOrigin: [number, number] = [0, 0]
 
-  void fetch(`${address}/index.json`)
+  void fetch(`${address}/index.json`, { signal: requests.signal })
     .then((response) => (response.ok ? response.json() : []))
     .then((list: [number, number][]) => {
+      if (disposed) return
       known = new Set(list.map(([x, y]) => `${x}/${y}` as Key))
       looked = -Infinity
     })
@@ -288,13 +292,14 @@ export function raisedRoads(map: maplibregl.Map, address: string, appearance: ()
 
   function load(key: Key, x: number, y: number) {
     loading.add(key)
-    void fetch(`${address}/${x}/${y}.bin`)
+    void fetch(`${address}/${x}/${y}.bin`, { signal: requests.signal })
       .then((response) =>
         response.ok && response.body
           ? new Response(response.body.pipeThrough(new DecompressionStream('gzip'))).arrayBuffer()
           : null,
       )
       .then((bytes) => {
+        if (disposed) return
         // Anything but what the file says it is, and nothing's drawn from it: wrong counts could lose the GPU's context.
         const whole =
           bytes &&
@@ -633,10 +638,34 @@ export function raisedRoads(map: maplibregl.Map, address: string, appearance: ()
   }
 
   // Again after a lost context: MapLibre brings the style back without layers like these.
-  map.on('style.load', () => {
+  const restoreLayers = () => {
     map.addLayer(layer, ROUTE_LOWEST_LAYER)
     map.addLayer(routeLayer, OVER_ROUTE_LAYER)
     applyShown()
-  })
-  return { update, surfaceAt, tilesChanged: () => changed, setShown, showRoute, screenLift }
+  }
+  map.on('style.load', restoreLayers)
+  function dispose() {
+    if (disposed) return
+    disposed = true
+    requests.abort()
+    map.off('style.load', restoreLayers)
+    for (const [key, tile] of tiles) drop(key, tile)
+    if (context) {
+      if (program) context.deleteProgram(program)
+      if (route) {
+        context.deleteProgram(route.program)
+        context.deleteBuffer(route.buffer)
+        context.deleteVertexArray(route.array)
+      }
+    }
+    loading.clear()
+    known = null
+    route = null
+    routeLines = []
+    routeRuns = []
+    main = null
+    program = null
+    context = null
+  }
+  return { update, surfaceAt, tilesChanged: () => changed, setShown, showRoute, screenLift, dispose }
 }

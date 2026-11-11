@@ -206,3 +206,10 @@ export function usePlayerSource(): { source: MediaSource; artwork: string | null
     }
   }, [playback, songs])
 }
+
+/** Release session data while keeping login and the player's preferences. */
+export function releaseResource(): void {
+  const before = usePlayer.getState()
+  const kept = { songs: before.songs, folder: before.folder, volume: before.volume }
+  usePlayer.setState({ ...usePlayer.getInitialState(), ...kept })
+}

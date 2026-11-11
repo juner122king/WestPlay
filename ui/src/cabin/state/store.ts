@@ -1,3 +1,5 @@
+import { MEDIA_APPS } from '../../shared/mediaGeneration'
+import { releaseMedia } from '../apps/releaseMedia'
 import { create } from 'zustand'
 import { createJSONStorage, persist } from 'zustand/middleware'
 import {
@@ -406,8 +408,25 @@ export function connectHost(now: () => number = () => performance.now()): () => 
   const stopMessages = subscribeHostMessages(receiveHostMessage(now))
   const report = () => postToHost({ type: 'westplay', open: !useCabin.getState().truckScreen })
   report()
+  const reportMedia = () => {
+    const state = useCabin.getState()
+    const route = state.navigation.route
+    const active =
+      !state.truckScreen && (!state.power.observed || state.power.phase === 'on') && route.kind === 'app'
+        ? route.app
+        : null
+    for (const app of MEDIA_APPS)
+      postToHost({ type: 'mediaActivity', app, foreground: active === (app === 'appleMusic' ? 'music' : app) })
+  }
+  reportMedia()
   const stopReports = useCabin.subscribe((state, previous) => {
     if (state.truckScreen !== previous.truckScreen) report()
+    if (
+      state.navigation.route !== previous.navigation.route ||
+      state.truckScreen !== previous.truckScreen ||
+      state.power !== previous.power
+    )
+      reportMedia()
   })
   // The field selected, for the player's own keyboard to type into (the host passes it to the game plugin).
   const reportSelection = () => postToHost({ type: 'typing', selection: useKeyboard.getState().selection })
@@ -425,6 +444,9 @@ export function connectHost(now: () => number = () => performance.now()): () => 
 function receiveHostMessage(now: () => number): (message: HostMessage) => void {
   return (message) => {
     switch (message.type) {
+      case 'mediaResource':
+        if (!message.resident) releaseMedia(message.app)
+        break
       case 'telemetry': {
         const previous = useLive.getState().telemetry
         useLive.setState({ telemetry: message.data })

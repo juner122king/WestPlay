@@ -569,3 +569,23 @@ export function seekBy(seconds: number): void {
 export function forgetSearch(query: string): void {
   useYouTube.setState((store) => ({ searches: store.searches.filter((s) => s !== query) }))
 }
+
+/** Release session data while keeping login and the player's preferences. */
+export function releaseResource(): void {
+  loading = null
+  reported = false
+  shows++
+  for (const answer of waiting.values()) answer({ failed: true })
+  waiting.clear()
+  const before = useYouTube.getState()
+  const kept = {
+    searches: before.searches,
+    watched: before.watched,
+    volume: before.volume,
+    muted: before.muted,
+    captions: before.captions,
+    quality: before.quality,
+    account: before.account,
+  }
+  useYouTube.setState({ ...useYouTube.getInitialState(), ...kept })
+}

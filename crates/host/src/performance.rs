@@ -34,8 +34,13 @@ use windows::Win32::Graphics::Gdi::{
 use windows::Win32::System::Diagnostics::ToolHelp::{
     CreateToolhelp32Snapshot, PROCESSENTRY32W, Process32FirstW, Process32NextW, TH32CS_SNAPPROCESS,
 };
+use windows::Win32::System::ProcessStatus::{
+    GetProcessMemoryInfo, PROCESS_MEMORY_COUNTERS, PROCESS_MEMORY_COUNTERS_EX, PROCESS_MEMORY_COUNTERS_EX2,
+};
 use windows::Win32::System::Registry::HKEY_LOCAL_MACHINE;
-use windows::Win32::System::Threading::{GetProcessTimes, OpenProcess, PROCESS_QUERY_LIMITED_INFORMATION};
+use windows::Win32::System::Threading::{
+    GetProcessTimes, OpenProcess, PROCESS_QUERY_INFORMATION, PROCESS_QUERY_LIMITED_INFORMATION, PROCESS_VM_READ,
+};
 use windows::core::{BOOL, Interface, PCWSTR, PWSTR, w};
 
 use crate::webview::OffscreenWebView;
@@ -126,7 +131,7 @@ impl Meter {
         window.in_view += u32::from(sample.in_view);
         if now.duration_since(window.started) >= WINDOW {
             let seconds = now.duration_since(window.started).as_secs_f64();
-            let line = self.line(now, &sample);
+            let line = format!("{}; resources: {}", self.line(now, &sample), cab.resource_summary(now));
             // The page's frames since the last line (its count starts again as it's taken: state/frameMeter.ts).
             let asked = cab.run_script("window.westplayFrames?.() ?? -1", {
                 let line = line.clone();
@@ -172,7 +177,9 @@ impl Meter {
         let parts = self.parts.borrow();
         let tree = process_tree();
         let browsers = crate::webview::host_browsers();
-        let used = cores_by_part(&window.cpu, &processor_times(&descendants(ours, &tree)), seconds, |pid| {
+        let pids = descendants(ours, &tree);
+        let memory = memory_usage(&pids);
+        let used = cores_by_part(&window.cpu, &processor_times(&pids), seconds, |pid| {
             part_of(pid, ours, &tree, &parts, &browsers)
         });
         let total: f64 = used.iter().map(|(_, cores)| cores).sum();
@@ -187,7 +194,9 @@ impl Meter {
         format!(
             "performance, the last {seconds:.0} s: the game {game:.0} fps; WestPlay's screen in view {in_view}% of \
              the time, {PAGE}{sent:.0} frames a second sent ({captured:.0} captured, {waited:.0} waited for the game); \
-             WestPlay used {total:.2} of {threads} processor threads ({each}); the cab is drawn with {renderer}"
+             WestPlay used {total:.2} of {threads} processor threads ({each}), {:.0} ms CPU time; \
+             {memory}; the cab is drawn with {renderer}",
+            total * seconds * 1000.0
         )
     }
 
@@ -440,7 +449,19 @@ fn process_tree() -> Vec<(u32, u32)> {
         }
         let _ = CloseHandle(snapshot);
     }
+    // Windows retains a departed parent's PID in its children. A reused PID must not adopt older,
+    // unrelated processes (especially during before/after memory measurements).
+    let created: HashMap<u32, u64> =
+        parents.iter().filter_map(|&(pid, _)| process_times(pid).map(|(created, _)| (pid, created))).collect();
+    parents.retain(|&(pid, parent)| parent_precedes_child(pid, parent, &created));
     parents
+}
+
+fn parent_precedes_child(pid: u32, parent: u32, created: &HashMap<u32, u64>) -> bool {
+    match (created.get(&pid), created.get(&parent)) {
+        (Some(child), Some(parent)) => child >= parent,
+        _ => true,
+    }
 }
 
 /// WestPlay's processes: its own and every one started from it (WebView2's), at any depth.
@@ -464,27 +485,86 @@ fn descendants(root: u32, parents: &[(u32, u32)]) -> Vec<u32> {
     found
 }
 
+#[cfg(test)]
+pub(crate) fn isolated_memory_sample() -> String {
+    memory_usage(&processes())
+}
+
+/// Aggregate private memory once per PID. Public working sets double-count Chromium's shared pages.
+fn memory_usage(pids: &[u32]) -> String {
+    let (mut private, mut resident, mut measured, mut resident_measured) = (0u64, 0u64, 0usize, 0usize);
+    for &pid in pids {
+        // SAFETY: query-only handle owned by this call; each local counter has the documented size and
+        // layout prefix. Handles close after both queries, including either failure.
+        unsafe {
+            let Ok(process) = OpenProcess(PROCESS_QUERY_INFORMATION | PROCESS_VM_READ, false, pid) else { continue };
+            let mut counters = PROCESS_MEMORY_COUNTERS_EX2 {
+                cb: size_of::<PROCESS_MEMORY_COUNTERS_EX2>() as u32,
+                ..Default::default()
+            };
+            if GetProcessMemoryInfo(process, &mut counters as *mut _ as *mut PROCESS_MEMORY_COUNTERS, counters.cb)
+                .is_ok()
+            {
+                private += counters.PrivateUsage as u64;
+                resident += counters.PrivateWorkingSetSize as u64;
+                measured += 1;
+                resident_measured += 1;
+            } else {
+                // Older Windows releases expose commit but not private resident memory through this API.
+                let mut older = PROCESS_MEMORY_COUNTERS_EX {
+                    cb: size_of::<PROCESS_MEMORY_COUNTERS_EX>() as u32,
+                    ..Default::default()
+                };
+                if GetProcessMemoryInfo(process, &mut older as *mut _ as *mut PROCESS_MEMORY_COUNTERS, older.cb).is_ok()
+                {
+                    private += older.PrivateUsage as u64;
+                    measured += 1;
+                }
+            }
+            let _ = CloseHandle(process);
+        }
+    }
+    let mib = 1024.0 * 1024.0;
+    format!(
+        "processes {}; private bytes {:.1} MiB ({measured}/{} measured); private working set {:.1} MiB ({resident_measured}/{} measured)",
+        pids.len(),
+        private as f64 / mib,
+        pids.len(),
+        resident as f64 / mib,
+        pids.len()
+    )
+}
+
 /// Each process's processor time so far (100 ns units); one that can't be opened is left out.
 fn processor_times(pids: &[u32]) -> HashMap<u32, u64> {
+    pids.iter().filter_map(|&pid| process_times(pid).map(|(_, cpu)| (pid, cpu))).collect()
+}
+
+fn process_times(pid: u32) -> Option<(u64, u64)> {
     let ticks = |time: FILETIME| (u64::from(time.dwHighDateTime) << 32) | u64::from(time.dwLowDateTime);
-    pids.iter()
-        .filter_map(|&pid| {
-            // SAFETY: a handle opened for a plain query and closed after it; the times are locals it writes.
-            unsafe {
-                let process = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, pid).ok()?;
-                let (mut created, mut exited, mut kernel, mut user) = Default::default();
-                let read = GetProcessTimes(process, &mut created, &mut exited, &mut kernel, &mut user);
-                let _ = CloseHandle(process);
-                read.ok()?;
-                Some((pid, ticks(kernel) + ticks(user)))
-            }
-        })
-        .collect()
+    // SAFETY: query-only handle owned here and closed on both success and failure. All output times
+    // are local FILETIMEs with the layout GetProcessTimes expects.
+    unsafe {
+        let process = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, pid).ok()?;
+        let (mut created, mut exited, mut kernel, mut user) = Default::default();
+        let read = GetProcessTimes(process, &mut created, &mut exited, &mut kernel, &mut user);
+        let _ = CloseHandle(process);
+        read.ok()?;
+        Some((ticks(created), ticks(kernel) + ticks(user)))
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn reused_parent_pids_do_not_adopt_older_unrelated_processes() {
+        let created = HashMap::from([(1, 100), (2, 200), (3, 50), (4, 250)]);
+        let mut parents = vec![(1, 0), (2, 1), (3, 2), (4, 2)];
+        parents.retain(|&(pid, parent)| parent_precedes_child(pid, parent, &created));
+        assert_eq!(descendants(1, &parents), [1, 2, 4]);
+    }
 
     #[test]
     fn this_pc_says_its_windows_build() {

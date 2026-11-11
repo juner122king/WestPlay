@@ -1,9 +1,10 @@
+import { idleDisposal } from '../../shared/idleResources'
 import maplibregl, { type GeoJSONSource } from 'maplibre-gl'
 import 'maplibre-gl/dist/maplibre-gl.css'
 import workerUrl from 'maplibre-gl/dist/maplibre-gl-csp-worker.js?url'
 import { mapFrameDue } from './frameCap'
 import { create as createStore } from 'zustand'
-import type { Telemetry } from '../../shared/host'
+import { postToHost, type Telemetry } from '../../shared/host'
 import type { Appearance } from '../state/appearance'
 import { type LiveState, useCabin, useLive } from '../state/store'
 import { textScale } from '../state/textSize'
@@ -214,11 +215,10 @@ let live: LiveMap | null = null
 
 /** The truck's recent positions, kept from the first map onwards so the camera never starts cold. */
 const samples: TruckSample[] = []
-let collecting = false
+let stopSamples: (() => void) | undefined
 
 function collectSamples() {
-  if (collecting) return
-  collecting = true
+  if (stopSamples) return
   const add = (telemetry: Telemetry) => {
     samples.push({
       time: performance.now(),
@@ -234,7 +234,7 @@ function collectSamples() {
   // nothing more for a long while.
   const current = useLive.getState().telemetry
   if (current) add(current)
-  useLive.subscribe((state, previous) => {
+  stopSamples = useLive.subscribe((state, previous) => {
     if (state.telemetry && state.telemetry !== previous.telemetry) add(state.telemetry)
   })
 }
@@ -377,14 +377,18 @@ function create(data: MapData, appearance: Appearance): LiveMap {
       pixelRatio,
     })
   })
-  document.fonts.ready.then(() => redrawPlaceIcons(created)).catch(() => {})
+  document.fonts.ready
+    .then(() => {
+      if (live === created) redrawPlaceIcons(created)
+    })
+    .catch(() => {})
   // The player's text size changed: once it has settled (a drag along the slider passes several), the names
   // measured again for where they fit, and the places' images let go of. Drawn anew at the new size only as the
   // tiles laid out again ask for them (styleimagemissing, above): the map keeps every place it has shown, and
   // drawing them all again (some 2 ms each) held the cab up for a second at each step.
   let resized: ReturnType<typeof setTimeout> | undefined
   stopTextSize?.()
-  stopTextSize = useCabin.subscribe((state, before) => {
+  const unsubscribeTextSize = useCabin.subscribe((state, before) => {
     if (state.mapBuildings !== before.mapBuildings) {
       showBuildings(map)
       meshes?.setShown(state.mapBuildings)
@@ -400,6 +404,10 @@ function create(data: MapData, appearance: Appearance): LiveMap {
       }
     }, TEXT_SIZE_SETTLE_MS)
   })
+  stopTextSize = () => {
+    clearTimeout(resized)
+    unsubscribeTextSize()
+  }
   map.once('style.load', () => showBuildings(map))
   listen(created)
   restoreView(created)
@@ -693,10 +701,34 @@ function redrawPlaceIcons({ map, painted }: LiveMap) {
 /** The screens showing the map, latest last: it's in the latest, and goes back when that one closes. */
 const hosts: { element: HTMLElement; interactive: boolean }[] = []
 let frame: number | null = null
+const idleMap = idleDisposal(() => {
+  if (hosts.length === 0) disposeLiveMap()
+})
+
+function disposeLiveMap() {
+  idleMap.cancel()
+  if (frame !== null) cancelAnimationFrame(frame)
+  frame = null
+  stopTextSize?.()
+  stopTextSize = undefined
+  stopSamples?.()
+  stopSamples = undefined
+  samples.length = 0
+  if (!live) return
+  live.meshes?.dispose()
+  live.raised?.dispose()
+  live.element.remove()
+  live.map.remove()
+  if (import.meta.env.DEV)
+    Object.assign(window, { westplayMap: undefined, westplayRaised: undefined, westplayMeshes: undefined })
+  live = null
+  postToHost({ type: 'mapResource', resident: false })
+  useMapBrowsing.setState({ browsing: false })
+}
 
 /**
  * Shows the live map in `host` and follows the truck there (letting the player move it if `interactive`),
- * until the returned function is called (the map then stays alive, ready for the next screen).
+ * until the returned function is called. With no hosts it stays warm for 30 seconds, then releases its resources.
  */
 export function showLiveMap(
   host: HTMLElement,
@@ -704,23 +736,25 @@ export function showLiveMap(
   appearance: Appearance,
   interactive: boolean,
 ): () => void {
-  collectSamples()
+  idleMap.cancel()
   if (live?.data !== data) {
-    if (frame !== null) cancelAnimationFrame(frame)
-    frame = null
-    live?.map.remove()
+    disposeLiveMap()
     live = create(data, appearance)
+    postToHost({ type: 'mapResource', resident: true })
     // Development: the map, for inspecting it from the browser's console.
     if (import.meta.env.DEV)
       Object.assign(window, { westplayMap: live.map, westplayRaised: live.raised, westplayMeshes: live.meshes })
   }
+  collectSamples()
   live.wanted = appearance
   syncAppearance(live)
   const entry = { element: host, interactive }
   hosts.push(entry)
   place()
   return () => {
-    hosts.splice(hosts.lastIndexOf(entry), 1)
+    const index = hosts.indexOf(entry)
+    if (index < 0) return
+    hosts.splice(index, 1)
     place()
   }
 }
@@ -734,8 +768,10 @@ function place() {
     current.element.remove()
     if (frame !== null) cancelAnimationFrame(frame)
     frame = null
+    idleMap.idle()
     return
   }
+  idleMap.cancel()
   if (current.element.parentElement !== host.element) {
     host.element.appendChild(current.element)
     current.map.resize()
@@ -1167,9 +1203,9 @@ function moveCamera(
 
 // Development: when this module is replaced (Vite hot reload), the old map goes with it, so a new one
 // doesn't land on top.
-import.meta.hot?.dispose(() => {
-  if (frame !== null) cancelAnimationFrame(frame)
-  stopTextSize?.()
-  live?.element.remove()
-  live?.map.remove()
-})
+import.meta.hot?.dispose(disposeLiveMap)
+
+/** Resource state for the host's performance sample, without creating a map. */
+export function mapResourceResident(): boolean {
+  return live !== null
+}

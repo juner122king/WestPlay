@@ -151,6 +151,7 @@ interface Model {
 }
 
 export interface BuildingMeshes {
+  dispose(): void
   /** Keeps the tiles round the view loaded, and their models. Called every frame; looks now and then. */
   update(now: number): void
   setShown(shown: boolean): void
@@ -259,6 +260,8 @@ export function lightAt(bearing: number): [number, number, number] {
 
 /** The buildings in their real shapes of the map whose files are at `address`, painted in `appearance()`. */
 export function buildingMeshes(map: maplibregl.Map, address: string, appearance: () => Appearance): BuildingMeshes {
+  const requests = new AbortController()
+  let disposed = false
   const tiles = new Map<Key, Tile>()
   const loading = new Set<Key>()
   const models = new Map<number, Model>()
@@ -278,9 +281,10 @@ export function buildingMeshes(map: maplibregl.Map, address: string, appearance:
   let again: ReturnType<typeof setTimeout> | null = null
   let drawn = 0
 
-  void fetch(`${address}/index.json`)
+  void fetch(`${address}/index.json`, { signal: requests.signal })
     .then((response) => (response.ok ? response.json() : []))
     .then((list: [number, number][]) => {
+      if (disposed) return
       known = new Set(list.map(([x, y]) => `${x}/${y}` as Key))
       looked = -Infinity
     })
@@ -290,9 +294,10 @@ export function buildingMeshes(map: maplibregl.Map, address: string, appearance:
 
   function loadTile(key: Key, x: number, y: number) {
     loading.add(key)
-    void fetch(`${address}/${x}/${y}.bin`)
+    void fetch(`${address}/${x}/${y}.bin`, { signal: requests.signal })
       .then(gunzipped)
       .then((bytes) => {
+        if (disposed) return
         const tile = bytes && readTile(x, y, bytes)
         if (!tile) {
           known?.delete(key)
@@ -307,9 +312,10 @@ export function buildingMeshes(map: maplibregl.Map, address: string, appearance:
 
   function loadModel(id: number) {
     loadingModels.add(id)
-    void fetch(`${address}/models/${id}.bin`)
+    void fetch(`${address}/models/${id}.bin`, { signal: requests.signal })
       .then(gunzipped)
       .then((bytes) => {
+        if (disposed) return
         const model = bytes && readModel(bytes)
         if (!model) {
           unreadable.add(id)
@@ -326,6 +332,7 @@ export function buildingMeshes(map: maplibregl.Map, address: string, appearance:
   }
 
   function pump() {
+    if (disposed) return
     while (loadingModels.size < MODEL_FETCHES && queue.length > 0) {
       const id = queue.shift()!
       if (!models.has(id) && !loadingModels.has(id) && !unreadable.has(id)) loadModel(id)
@@ -551,9 +558,10 @@ export function buildingMeshes(map: maplibregl.Map, address: string, appearance:
 
   // Again after a lost context: MapLibre brings the style back without layers like these. Under the raised roads,
   // which read what it leaves in the depth buffer.
-  map.on('style.load', () => {
+  const restoreLayers = () => {
     map.addLayer(layer, map.getLayer(RAISED_LAYER) ? RAISED_LAYER : ROUTE_LOWEST_LAYER)
-  })
+  }
+  map.on('style.load', restoreLayers)
   const stats = () => ({
     known: known?.size ?? -1,
     tiles: tiles.size,
@@ -563,5 +571,23 @@ export function buildingMeshes(map: maplibregl.Map, address: string, appearance:
     unreadable: unreadable.size,
     drawn,
   })
-  return { update, setShown, stats }
+  function dispose() {
+    if (disposed) return
+    disposed = true
+    requests.abort()
+    if (again !== null) clearTimeout(again)
+    again = null
+    map.off('style.load', restoreLayers)
+    for (const [key, tile] of tiles) dropTile(key, tile)
+    for (const [id, model] of models) dropModel(id, model)
+    if (context && program) context.deleteProgram(program)
+    queue = []
+    loading.clear()
+    loadingModels.clear()
+    unreadable.clear()
+    known = null
+    program = null
+    context = null
+  }
+  return { update, setShown, stats, dispose }
 }
