@@ -260,8 +260,6 @@ fn main() {
     let open_request = Arc::new(OpenRequest::default());
     let accounts = Arc::new(AccountRequests::default());
     let app = tauri::Builder::default()
-        .plugin(tauri_plugin_updater::Builder::new().build())
-        .manage(update::Updates::default())
         .manage(WestplayOpen(open_request.clone()))
         .manage(Accounts(accounts.clone()))
         .register_asynchronous_uri_scheme_protocol(maps::SCHEME, maps::serve)
@@ -300,6 +298,7 @@ fn main() {
             customize::add_icon_set,
             customize::remove_wallpaper,
             customize::remove_icon_set,
+            update::online_updates_enabled,
             update::update_offer,
             update::look_for_update,
             update::install_update,
@@ -350,7 +349,6 @@ fn main() {
             app.manage(SettingsStore { file, shared });
             app.manage(setup);
             app.manage(std::sync::Mutex::new(host));
-            update::watch(app.handle());
             Ok(())
         })
         .build(tauri::generate_context!())
@@ -408,6 +406,13 @@ fn start_host(
 ) -> Result<Host, Box<dyn std::error::Error>> {
     let content = cabin_content(app);
     let data_dir = app.path().app_local_data_dir()?;
+    let map_builder = setup::map_builder_file(app);
+    westplay_host::log!(
+        "maps: {}",
+        map_builder
+            .as_ref()
+            .map_or("no map builder: built in WestPlay itself".into(), |file| format!("built by {}", file.display()))
+    );
     let stop = Arc::new(AtomicBool::new(false));
 
     let events = app.clone();
@@ -420,7 +425,7 @@ fn start_host(
         loop {
             let (content, data_dir) = (content.clone(), data_dir.clone());
             let (open_request, settings, stop) = (open_request.clone(), settings.clone(), thread_stop.clone());
-            let (accounts, game) = (accounts.clone(), game.clone());
+            let (accounts, game, map_builder) = (accounts.clone(), game.clone(), map_builder.clone());
             let status_events = events.clone();
             let (settings_events, settings_dir) = (events.clone(), looks.config_dir.clone());
             let customize_changed = looks.customize_changed.clone();
@@ -434,6 +439,7 @@ fn start_host(
                     accounts,
                     settings,
                     game,
+                    map_builder,
                     on_status: Box::new(move |status| {
                         let _ = status_events.emit("host-status", status);
                     }),

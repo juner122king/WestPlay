@@ -1,7 +1,6 @@
 import type { GameCheck, GameInfo, InstallReport, SetupState } from './setup'
 import type { Customizations } from '../shared/customize'
 import type { Added } from './customize'
-import type { Offer } from './update'
 import type { HostStatus, MapStatus } from './useHostStatus'
 import type { Settings } from './useSettings'
 
@@ -15,7 +14,7 @@ import type { Settings } from './useSettings'
  * - `?game=off|on|live|unsupported`: the game not running, running (the cab not on the screen), the screen live, or
  *   the player in a truck WestPlay doesn't show in.
  * - `?map=building|ready|waiting|failed`: the map's state (`building` runs to `ready`).
- * - `?update`: an update found (its sheet offers it; installing it downloads, then stays installing).
+ * Online updates are disabled in the domestic edition, including browser previews.
  * - `?custom`: some wallpapers and an icon set of the player's (adding gives more, with a file left out).
  * - `?leftOut`: the played profile's map made without a map mod it couldn't read.
  * - `?elevated`: the game run as administrator (WestPlay can't read its route, guidance or weather).
@@ -58,18 +57,6 @@ const setup: SetupState = {
   language: query.get('lang'),
 }
 
-const UPDATE: Offer | null = query.has('update')
-  ? {
-      version: '1.1.0',
-      notes: [
-        '- Song lyrics on the Now Playing screen.',
-        '- The map follows the route around roundabouts.',
-        '- **Fixed:** YouTube Music skipping the first song.',
-      ].join('\n'),
-      date: '2026-11-02',
-    }
-  : null
-
 let settings: Settings = {
   interaction: { key: 0xa4, mode: 'hold', sensitivity: 1.4 },
   keybinds: {
@@ -80,7 +67,7 @@ let settings: Settings = {
   screen: { truckStrip: 'auto' },
   look: { wallpaper: null, iconSet: null, iconStyle: 'auto' },
   graphics: { gpu: null },
-  map: { buildings: true, roads: true },
+  map: { buildings: true, roads: true, fast: false },
   language: null,
 }
 
@@ -174,13 +161,21 @@ function status(): HostStatus {
       {
         game: 'ets2',
         dir: 'profiles/57657374',
+        folder: 'europe-cbf29ce484222325',
         status: map,
         leftOut: map.state === 'ready' && query.has('leftOut') ? ['Crni Kal 1.61'] : undefined,
       },
       {
         game: 'ets2',
         dir: 'profiles/54657374',
-        status: map.state === 'ready' ? { state: 'building', done: 0.4, stage: 'drawing' } : { state: 'queued' },
+        folder: 'europe-6350e2ab6a0e4959',
+        // `?others=ready`: made too (Prepare Maps Again then offers both to pick from).
+        status:
+          map.state === 'ready'
+            ? query.get('others') === 'ready'
+              ? map
+              : { state: 'building', done: 0.4, stage: 'drawing' }
+            : { state: 'queued' },
       },
     ],
     error: null,
@@ -343,6 +338,7 @@ export function answer(command: string, args?: Record<string, unknown>): Promise
       westplayOpen = Boolean(args?.open)
       return later(undefined, 200)
     case 'prepare_maps_again':
+      console.info('prepare_maps_again', args)
       // The played profile's map made anew (the status's ticking carries it on).
       map = { state: 'building', done: 0, stage: 'reading' }
       return later(undefined, 300)
@@ -473,19 +469,13 @@ export function answer(command: string, args?: Record<string, unknown>): Promise
       custom.iconSets = custom.iconSets.filter((set) => set.name !== args?.name)
       if (settings.look.iconSet === args?.name) setLook({ iconSet: null })
       return later(undefined)
+    case 'online_updates_enabled':
+      return later(false)
     case 'update_offer':
-      return later(UPDATE)
     case 'look_for_update':
-      if (UPDATE) emit('update-found', UPDATE)
-      return later(UPDATE, 700)
-    case 'install_update': {
-      const total = 48_000_000
-      for (let step = 1; step <= 20; step++) {
-        setTimeout(() => emit('update-progress', { done: (total * step) / 20, total }), step * 150)
-      }
-      // The app quits for the installer: nothing comes back.
-      return new Promise(() => {})
-    }
+      return later(null)
+    case 'install_update':
+      return Promise.reject(new Error('定制版暂不支持在线更新，请手动安装升级'))
     default:
       return Promise.reject(new Error(`preview: no answer for ${command}`))
   }

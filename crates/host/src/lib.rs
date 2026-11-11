@@ -21,6 +21,7 @@ pub mod graphics;
 mod handover;
 mod hongguo;
 mod lyrics;
+mod map_process;
 pub mod maps;
 mod music_folder;
 mod netease;
@@ -233,6 +234,9 @@ pub struct Config {
     pub customize_changed: Arc<std::sync::atomic::AtomicU64>,
     /// The game WestPlay is set up in (the companion's setup sets it): its map is built for the cab.
     pub game: Arc<maps::SetUpGame>,
+    /// WestPlay's map builder (`westplay-maps.exe`), each map built in a process of its own; `None`: built in
+    /// WestPlay's (a development build that hasn't built it).
+    pub map_builder: Option<PathBuf>,
 }
 
 struct Pipeline {
@@ -316,7 +320,12 @@ pub fn run(mut config: Config, stop: Arc<AtomicBool>) -> Result<(), Error> {
     let (customize_list, customize_listed) = std::sync::mpsc::channel::<String>();
     let mut customize_posted: Option<u64> = None;
     let mut customize_message: Option<String> = None;
-    let map_watch = maps::MapWatch::start(maps_dir.clone(), config.game.clone());
+    let map_watch = maps::MapWatch::start(
+        maps_dir.clone(),
+        config.game.clone(),
+        config.settings.clone(),
+        config.map_builder.clone(),
+    );
     let mut map_shown: (Option<String>, Option<u64>) = (None, None);
     let mut status = Status {
         webview_version: webview.version.clone(),
@@ -1018,7 +1027,12 @@ pub fn run(mut config: Config, stop: Arc<AtomicBool>) -> Result<(), Error> {
                     }
                 }
                 Some(PageMessage::Bilibili { command }) => {
-                    if bilibili.is_none() && matches!(command, bilibili::Command::Pause | bilibili::Command::Hide | bilibili::Command::Stop) {
+                    if bilibili.is_none()
+                        && matches!(
+                            command,
+                            bilibili::Command::Pause | bilibili::Command::Hide | bilibili::Command::Stop
+                        )
+                    {
                         // Nothing to pause, hide or stop.
                     } else if let Some(player) = start_bilibili(&mut bilibili, &stage, &config) {
                         let _ = player.command(&command);
@@ -1040,10 +1054,7 @@ pub fn run(mut config: Config, stop: Arc<AtomicBool>) -> Result<(), Error> {
                 }
                 Some(PageMessage::Hongguo { command }) => {
                     if hongguo.is_none()
-                        && matches!(
-                            command,
-                            hongguo::Command::Pause | hongguo::Command::Hide | hongguo::Command::Stop
-                        )
+                        && matches!(command, hongguo::Command::Pause | hongguo::Command::Hide | hongguo::Command::Stop)
                     {
                         // Nothing to pause, hide or stop.
                     } else if let Some(player) = start_hongguo(&mut hongguo, &stage, &config) {
@@ -2858,15 +2869,8 @@ mod tests {
     fn tells_the_page_semaphores_around_the_player() {
         use westplay_shared::{Semaphore, SemaphoresBlock};
         let mut block = SemaphoresBlock { frame: 12, count: 1, ..SemaphoresBlock::default() };
-        block.semaphores[0] = Semaphore {
-            x: 100.0,
-            y: 10.0,
-            z: 200.0,
-            heading: 0.5,
-            state: 0,
-            countdown: 15.0,
-            duration: 30.0,
-        };
+        block.semaphores[0] =
+            Semaphore { x: 100.0, y: 10.0, z: 200.0, heading: 0.5, state: 0, countdown: 15.0, duration: 30.0 };
         assert_eq!(
             super::semaphores_message(Some(&block)),
             r#"{"data":[{"countdown":15.0,"duration":30.0,"heading":0.5,"state":0,"x":100.0,"y":10.0,"z":200.0}],"type":"semaphores"}"#
@@ -2949,6 +2953,45 @@ mod tests {
         let json = serde_json::to_value(&status).unwrap();
         let apple_music = (json["appleMusicSignedIn"].as_bool(), json["appleMusicSigningIn"].as_bool());
         assert_eq!(apple_music, (Some(true), Some(true)));
+    }
+
+    #[test]
+    fn domestic_accounts_and_map_selection_fields_share_the_status_wire_format() {
+        let status = super::Status {
+            bilibili_signed_in: Some(true),
+            bilibili_signing_in: false,
+            netease_signed_in: Some(false),
+            netease_signing_in: true,
+            ximalaya_signed_in: Some(true),
+            ximalaya_signing_in: false,
+            douyin_signed_in: Some(false),
+            douyin_signing_in: true,
+            hongguo_signed_in: Some(true),
+            hongguo_signing_in: false,
+            profile_maps: vec![super::maps::ProfileMap {
+                game: westplay_setup::game::Kind::Ets2,
+                dir: "profiles/driver".into(),
+                folder: "europe-custom".into(),
+                status: super::maps::MapStatus::Ready,
+                left_out: vec![],
+                truckersmp: false,
+                promods: false,
+            }],
+            ..Default::default()
+        };
+        let json = serde_json::to_value(status).unwrap();
+        for (service, signed_in, signing_in) in [
+            ("bilibili", true, false),
+            ("netease", false, true),
+            ("ximalaya", true, false),
+            ("douyin", false, true),
+            ("hongguo", true, false),
+        ] {
+            assert_eq!(json[format!("{service}SignedIn")], signed_in);
+            assert_eq!(json[format!("{service}SigningIn")], signing_in);
+        }
+        assert_eq!(json["profileMaps"][0]["folder"], "europe-custom");
+        assert_eq!(json["profileMaps"][0]["status"]["state"], "ready");
     }
 
     #[test]

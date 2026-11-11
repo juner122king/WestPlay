@@ -5,9 +5,12 @@
   "scripts": {
     "predev": "powershell -NoProfile -ExecutionPolicy Bypass -File tools/dev/sweep.ps1",
     "dev": "tauri dev",
-    "prebuild": "powershell -NoProfile -ExecutionPolicy Bypass -File tools/dev/sweep.ps1",
+    "prebuild": "npm run build:resources",
     "build": "tauri build",
-    "postinstall": "npm --prefix ui install"
+    "postinstall": "npm --prefix ui install",
+    "build:resources": "powershell -NoProfile -ExecutionPolicy Bypass -File tools/build_resources.ps1",
+    "prebuild:release": "npm run build:resources",
+    "build:release": "tauri build --config app/tauri.release.conf.json"
   },
   "devDependencies": {
     "@tauri-apps/cli": "^2.12.1"

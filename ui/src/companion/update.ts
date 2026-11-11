@@ -16,31 +16,62 @@ export interface Progress {
   total: number | null
 }
 
-/** The update found, if one is: as the app had it when asked, then looked for at once (the companion opening:
- * whichever page it opens on, an update is offered), then as the app finds one (every few hours). */
-export function useUpdateOffer(): Offer | null {
-  const [offer, setOffer] = useState<Offer | null>(null)
+/** The backend owns the policy; missing/older commands fail closed. */
+export async function onlineUpdatesEnabled(): Promise<boolean> {
+  try {
+    return (await call<boolean>('online_updates_enabled')) === true
+  } catch {
+    return false
+  }
+}
+
+export function useOnlineUpdatesEnabled(): boolean {
+  const [enabled, setEnabled] = useState(false)
   useEffect(() => {
     let live = true
-    const take = (found: Offer | null) => live && found && setOffer(found)
-    call<Offer | null>('update_offer').then(take, () => {})
-    lookForUpdate().then(take, () => {})
-    const stop = on<Offer>('update-found', setOffer)
+    onlineUpdatesEnabled().then((value) => {
+      if (live) setEnabled(value)
+    })
     return () => {
       live = false
-      stop()
     }
   }, [])
+  return enabled
+}
+
+/** Register only after policy approval: stale events cannot offer an upstream installer. */
+export function subscribeToUpdateOffers(take: (offer: Offer) => void): () => void {
+  let live = true
+  let stop: (() => void) | undefined
+  onlineUpdatesEnabled().then((enabled) => {
+    if (!live || !enabled) return
+    const receive = (offer: Offer | null) => {
+      if (live && offer) take(offer)
+    }
+    stop = on<Offer>('update-found', receive)
+    call<Offer | null>('update_offer').then(receive, () => {})
+    call<Offer | null>('look_for_update').then(receive, () => {})
+  })
+  return () => {
+    live = false
+    stop?.()
+  }
+}
+
+export function useUpdateOffer(): Offer | null {
+  const [offer, setOffer] = useState<Offer | null>(null)
+  useEffect(() => subscribeToUpdateOffers(setOffer), [])
   return offer
 }
 
-/** Looks for an update now. */
-export function lookForUpdate(): Promise<Offer | null> {
-  return call('look_for_update')
+/** No update lookup is sent when the domestic edition policy disables it. */
+export async function lookForUpdate(): Promise<Offer | null> {
+  return (await onlineUpdatesEnabled()) ? call('look_for_update') : null
 }
 
-/** Installs the update found: comes back only if it couldn't (WestPlay quits for the installer). */
-export function installUpdate(): Promise<void> {
+/** Defense in depth; the backend also rejects direct invocations. */
+export async function installUpdate(): Promise<void> {
+  if (!(await onlineUpdatesEnabled())) throw new Error('定制版暂不支持在线更新，请手动安装升级')
   return call('install_update')
 }
 

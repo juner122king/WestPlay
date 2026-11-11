@@ -119,12 +119,18 @@ export interface CompanionWords {
     sub: string
     /** The button that prepares every profile's map again. */
     prepareAgain: string
+    /** The sheet picking the maps to prepare again: what it does; its button. */
+    pickText: string
+    prepare: string
     /** The switch for the map's raised buildings. */
     buildings: string
     buildingsDetail: string
     /** The switch for the map's roads at their real heights. */
     roads: string
     roadsDetail: string
+    /** The switch for preparing the maps on the whole processor and up to 80% of the memory. */
+    fast: string
+    fastDetail: string
     inCab: string
     /** `{date}` */
     built: string
@@ -210,6 +216,7 @@ export interface CompanionWords {
   update: {
     row: string
     upToDate: string
+    manualOnly: string
     available: string
     badge: string
     title: string

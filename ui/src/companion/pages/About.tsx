@@ -3,7 +3,7 @@ import { appVersion } from '../bridge'
 import { Button, Group, Panel, Row } from '../room/parts'
 import { banner } from '../room/room'
 import { GLOW, useScreenAt } from '../room/screen'
-import { lookForUpdate } from '../update'
+import { lookForUpdate, useOnlineUpdatesEnabled } from '../update'
 import { GAME_NAMES, type GameInfo } from '../setup'
 import { appLogPlace, type HostStatus } from '../useHostStatus'
 import { type PageProps, screenState } from './page'
@@ -12,14 +12,14 @@ import { type PageProps, screenState } from './page'
 const COPIED_MS = 3200
 
 /**
- * WestPlay itself: its version and whether there's an update (looked for as the page opens; one found opens
- * its sheet), and the live details of WestPlay and the game for when something isn't
+ * WestPlay itself: its domestic edition version, manual-upgrade policy, and live details for when something isn't
  * right, with a report of them to copy for whoever helps, and where the logs are (app.log in WestPlay's own
  * folder where Documents refused it). On the room's screen, the Dashboard; a banner says when the report's
  * copied.
  */
 export function About({ status, setup, cw, update, showUpdate }: PageProps) {
   const w = cw.about
+  const updatesEnabled = useOnlineUpdatesEnabled()
   const [version, setVersion] = useState('')
   const [copied, setCopied] = useState(false)
   // Whether there's an update: the one found, or none after looking again.
@@ -29,11 +29,14 @@ export function About({ status, setup, cw, update, showUpdate }: PageProps) {
   useEffect(() => {
     appVersion().then(setVersion, () => setVersion(''))
     appLogPlace().then(setAppLog, () => setAppLog(null))
+  }, [])
+  useEffect(() => {
+    if (!updatesEnabled) return
     lookForUpdate().then(
       () => setLooked(true),
       () => setLooked(true),
     )
-  }, [])
+  }, [updatesEnabled])
   useEffect(() => {
     if (!copied) return
     const timer = window.setTimeout(() => setCopied(false), COPIED_MS)
@@ -62,7 +65,9 @@ export function About({ status, setup, cw, update, showUpdate }: PageProps) {
     >
       <Group place={4}>
         <Row title={w.version} value={version} />
-        {update ? (
+        {!updatesEnabled ? (
+          <Row title={cw.update.row} detail={cw.update.manualOnly} />
+        ) : update ? (
           <Row
             title={cw.update.row}
             value={cw.update.available.replace('{version}', update.version)}
@@ -92,7 +97,7 @@ export function About({ status, setup, cw, update, showUpdate }: PageProps) {
 /** The report to copy: plain facts, in English (for whoever helps), nothing of the player's accounts. */
 function report(version: string, status: HostStatus | null, games: GameInfo[], appLog: string | null): string {
   return [
-    `WestPlay ${version}`,
+    `WestPlay ${version} (Domestic Edition)`,
     ...(games.length
       ? games.map((game) => `Game: ${GAME_NAMES[game.kind]} ${game.version ?? 'unknown'} (${game.dir})`)
       : ['Game: none set up']),

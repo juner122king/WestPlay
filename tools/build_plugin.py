@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """
-Builds `westplay.dll` (the SCS SDK plugin) and deploys it to the game's plugins folder.
+Build westplay.dll and stage it for packaging. Game deployment requires --deploy.
 """
 
+import argparse
 import os
 import shutil
 import subprocess
@@ -40,12 +41,21 @@ def safe_copy(src, dest):
         except Exception as e:
             print(f"Failed to copy to {dest}: {e}")
 
-def build():
+def build(deploy=False):
     env = os.environ.copy()
-    env["PATH"] = LLVM_BIN + ";" + CARGO_BIN + ";" + env.get("PATH", "")
-    env["CC"] = os.path.join(LLVM_BIN, "clang.exe")
-    env["AR"] = os.path.join(LLVM_BIN, "llvm-ar.exe")
-    env["CFLAGS"] = f"-target x86_64-w64-windows-gnu -I{MINHOOK_INC.replace(os.sep, '/')}"
+    llvm_bin = os.environ.get("WESTPLAY_LLVM_MINGW")
+    if llvm_bin:
+        llvm_bin = os.path.join(llvm_bin, "bin")
+    else:
+        llvm_bin = LLVM_BIN
+    # Keep the host Rust linker independent of LLVM-MinGW's GCC compatibility driver.
+    env["PATH"] = CARGO_BIN + ";" + env.get("PATH", "")
+    env["CARGO_TARGET_X86_64_PC_WINDOWS_GNU_LINKER"] = "rust-lld"
+    env["CC"] = os.path.join(llvm_bin, "clang.exe")
+    env["AR"] = os.path.join(llvm_bin, "llvm-ar.exe")
+    env["CFLAGS"] = "-target x86_64-w64-windows-gnu"
+    if not os.environ.get("WESTPLAY_LLVM_MINGW"):
+        env["CFLAGS"] += f" -I{MINHOOK_INC.replace(os.sep, '/')}"
     dllcrt2 = os.path.join(SELF_CONTAINED, "dllcrt2.o")
     env["RUSTFLAGS"] = f"-C linker=rust-lld -L native={SELF_CONTAINED} -C link-arg={dllcrt2}"
 
@@ -53,6 +63,7 @@ def build():
         CARGO_EXE,
         "build",
         "--release",
+        "--locked",
         "-p",
         "westplay-plugin",
         "--target",
@@ -75,13 +86,16 @@ def build():
 
     # Copy to target/release/westplay.dll for packaging
     pkg_target = os.path.join(REPO_ROOT, "target", "release", "westplay.dll")
-    safe_copy(built_dll, pkg_target)
+    os.makedirs(os.path.dirname(pkg_target), exist_ok=True)
+    shutil.copy2(built_dll, pkg_target)
 
-    if os.path.isdir(ATS_PLUGINS):
+    if deploy and os.path.isdir(ATS_PLUGINS):
         safe_copy(built_dll, os.path.join(ATS_PLUGINS, "westplay.dll"))
 
-    if os.path.isdir(ETS2_PLUGINS):
+    if deploy and os.path.isdir(ETS2_PLUGINS):
         safe_copy(built_dll, os.path.join(ETS2_PLUGINS, "westplay.dll"))
 
 if __name__ == "__main__":
-    build()
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--deploy", action="store_true", help="also install into the local games")
+    build(deploy=parser.parse_args().deploy)

@@ -3,9 +3,10 @@
   "bundle": {
     "active": true,
     "targets": ["nsis"],
-    "createUpdaterArtifacts": true,
+    "createUpdaterArtifacts": false,
     "resources": {
       "../target/release/westplay.dll": "westplay.dll",
+      "../target/release/westplay-maps.exe": "westplay-maps.exe",
       "../LICENSE": "LICENSE.txt",
       "../THIRD_PARTY_NOTICES.md": "THIRD_PARTY_NOTICES.md",
       "../THIRD_PARTY_LICENSES.md": "THIRD_PARTY_LICENSES.md"
@@ -16,9 +17,7 @@
         "installerIcon": "icons/icon.ico",
         "installerHooks": "installer/hooks.nsh",
         "displayLanguageSelector": false,
-        "languages": [
-          "English", "SimpChinese"
-        ]
+        "languages": ["English", "SimpChinese"]
       }
     }
   }

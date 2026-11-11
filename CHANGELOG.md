@@ -3,6 +3,32 @@
 What changed in each release of WestPlay. The newest release's notes are what the app shows when it offers the
 update.
 
+## 2.2.2 国内定制版 / Domestic Edition (2026-11-11)
+- 整合上游 2.2.2：独立地图构建进程、可选加速构建、指定地图重新准备、音频与地图显示修复，以及崩溃诊断与日志轮转。
+- 保留 B站、网易云音乐、喜马拉雅、抖音、红果短剧、信号灯倒计时、货运 HUD 和中英双语定制；不恢复 Spotify 或 YouTube Music。
+- 暂停在线更新，避免原版安装包覆盖定制功能；请手动安装国内定制版升级包，现有数据目录保持不变。
+- Includes upstream 2.2.2 while retaining domestic integrations. Online updates are disabled; upgrade manually with a domestic installer.
+
+## 2.2.2 (2026-11-06)
+- Prepare Maps Faster, for strong PCs: a switch on the companion's Map page, and a step of its own before WestPlay
+  is installed, off unless you turn it on (and tick that you've read what it does). It prepares the maps with every
+  thread of the processor and up to four fifths of the memory, in a map builder of its own with a faster way of
+  taking memory: ETS2's map in about two minutes on a 16-core PC, where it took over five.
+- Each map is prepared in a process of its own: a map that fails to prepare no longer takes WestPlay down with it.
+- No map stops preparing for the memory it takes any more: a very large map mod (or several) stopped at three
+  fifths of the PC's memory (19.2 GB with 32 GB) and was left out.
+- Prepare Maps Again asks which maps to prepare: all of them, or the ones you pick.
+- Preparing a map is faster on every PC, and takes less memory at the most: the buildings are placed on every
+  thread, and a junction shaped the same as one already worked out isn't worked out again.
+- Tablet: the music is no longer muffled when you look away from the tablet in the newer American trucks'
+  interiors (the Volvo VNL 2025's, the Kenworth T680 2022's, the Freightliner Cascadia 2024's), nor when a mod
+  changing a truck's dashboard is installed but active in none of your profiles.
+- The Dashboard's map grows and shrinks smoothly: it moved at a stutter, the map drawn again at a new size each
+  step of the way.
+- When WestPlay or the game's plugin crashes, its log says what happened and where, and app.log keeps the run
+  before as app.old.log and starts with WestPlay's version; setting WestPlay up writes each of its steps there:
+  a crash on a player's PC can now be found from their logs.
+
 ## 2.2.1 (2026-11-05)
 - Preparing a map takes less than half the memory it did, the same map coming out (ETS2's about 5.5 GB at the most
   where it was 12, ATS's under 3 where it was over 7): the roads' and junctions' shapes were kept three times over
