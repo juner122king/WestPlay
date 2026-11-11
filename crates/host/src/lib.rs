@@ -1039,8 +1039,13 @@ pub fn run(mut config: Config, stop: Arc<AtomicBool>) -> Result<(), Error> {
                     }
                 }
                 Some(PageMessage::Hongguo { command }) => {
-                    if hongguo.is_none() && matches!(command, hongguo::Command::Pause | hongguo::Command::Hide) {
-                        // Nothing to pause or hide.
+                    if hongguo.is_none()
+                        && matches!(
+                            command,
+                            hongguo::Command::Pause | hongguo::Command::Hide | hongguo::Command::Stop
+                        )
+                    {
+                        // Nothing to pause, hide or stop.
                     } else if let Some(player) = start_hongguo(&mut hongguo, &stage, &config) {
                         let _ = player.command(&command);
                     }
@@ -1523,7 +1528,7 @@ pub fn run(mut config: Config, stop: Arc<AtomicBool>) -> Result<(), Error> {
                         }
                         let message = hongguo::playback_message(playback.as_ref());
                         let _ = webview.post_json(&message);
-                        hongguo_playback = Some(message);
+                        hongguo_playback = playback.as_ref().map(|_| message);
                     }
                 }
             }

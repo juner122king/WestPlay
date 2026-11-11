@@ -8,6 +8,7 @@ import { RETURN_BUTTON_SIZE, returnButtonCentre } from '../state/screen'
 import { textScale } from '../state/textSize'
 import { Player } from '../apps/youtube/Player'
 import { BilibiliPlayer } from '../apps/bilibili/Player'
+import { HongguoPlayer } from '../apps/hongguo/Player'
 import { type Hole, useYouTube } from '../apps/youtube/youtube'
 import { useDouyin } from '../apps/douyin/douyin'
 import { useHongguo } from '../apps/hongguo/hongguo'
@@ -77,7 +78,8 @@ export function Shell({ children, overlay, entering = false }: ShellProps) {
   // in small (YouTube's Now playing): the CarPlay area is cut open where it shows.
   const ytWatching = useYouTube((state) => state.open)
   const biliWatching = useBilibili((state) => state.open)
-  const watching = ytWatching || biliWatching
+  const hgWatching = useHongguo((state) => state.open)
+  const watching = ytWatching || biliWatching || hgWatching
   const holdSidebar = useYouTube((state) => state.holdSidebar)
   const ytHole = useYouTube((state) => state.hole)
   const dyHole = useDouyin((state) => state.hole)
@@ -140,6 +142,7 @@ export function Shell({ children, overlay, entering = false }: ShellProps) {
           {children}
           <Player />
           <BilibiliPlayer />
+          <HongguoPlayer />
           <Keyboard />
           <VolumeHud />
           <div ref={corners} className="screen-corners" aria-hidden />

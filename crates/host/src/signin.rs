@@ -102,9 +102,9 @@ pub const DOUYIN: Site = Site {
 
 /// Hongguo's sign-in with desktop QR code/SMS.
 pub const HONGGUO: Site = Site {
-    sign_in: "https://www.hongguoduanju.com/",
+    sign_in: "https://hongguoduanju.com/?tab=home",
     title: "Sign in to Hongguo - WestPlay",
-    home: "https://www.hongguoduanju.com/",
+    home: "https://hongguoduanju.com/?tab=home",
     not_yet: None,
     page_says: Some(include_str!("hongguo_sign_in.js")),
     cookie: Some("sessionid"),

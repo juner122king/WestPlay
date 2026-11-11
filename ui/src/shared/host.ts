@@ -729,15 +729,16 @@ export type HongguoCommand =
   | { action: 'start' }
   | { action: 'signIn' }
   | { action: 'signOut' }
-  | { action: 'play'; drama?: HongguoDrama; episode?: number }
+  | { action: 'play'; drama?: HongguoDrama; episode?: number; vid?: string }
   | { action: 'pause' }
-  | { action: 'toggle' }
+  | { action: 'stop' }
   | { action: 'next' }
   | { action: 'previous' }
   | { action: 'seek'; seconds: number }
   | { action: 'volume'; percent: number }
-  | { action: 'selectEpisode'; episode: number }
+  | { action: 'selectEpisode'; episode: number; vid?: string }
   | { action: 'setSpeed'; speed: number }
+  | { action: 'setAutoNext'; on: boolean }
   | { action: 'toggleAutoNext' }
   | { action: 'show'; x: number; y: number; width: number; height: number; crop?: boolean }
   | { action: 'crop'; on: boolean }
@@ -745,29 +746,83 @@ export type HongguoCommand =
   | { action: 'ask'; id: number; question: HongguoQuestion }
 
 export type HongguoQuestion =
-  { ask: 'catalog' } | { ask: 'featured' } | { ask: 'search'; query: string } | { ask: 'episodes'; dramaId: string }
+  | { ask: 'home' }
+  | { ask: 'feed'; cursor?: string; sessionId?: string; shownEntryIds?: string[] }
+  | { ask: 'category'; contentType?: string; slug?: string; page?: number }
+  | { ask: 'rank'; kind?: string; page?: number }
+  | { ask: 'search'; query: string }
+  | { ask: 'suggest'; query: string }
+  | { ask: 'detail'; dramaId: string }
+  | { ask: 'catalog' }
+  | { ask: 'featured' }
+  | { ask: 'episodes'; dramaId: string }
+
+export interface HongguoCelebrity {
+  id?: string
+  name: string
+  role?: string
+  avatar?: string
+}
 
 export interface HongguoDrama {
   id: string
   title: string
   category?: string
+  tags?: string[]
   author?: string
   cover?: string
+  backdrop?: string
+  titleArt?: string
   totalEpisodes: number
-  episodesCount?: number
+  accessibleEpisodes?: number
+  episodeText?: string
   synopsis?: string
-  description?: string
+  heatText?: string
+  scoreText?: string
+  favoriteText?: string
+  likeText?: string
+  rank?: number
+  statusTags?: string[]
+  genre?: string
+  vidList?: string[]
+  entryId?: string
+  sessionId?: string
+}
+
+export interface HongguoHomeSection {
+  tabType: string
+  tabName: string
+  dramas: HongguoDrama[]
+}
+
+export interface HongguoCategorySelector {
+  id: string
+  name: string
+}
+
+export interface HongguoDramaDetail {
+  drama: HongguoDrama
+  celebrities: HongguoCelebrity[]
+  vidList: string[]
+  accessibleEpisodes: number
+  favoriteCount?: string
+  likeCount?: string
+  reviewCount?: string
+  recordNumber?: string
+  recommendations: HongguoDrama[]
 }
 
 export interface HongguoEpisode {
   episode: number
+  vid?: string
   title: string
   duration?: number
-  url?: string
+  accessible?: boolean
 }
 
 export interface HongguoPlayback {
   dramaId?: string
+  vid?: string
   title: string
   dramaTitle?: string
   artist?: string
@@ -776,17 +831,33 @@ export interface HongguoPlayback {
   episode?: number
   episodeNumber?: number
   totalEpisodes?: number
+  accessibleEpisodes?: number
   artwork?: string
   duration: number
   position: number
   status: string
   speed?: number
   autoNext?: boolean
+  error?: string
 }
 
 export interface HongguoAnswers {
+  banners?: HongguoDrama[]
+  sections?: HongguoHomeSection[]
   dramas?: HongguoDrama[]
+  selectors?: HongguoCategorySelector[]
+  detail?: HongguoDramaDetail
   episodes?: HongguoEpisode[]
+  suggestions?: string[]
+  updatedText?: string
+  sessionId?: string
+  nextCursor?: string
+  pageNum?: number
+  totalPages?: number
+  total?: number
+  hasMore?: boolean
+  failed?: boolean
+  error?: string
 }
 
 /** What the Music app asks of Apple Music's web player (`westplay_host::apple_music::Command`), run hidden by

@@ -1,5 +1,5 @@
 import { type MusicPlayer, pauseMusicWithGame } from '../musicWithGame'
-import { playOrPause, sendVolume, skip, useHongguo } from './hongguo'
+import { playOrPause, send, sendVolumePercent, skip, useHongguo } from './hongguo'
 
 export const hongguoPlayer: MusicPlayer = {
   name: 'hongguo',
@@ -10,9 +10,12 @@ export const hongguoPlayer: MusicPlayer = {
   resumeHere: () => {
     if (!useHongguo.getState().playing) playOrPause()
   },
-  volume: () => useHongguo.getState().volume,
-  sendVolume: (share) => sendVolume(share),
-  setVolume: (share) => sendVolume(share),
+  volume: () => {
+    const { volume, muted } = useHongguo.getState()
+    return muted ? 0 : volume / 100
+  },
+  sendVolume: (share) => send({ action: 'volume', percent: Math.round(share * 100) }),
+  setVolume: (share) => sendVolumePercent(Math.round(share * 100)),
   skip: (direction) => skip(direction),
   subscribe: (changed) =>
     useHongguo.subscribe((state, before) => {

@@ -149,7 +149,9 @@ export function VideoHole({
         postToHost({ type: 'douyin', command: { action: 'hide' } })
       } else if (app === 'hongguo') {
         useHongguo.setState({ hole: null })
-        postToHost({ type: 'hongguo', command: { action: 'hide' } })
+        if (!useHongguo.getState().open) {
+          postToHost({ type: 'hongguo', command: { action: 'hide' } })
+        }
       } else if (app === 'bilibili') {
         useBilibili.setState({ hole: null })
         if (!useBilibili.getState().open) {

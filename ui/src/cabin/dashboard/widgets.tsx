@@ -2,6 +2,7 @@ import { type Backdrop, type Look, useWordsOver, wordsClass } from '../apps/musi
 import { Crossfade } from '../apps/music/Crossfade'
 import { VideoWidget } from '../apps/youtube/VideoWidget'
 import { BilibiliVideoWidget } from '../apps/bilibili/VideoWidget'
+import { HongguoVideoWidget } from '../apps/hongguo/VideoWidget'
 import { NextGlyph, NoteGlyph, PauseGlyph, PlayGlyph, PreviousGlyph } from '../apps/music/glyphs'
 import { TrackSlide } from '../apps/music/TrackSlide'
 import { useTrackTransition } from '../apps/music/useTrackTransition'
@@ -18,12 +19,6 @@ import {
   useXimalayaSource,
 } from '../apps/ximalaya/ximalaya'
 import { playOrPause as playOrPauseDouyin, skip as skipDouyin, useDouyin, useDouyinSource } from '../apps/douyin/douyin'
-import {
-  playOrPause as playOrPauseHongguo,
-  skip as skipHongguo,
-  useHongguo,
-  useHongguoSource,
-} from '../apps/hongguo/hongguo'
 import {
   playOrPause as playOrPauseNetease,
   skip as skipNetease,
@@ -58,7 +53,7 @@ export function NowPlayingWidget() {
       {shown && showing === 'bilibili' && bilibili && <BilibiliVideoWidget />}
       {shown && showing === 'ximalaya' && ximalaya && <XimalayaWidget ximalaya={ximalaya} />}
       {shown && showing === 'douyin' && douyin && <DouyinWidget douyin={douyin} />}
-      {shown && showing === 'hongguo' && hongguo && <HongguoWidget hongguo={hongguo} />}
+      {shown && showing === 'hongguo' && hongguo && <HongguoVideoWidget />}
       {shown && showing === 'netease' && netease && <NeteaseWidget netease={netease} />}
       {shown && showing === 'appleMusic' && appleMusic && <AppleMusicWidget appleMusic={appleMusic} />}
       {shown && showing === 'player' && player && <PlayerWidget player={player} />}
@@ -119,25 +114,6 @@ function DouyinWidget({ douyin }: { douyin: NonNullable<ReturnType<typeof useDou
         if (action === 'playPause') playOrPauseDouyin()
         else if (action === 'next') skipDouyin(1)
         else if (action === 'previous') skipDouyin(-1)
-      }}
-    />
-  )
-}
-
-/** Hongguo short drama audio: what plays, its controls, opening Hongguo on Now Playing. */
-function HongguoWidget({ hongguo }: { hongguo: NonNullable<ReturnType<typeof useHongguoSource>> }) {
-  return (
-    <MusicWidget
-      source={hongguo.source}
-      artwork={hongguo.artwork}
-      onOpen={() => {
-        useHongguo.setState({ nowPlaying: true })
-        go({ type: 'openApp', app: 'hongguo' })
-      }}
-      onControl={(action) => {
-        if (action === 'playPause') playOrPauseHongguo()
-        else if (action === 'next') skipHongguo(1)
-        else if (action === 'previous') skipHongguo(-1)
       }}
     />
   )

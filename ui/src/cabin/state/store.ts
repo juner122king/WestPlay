@@ -638,9 +638,11 @@ function receiveHostMessage(now: () => number): (message: HostMessage) => void {
       case 'hongguo':
         receiveHongguoState(message.signedIn, message.playing, message.signingIn)
         break
-      case 'hongguoAnswer':
-        receiveHongguoAnswer(message.id, message.failed, message.error, message.dramas)
+      case 'hongguoAnswer': {
+        const { type: _, id, ...answer } = message
+        receiveHongguoAnswer(id, answer)
         break
+      }
       case 'hongguoPlayback':
         receiveHongguoPlayback(message.playback)
         break
