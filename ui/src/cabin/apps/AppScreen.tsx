@@ -8,6 +8,7 @@ import { useLanguage, useText } from '../state/text'
 import { isCopied, noteOpened, openedBefore, saveCopy, savedCopy } from './launchCopies'
 import { MusicApp } from './music/MusicApp'
 import { PlayerApp } from './player/PlayerApp'
+import { SafariApp } from './safari/SafariApp'
 import { SettingsApp } from './settings/SettingsApp'
 import { BilibiliApp } from './bilibili/BilibiliApp'
 import { XimalayaApp } from './ximalaya/XimalayaApp'
@@ -105,6 +106,8 @@ function AppContent({ app }: { app: AppId }) {
       return <PlayerApp />
     case 'freight':
       return <FreightApp />
+    case 'safari':
+      return <SafariApp />
     default:
       return <NotBuiltYet app={app} />
   }

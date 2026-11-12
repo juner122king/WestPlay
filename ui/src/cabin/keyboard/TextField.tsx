@@ -17,6 +17,8 @@ interface TextFieldProps {
   label: string
   /** A symbol before the text (search's magnifier). */
   icon?: ReactNode
+  /** Selected as it comes (Safari's address field, pressed: typed into at once, the keyboard up). */
+  autoSelect?: boolean
 }
 
 /**
@@ -24,7 +26,17 @@ interface TextFieldProps {
  * so WestPlay draws its own field, caret and all, and the keyboard (store.ts) writes into it. Pressing it
  * selects it and brings the keyboard up; it lets go when it leaves the screen.
  */
-export function TextField({ id, value, onChange, onSubmit, returnKind = 'done', hint, label, icon }: TextFieldProps) {
+export function TextField({
+  id,
+  value,
+  onChange,
+  onSubmit,
+  returnKind = 'done',
+  hint,
+  label,
+  icon,
+  autoSelect = false,
+}: TextFieldProps) {
   const text = useText()
   const typing = useKeyboard((state) => state.field?.id === id)
   const language = keyboardLanguage(useLanguage())
@@ -53,6 +65,9 @@ export function TextField({ id, value, onChange, onSubmit, returnKind = 'done', 
   const select = () => useKeyboard.getState().attach(field, language)
 
   useEffect(() => () => useKeyboard.getState().detach(field.id), [field])
+  useEffect(() => {
+    if (autoSelect) select()
+  }, [])
 
   // A long text shows its end, where the typing is.
   const shown = useRef<HTMLSpanElement>(null)

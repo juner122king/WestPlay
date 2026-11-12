@@ -55,7 +55,7 @@ export function About({ status, setup, cw, update, showUpdate }: PageProps) {
   return (
     <Panel
       place="page"
-      title={w.title}
+      title={`${w.title}${version ? ` ${version}` : ''}`}
       sub={w.sub}
       action={
         <Button glass onClick={copy}>

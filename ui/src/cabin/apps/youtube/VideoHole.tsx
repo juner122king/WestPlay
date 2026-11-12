@@ -18,6 +18,12 @@ export type VideoApp = 'youtube' | 'douyin' | 'hongguo' | 'bilibili'
  * picture is the underlying WebView's own, placed under the page by the host, and the CarPlay area is cut open over this
  * element (Shell.tsx), its rounding included. `crop`: the picture fills it, cropped (otherwise all of it
  * shows, with bars). Placed again whenever it may have moved.
+ *
+ * The picture isn't part of the page, so it can't slide or fade with it: while its screen comes or goes
+ * (Home and the Dashboard trading places), the video's thumbnail stands in, moving with the screen, and the
+ * picture takes over where it stops. So too on the Dashboard while its column of widgets slides away for the map
+ * to grow, and back (owner 2026-11-11: the picture stayed where it was, over the grown map). Outside WestPlay (a
+ * plain browser) the thumbnail is all there is.
  */
 export function VideoHole({
   className,
@@ -59,6 +65,9 @@ export function VideoHole({
     // The screen it's on, while it comes or goes (CabinApp.tsx's `Screens`).
     const slot = element.closest('.screen-slot')
     const moving = () => !!slot && (slot.classList.contains('entering') || slot.classList.contains('leaving'))
+    // The Dashboard's column away for the map grown, or sliding (Dashboard.tsx: map-wide until it rests again).
+    const board = element.closest('.dashboard')
+    const away = () => !!board?.classList.contains('map-wide')
     const place = () => {
       const area = document.querySelector('.carplay')?.getBoundingClientRect()
       const box = element.getBoundingClientRect()
@@ -102,15 +111,38 @@ export function VideoHole({
     let settling: ReturnType<typeof setTimeout>[] = []
     let gone = false
     const follow = () => {
-      if (gone || following || moving()) return
+      if (gone || following || moving() || away()) return
       following = followArea(place, element)
       // An app's window grows in from its icon (a transform, which no size change tells of): placed again
       // as it settles.
       settling = [120, 350, 700].map((ms) => setTimeout(place, ms))
     }
+    // The picture gone while the column it's in slides away (the thumbnail going with it), until it's back.
+    const unfollow = () => {
+      if (!following) return
+      following()
+      following = null
+      settling.forEach(clearTimeout)
+      settling = []
+      if (app === 'douyin') {
+        useDouyin.setState({ hole: null })
+        postToHost({ type: 'douyin', command: { action: 'hide' } })
+      } else if (app === 'hongguo') {
+        useHongguo.setState({ hole: null })
+        postToHost({ type: 'hongguo', command: { action: 'hide' } })
+      } else if (app === 'bilibili') {
+        useBilibili.setState({ hole: null })
+        sendBilibili({ action: 'hide' })
+      } else {
+        useYouTube.setState({ hole: null })
+        command({ action: 'hide' })
+      }
+    }
     // On a screen still coming in, the picture waits for it to stop (a screen going never shows it).
     const stopped = slot ? new MutationObserver(follow) : null
     if (slot) stopped?.observe(slot, { attributes: true, attributeFilter: ['class'] })
+    const column = board ? new MutationObserver(() => (away() ? unfollow() : follow())) : null
+    if (board) column?.observe(board, { attributes: true, attributeFilter: ['class'] })
     // The CarPlay area growing back from the truck's screen (a transform, which nothing tells of): the
     // picture once it's grown (at the latest a moment after).
     const area = document.querySelector('.carplay')
@@ -137,6 +169,7 @@ export function VideoHole({
     return () => {
       gone = true
       stopped?.disconnect()
+      column?.disconnect()
       area?.removeEventListener('transitionend', grew)
       clearTimeout(grown)
       settling.forEach(clearTimeout)

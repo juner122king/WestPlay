@@ -49,6 +49,7 @@ export function pauseMusicWithGame(player: MusicPlayer): () => void {
   let paused = false
   const name = player.name === 'apple music' ? 'appleMusic' : player.name
   const app = MEDIA_APPS.includes(name as MediaApp) ? (name as MediaApp) : null
+  const playbackApp = name === 'safari' ? 'safari' : app
   const rememberPause = (value: boolean) => {
     paused = value
     if (app) postToHost({ type: 'mediaActivity', app, resumePending: value })
@@ -59,7 +60,12 @@ export function pauseMusicWithGame(player: MusicPlayer): () => void {
     resumeHere: () => automaticMediaCommand(() => player.resumeHere()),
   }
   const intent = subscribeMediaIntent((target, action) => {
-    if (target === app || ['play', 'load', 'next', 'previous', 'selectEpisode'].includes(action)) {
+    // Its own acknowledgement may arrive synchronously inside resumeHere: keep that fade intact.
+    if (action === 'started' && target === playbackApp) return
+    if (
+      target === playbackApp ||
+      ['play', 'resume', 'load', 'next', 'previous', 'selectEpisode', 'started'].includes(action)
+    ) {
       if (paused) {
         stopFade(player.name)
         rememberPause(false)

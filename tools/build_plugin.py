@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """
-Build westplay.dll and stage it for packaging. Game deployment requires --deploy.
+Build westplay.dll and stage it for packaging. Game deployment requires --deploy
+and a matching westplay-probe.exe prepared by tools/build_resources.ps1.
 """
 
 import argparse
@@ -40,6 +41,7 @@ def safe_copy(src, dest):
             print(f"Deployed (after rename of locked DLL): {dest}")
         except Exception as e:
             print(f"Failed to copy to {dest}: {e}")
+            raise
 
 def build(deploy=False):
     env = os.environ.copy()
@@ -89,11 +91,15 @@ def build(deploy=False):
     os.makedirs(os.path.dirname(pkg_target), exist_ok=True)
     shutil.copy2(built_dll, pkg_target)
 
-    if deploy and os.path.isdir(ATS_PLUGINS):
-        safe_copy(built_dll, os.path.join(ATS_PLUGINS, "westplay.dll"))
-
-    if deploy and os.path.isdir(ETS2_PLUGINS):
-        safe_copy(built_dll, os.path.join(ETS2_PLUGINS, "westplay.dll"))
+    if deploy:
+        probe = os.path.join(REPO_ROOT, "target", "release", "westplay-probe.exe")
+        if not os.path.isfile(probe):
+            raise FileNotFoundError("Missing westplay-probe.exe; run tools/build_resources.ps1 first")
+        for plugins in (ATS_PLUGINS, ETS2_PLUGINS):
+            if os.path.isdir(plugins):
+                # The probe must be beside the plugin before a game can load that plugin.
+                safe_copy(probe, os.path.join(plugins, "westplay-probe.exe"))
+                safe_copy(built_dll, os.path.join(plugins, "westplay.dll"))
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)

@@ -161,6 +161,8 @@ impl Junctions {
             .collect();
         let mut lane_hints = Vec::new();
         let mut junctions = Vec::new();
+        // The junctions where trucks are kept to lanes of their own (a toll plaza's booths): their way is those lanes.
+        let mut trucks_apart = BTreeSet::new();
         for (span, pair) in nodes.windows(2).enumerate() {
             let (from, to) = (pair[0], pair[1]);
             let Some(items) = prefabs_at.get(&from.uid) else { continue };
@@ -222,6 +224,9 @@ impl Junctions {
                         lane_hints.push(LaneHint { node: span, start, end: span + 1, lanes });
                     }
                 }
+                if prefab.trucks_kept_apart(own(a), own(b)) {
+                    trucks_apart.insert(span);
+                }
                 junctions.push(Junction { span, path: placed, maneuver: maneuver(prefab, own(a), own(b)) });
                 break;
             }
@@ -244,8 +249,16 @@ impl Junctions {
             junction.path = match (junction.maneuver, start, end) {
                 // Straight on (no turn to make: on along a motorway past its exit, through a lane closing),
                 // between roads: on along them, as the road would run, not along whichever lane the
-                // junction's way takes (a lane leaning towards the exit and back).
-                (None, Some((from, _, leaving)), Some((to, _, arriving))) => hermite(from, leaving, to, arriving),
+                // junction's way takes (a lane leaning towards the exit and back). Not where trucks are kept to
+                // lanes of their own: through a toll plaza the game's GPS takes the truck's booth, to the side (owner
+                // 2026-11-11: the game's route went to a gate on the right, ours straight through the cars').
+                (None, Some((from, _, leaving)), Some((to, _, arriving))) if !trucks_apart.contains(&junction.span) => {
+                    hermite(from, leaving, to, arriving)
+                }
+                // Straight through a toll plaza on the truck's own lanes: on them at its booths, its middle.
+                (None, _, _) if trucks_apart.contains(&junction.span) => {
+                    onto_ends_from_lanes(&junction.path, at(junction.span), at(junction.span + 1))
+                }
                 _ => onto_ends(&junction.path, at(junction.span), at(junction.span + 1)),
             };
         }
@@ -357,7 +370,8 @@ fn shifted_nodes(
     // The road between two consecutive nodes.
     let road = |from: usize, to: usize| -> Option<OnRoad> {
         let (a, b) = (nodes.get(from)?.uid, nodes.get(to)?.uid);
-        let (index, along) = roads.get(&(a, b)).map(|&road| (road, true)).or_else(|| roads.get(&(b, a)).map(|&road| (road, false)))?;
+        let (index, along) =
+            roads.get(&(a, b)).map(|&road| (road, true)).or_else(|| roads.get(&(b, a)).map(|&road| (road, false)))?;
         let ItemData::Road { look, .. } = &map.items[index].data else { return None };
         Some(OnRoad { section: sections.get(&index)?, ways: looks.get(*look).and_then(|look| look.ways), along })
     };
@@ -391,7 +405,8 @@ fn shifted_nodes(
             let way = way_at(index, along)?;
             let (ahead_way, behind_way) = (way_at(last, along)?, way_at(first, along)?);
             let (ahead, ahead_road) = driven(last, last + 1, true);
-            let (behind, behind_road) = first.checked_sub(1).map_or_else(Default::default, |before| driven(first, before, false));
+            let (behind, behind_road) =
+                first.checked_sub(1).map_or_else(Default::default, |before| driven(first, before, false));
             let (ahead, behind) = (across(last, ahead_way, &ahead), across(first, behind_way, &behind));
             let road_both_ways = [across(last, ahead_way, &ahead_road), across(first, behind_way, &behind_road)];
             let both: Vec<f32> =
@@ -598,6 +613,26 @@ fn onto_ends(path: &[Point], start: Point, end: Point) -> Vec<Point> {
         .collect()
 }
 
+/// `path` moved to start at `start` and end at `end` as [`onto_ends`], each end's gap easing out by the middle of
+/// it: on its own lanes there (a toll plaza's truck booths, which the game keeps trucks to).
+fn onto_ends_from_lanes(path: &[Point], start: Point, end: Point) -> Vec<Point> {
+    let (Some(&first), Some(&last)) = (path.first(), path.last()) else { return Vec::new() };
+    let (from, to) = ([start[0] - first[0], start[1] - first[1]], [end[0] - last[0], end[1] - last[1]]);
+    let mut along = vec![0.0];
+    for pair in path.windows(2) {
+        along.push(along.last().unwrap() + distance(pair[0], pair[1]));
+    }
+    let total = along.last().copied().unwrap_or(0.0).max(f32::EPSILON);
+    path.iter()
+        .zip(&along)
+        .map(|(p, &at)| {
+            let t = at / total;
+            let (a, b) = ((1.0 - 2.0 * t).max(0.0), (2.0 * t - 1.0).max(0.0));
+            [p[0] + from[0] * a + to[0] * b, p[1] + from[1] * a + to[1] * b]
+        })
+        .collect()
+}
+
 fn distance(a: Point, b: Point) -> f32 {
     (b[0] - a[0]).hypot(b[1] - a[1])
 }
@@ -627,7 +662,10 @@ mod tests {
         assert_eq!(on_the_road(&motorway, apart(6.5), false, false), -10.75);
         // Wider on one side: each way on its own.
         let uneven = section([14.0, 18.0], Some([4.0, 4.0]));
-        assert_eq!((on_the_road(&uneven, apart(6.5), true, true), on_the_road(&uneven, apart(6.5), false, true)), (9.0, 11.0));
+        assert_eq!(
+            (on_the_road(&uneven, apart(6.5), true, true), on_the_road(&uneven, apart(6.5), false, true)),
+            (9.0, 11.0)
+        );
         // Lanes 4 m apart, surfaces 2 m (ATS's `us_tmpl14`, 3+3: read as one road the route ran down the gap).
         assert_eq!(on_the_road(&section([19.0, 19.0], Some([1.0, 1.0])), apart(8.75), true, true), 10.0);
     }
@@ -636,21 +674,33 @@ mod tests {
     fn on_one_surface_a_route_runs_on_its_lanes_if_they_lie_apart() {
         // A 2-1-2 road: 6.75 m out each way, the turning lane between them paved.
         let road = section([12.45, 12.45], None);
-        assert_eq!((on_the_road(&road, apart(6.75), true, true), on_the_road(&road, apart(6.75), false, true)), (6.75, 6.75));
-        assert_eq!((on_the_road(&road, apart(6.75), true, false), on_the_road(&road, apart(6.75), false, false)), (-6.75, -6.75));
+        assert_eq!(
+            (on_the_road(&road, apart(6.75), true, true), on_the_road(&road, apart(6.75), false, true)),
+            (6.75, 6.75)
+        );
+        assert_eq!(
+            (on_the_road(&road, apart(6.75), true, false), on_the_road(&road, apart(6.75), false, false)),
+            (-6.75, -6.75)
+        );
     }
 
     #[test]
     fn on_a_road_both_ways_a_route_runs_on_its_own_side() {
         // One lane each way, nothing between them.
         let road = section([3.75, 3.75], None);
-        assert_eq!((on_the_road(&road, apart(2.25), true, true), on_the_road(&road, apart(2.25), false, true)), (2.25, 2.25));
+        assert_eq!(
+            (on_the_road(&road, apart(2.25), true, true), on_the_road(&road, apart(2.25), false, true)),
+            (2.25, 2.25)
+        );
         assert_eq!(on_the_road(&road, apart(2.25), true, false), -2.25);
         // Two surfaces meeting, a painted middle.
         assert_eq!(on_the_road(&section([9.5, 9.5], Some([0.0, 0.0])), apart(4.75), true, true), 4.75);
         // Finland's `balt23`, two lanes each way, a 2 m reservation: on the surface of its own side, not on the reservation.
         let split = section([11.0, 11.0], Some([1.0, 1.0]));
-        assert_eq!((on_the_road(&split, apart(5.5), true, true), on_the_road(&split, apart(5.5), false, true)), (6.0, 6.0));
+        assert_eq!(
+            (on_the_road(&split, apart(5.5), true, true), on_the_road(&split, apart(5.5), false, true)),
+            (6.0, 6.0)
+        );
     }
 
     #[test]
@@ -784,5 +834,17 @@ mod tests {
         // Each end its own gap: halfway, half of each.
         let path = onto_ends(&lane, [0.0, 0.0], [20.0, 4.0]);
         assert!((path[1][1] - 2.0).abs() < 1e-6 && (path[1][0] - 10.0).abs() < 1e-6);
+    }
+
+    #[test]
+    fn through_a_toll_plaza_the_route_runs_on_the_trucks_booth() {
+        // The truck's booth 12 m right of the road's middle, its lanes there from 10 m to 30 m; the road's middle at
+        // either end, the lanes in and out 2 m beside it.
+        let lanes = [[0.0, 2.0], [10.0, 12.0], [20.0, 12.0], [30.0, 12.0], [40.0, 2.0]];
+        let path = onto_ends_from_lanes(&lanes, [0.0, 0.0], [40.0, 0.0]);
+        assert_eq!((path[0], path[4]), ([0.0, 0.0], [40.0, 0.0]));
+        // At the booth (the middle), on the truck's lane; on the way to it, the gap easing out.
+        assert_eq!(path[2], [20.0, 12.0]);
+        assert!(path[1][1] > 10.0 && path[1][1] < 12.0 && path[3][1] > 10.0 && path[3][1] < 12.0);
     }
 }

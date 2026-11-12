@@ -2,6 +2,7 @@
 node_modules/
 dist/
 *.log
+__pycache__/
 
 # Third-party tools that aren't ours to redistribute
 /tools/scs_extractor/

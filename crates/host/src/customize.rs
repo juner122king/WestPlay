@@ -27,7 +27,7 @@ const WALLPAPERS: &str = "wallpapers";
 const ICONS: &str = "icons";
 
 /// An icon's file name (without its extension), and the role the cabin page knows it by.
-pub const ICON_ROLES: [(&str, &str); 16] = [
+pub const ICON_ROLES: [(&str, &str); 17] = [
     ("maps", "maps"),
     ("music", "music"),
     ("bilibili", "bilibili"),
@@ -44,6 +44,7 @@ pub const ICON_ROLES: [(&str, &str); 16] = [
     ("youtube", "youtube"),
     ("player", "player"),
     ("freight", "freight"),
+    ("safari", "safari"),
 ];
 
 /// The kinds of image a wallpaper can be.
@@ -655,10 +656,7 @@ mod tests {
         let icons: Vec<_> = sets[0].icons.iter().map(|(role, icon)| (*role, icon.clone())).collect();
         assert_eq!(
             icons,
-            vec![
-                ("maps", both("icons/Retro Icons/maps.png")),
-                ("netease", both("icons/Retro Icons/netease.png"))
-            ]
+            vec![("maps", both("icons/Retro Icons/maps.png")), ("netease", both("icons/Retro Icons/netease.png"))]
         );
 
         assert!(remove_icon_set(&dir, "Retro Icons").unwrap());

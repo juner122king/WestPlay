@@ -3,6 +3,58 @@
 What changed in each release of WestPlay. The newest release's notes are what the app shows when it offers the
 update.
 
+## 2.3.0-domestic.1 国内定制版 / Domestic Edition (2026-11-12)
+- 同步上游 2.3.0：Safari、全屏亮度、卡车收费通道与称重站导航、主页与平板适配、键盘与视频显示、图形工具兼容及引擎生命周期修复。
+- 保留国内平台、货运 HUD、信号灯倒计时、车道引导、全程路线概览和 30 秒闲置资源回收；Safari 参与播放互斥与游戏暂停，沿用上游标签恢复机制。
+- 版本统一添加 domestic.1 标识；仅保留中英双语，原版在线更新继续关闭，现有用户数据保持不变。
+- Includes upstream 2.3.0 while retaining domestic integrations. Domestic revisions increment domestic.N; a new upstream version starts at domestic.1. Upgrade manually through the domestic channel.
+
+## 2.3.0 (2026-11-11)
+- Safari: the web in the cab, in iPad Safari's look (iPadOS 26). Tabs in a tab bar of their own, or Compact, in the
+  toolbar (Settings › Safari › Tabs); the bars take the colour of the page's top as it changes; the tab overview,
+  History, the Start Page with your most visited sites, and the page menu's text size. What you type is a website or
+  a search with the search engine you pick (Google, Yahoo, Bing, DuckDuckGo or Ecosia). Every website opens as its
+  mobile site, laid out at Safari's width, and follows WestPlay's light and dark appearance. Sites keep you signed in
+  (Google as YouTube and YouTube Music are), your open tabs and history are there next time, and Clear History clears
+  the last hour, today, today and yesterday or all of it. Drag a page to scroll it as a finger does; a website's
+  drop-down list opens in Safari's own menu; the cab's keyboard and your own type into a site's fields. A page's
+  sound plays through the truck's speakers and pauses with the game, as the music apps do. Cloudflare's and other
+  sites' "are you human" checks pass. No downloads, and nothing a page asks for (camera, location, notifications).
+- Brightness, in Settings › Appearance: a slider between a small and a large sun, as iOS's. It turns down the light
+  the screen gives off, the whole screen together (a video playing and the cursor too), not a dark layer over it.
+- Through a toll plaza the route runs where the game sends a truck: through the trucks' booth, often off to the
+  right, not straight through the cars' booths. Each plaza says which booths trucks may use, per direction, so some
+  routes still go straight through. A weigh station's scale is passed by where there's another way (the plazas at
+  Edirne and Istanbul): it calls a truck in only now and then, and you then drive off the route into it.
+- Home has two rows of apps at most, as CarPlay's, the rest on the next page (the Scania Smart Dash had three). Its
+  pages always move on to the page a drag settles on, from wherever it's let go: let go part of the way, they jumped.
+- The sidebar's Dashboard button is CarPlay's: one rounded square, as large as the Home button's app grid. The
+  sidebar's fourth app (on screens with room for it) is Calendar, Weather, Settings or Safari, whichever you used
+  last.
+- The tablet: no truck button (it's no truck's screen, so there was no way back), its sidebar's app icons a quarter
+  larger and its Home button twice the size (they were smaller than a finger), and its screen less bright by day
+  (it was far too bright).
+- The cursor goes dark over anything light and light over anything dark, from what's on the screen under it: a web
+  page, a video, a picture, the truck's own screen (it went by what the app said, and was often wrong).
+- The keyboard's corners follow the screen's, and it rises over what's on the screen and slides away smoothly:
+  nothing moves or changes size for it (a field low on the page scrolls up into sight). Typing on your own keyboard
+  no longer pops each letter up over its key.
+- A video playing on the Dashboard goes with its card as the map grows over the widgets (its picture stayed over
+  the map), and shows again once the card is back.
+- A map that fails to prepare says why: the companion showed only Rust's "note: run with `RUST_BACKTRACE=1`…" line,
+  never the reason above it.
+- WestPlay works with OptiScaler, Snowy Moon's TAA/DLSS and lighting mods, RivaTuner, the Steam overlay and other
+  tools that wrap or hook the game's picture: the game crashed on its first frame with OptiScaler, and with Snowy
+  Moon's mods or RivaTuner the truck's screen stayed black. WestPlay finds what to hook with a small program of its
+  own outside the game (westplay-probe.exe, beside the plugin), hooks in front of those tools without changing any of
+  their code, and hooks again should another tool write over its hook (RivaTuner's overlay still shows).
+- An American Truck Simulator folder with ETS2's program copied into it is taken for ATS: setup didn't show it, and
+  chosen by hand it was set up as ETS2.
+- When WestPlay's engine starts again (the cab moved to another graphics card), what the one before ran stops with
+  it: the same map was prepared twice at once, and the game's weather and route read twice.
+- When the game crashes, plugin.log says which error ended it and the calls that led to it, and whose code each of
+  WestPlay's hooks went into: a crash with an upscaler or another tool in the game can now be found from the log.
+
 ## 2.2.2 国内定制版 / Domestic Edition (2026-11-11)
 - 整合上游 2.2.2：独立地图构建进程、可选加速构建、指定地图重新准备、音频与地图显示修复，以及崩溃诊断与日志轮转。
 - 保留 B站、网易云音乐、喜马拉雅、抖音、红果短剧、信号灯倒计时、货运 HUD 和中英双语定制；不恢复 Spotify 或 YouTube Music。

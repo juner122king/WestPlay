@@ -40,6 +40,7 @@ const ICON_FILES: [AppIconRole, string][] = [
   ['weather', 'weather'],
   ['youtube', 'youtube'],
   ['player', 'player'],
+  ['safari', 'safari'],
 ]
 
 /**

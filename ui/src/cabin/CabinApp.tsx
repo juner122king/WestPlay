@@ -10,6 +10,7 @@ import { hongguoPlayer, pauseHongguoWithGame } from './apps/hongguo/pauseWithGam
 import { neteasePlayer, pauseNeteaseWithGame } from './apps/netease/pauseWithGame'
 import { pauseYouTubeWithGame, youtubePlayer } from './apps/youtube/pauseWithGame'
 import { pausePlayerWithGame, playerAppPlayer } from './apps/player/pauseWithGame'
+import { pauseSafariWithGame, safariPlayer } from './apps/safari/pauseWithGame'
 import { AppScreen } from './apps/AppScreen'
 import { BootScreen } from './boot/BootScreen'
 import { Dashboard } from './dashboard/Dashboard'
@@ -43,6 +44,7 @@ const PLAYERS = [
   hongguoPlayer,
   appleMusicPlayer,
   playerAppPlayer,
+  safariPlayer,
 ]
 
 /** The in-cabin screen: the shell around the screen for the current route, after the boot sequence. */
@@ -60,6 +62,7 @@ export function CabinApp() {
   useEffect(() => pauseHongguoWithGame(), [])
   useEffect(() => pauseAppleMusicWithGame(), [])
   useEffect(() => pausePlayerWithGame(), [])
+  useEffect(() => pauseSafariWithGame(), [])
   // One of them at a time: the newest to start plays on, the others pause (apps/oneAtATime.ts).
   useEffect(() => oneAtATime(PLAYERS), [])
   // The player's keybinds pressed in the game: the music's volume, or play/pause (apps/keybinds.ts).

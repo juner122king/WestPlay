@@ -9,7 +9,7 @@ if (!$LlvmMingw) {
 $LlvmMingw = [IO.Path]::GetFullPath($LlvmMingw)
 foreach ($tool in @('clang.exe', 'llvm-ar.exe')) {
     if (!(Test-Path -LiteralPath (Join-Path $LlvmMingw "bin/$tool"))) {
-        throw "Missing $tool. Set WESTPLAY_LLVM_MINGW to a complete LLVM-MinGW toolchain. See docs/domestic-2.2.2.md."
+        throw "Missing $tool. Set WESTPLAY_LLVM_MINGW to a complete LLVM-MinGW toolchain. See docs/domestic-2.3.0.md."
     }
 }
 $oldCC = $env:CC
@@ -22,9 +22,11 @@ try {
     $env:WESTPLAY_LLVM_MINGW = $LlvmMingw
     cargo build --release --locked -p westplay-maps
     if ($LASTEXITCODE -ne 0) { throw 'Map builder build failed' }
+    cargo build --release --locked -p westplay-probe
+    if ($LASTEXITCODE -ne 0) { throw 'Graphics probe build failed' }
     python tools/build_plugin.py
     if ($LASTEXITCODE -ne 0) { throw 'Plugin build failed' }
-    foreach ($file in @('westplay-maps.exe', 'westplay.dll')) {
+    foreach ($file in @('westplay-maps.exe', 'westplay-probe.exe', 'westplay.dll')) {
         if (!(Test-Path -LiteralPath (Join-Path $root "target/release/$file"))) { throw "Missing $file" }
     }
 } finally {

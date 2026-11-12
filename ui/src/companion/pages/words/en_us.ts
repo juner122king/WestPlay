@@ -234,7 +234,7 @@ export const words: CompanionWords = {
     doneSub: 'Thanks for driving with it.',
   },
   about: {
-    title: 'About WestPlay — Domestic Edition',
+    title: 'WestPlay Domestic Edition',
     sub: 'Live details from WestPlay and the game, for when something isn’t right.',
     version: 'Version',
     diagnostics: 'Diagnostics',

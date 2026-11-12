@@ -1,3 +1,4 @@
+import { notifyPlaybackStarted } from '../../shared/host'
 import type { MusicPlayer } from './musicWithGame'
 
 /**
@@ -10,6 +11,7 @@ export function oneAtATime(players: readonly MusicPlayer[]): () => void {
   const stops = players.map((player) =>
     player.subscribe((started) => {
       if (!started) return
+      notifyPlaybackStarted(player.name)
       for (const other of players) {
         if (other !== player && other.playingHere()) other.pauseHere()
       }

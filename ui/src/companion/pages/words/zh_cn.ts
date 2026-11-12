@@ -236,7 +236,7 @@ export const words: CompanionWords = {
     doneSub: '感谢一路相伴。',
   },
   about: {
-    title: '关于 WestPlay · 国内定制版',
+    title: 'WestPlay 国内定制版',
     sub: '出问题时可查看的 WestPlay 与游戏实时信息。',
     version: '版本',
     diagnostics: '诊断',
