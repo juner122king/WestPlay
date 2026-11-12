@@ -9,8 +9,11 @@
 - After 15 seconds without explicit map interaction, overview returns to the driving camera and restores the overlays. Dragging/holding suspends the timer; release starts a fresh 15 seconds. Hover, telemetry and camera animation do not reset it. The return button works immediately, and overview zoom does not overwrite driving zoom.
 - Closing Maps, disposing the map, opening search, cancelling the route or losing navigation exits overview. Route geometry updates reframe the overview after a gesture ends. Search/Directions candidate-route preview remains a separate mode and is not subject to this timeout.
 
+Turn and lane countdowns use physical metres along the drawn route, including junction paths and the approach to its first node. Geometry and cumulative lengths are cached per immutable route object; truck progress is shared across card, lane and visibility selectors. City/highway scale changes do not change these distances. Off-route projections beyond the map's snap range are rejected. While geometry is unavailable, scaled game distances are divided by a finite positive `localScale`; without either usable source, guidance is hidden. The map and Dashboard share this logic. Trip totals, ETA and stop/destination lists retain game-distance units.
+
 ## Module boundaries
 
+- `guidanceDistance.ts` supplies physical node/truck distances independently of a mounted map.
 - `laneGuidance.ts` validates host advice and selects the active hint; `useLaneHint.ts` advances its hysteresis on store updates.
 - `LaneRibbon.tsx` and `SpeedDisplay.tsx` render the shared navigation overlays.
 - `routeOverview.ts` owns the overview session timer and route bounds; `liveMap.ts` owns MapLibre camera integration and gesture-listener teardown.
@@ -36,7 +39,7 @@ interface LaneHint {
 }
 ```
 
-Advice is bound to the existing route ID. Old hosts may omit the field. The UI rejects invalid, stale or trivial advice and clears it on reroute. It enters at 1,000 game-distance metres and retains the same event up to 1,200 metres to avoid threshold chatter. Straight-through lane decisions are independent of turn instructions.
+Advice is bound to the existing route ID. Old hosts may omit the field. The UI rejects invalid, stale or trivial advice and clears it on reroute. It enters at 1,000 physical metres and retains the same event up to 1,200 metres to avoid threshold chatter. Straight-through lane decisions are independent of turn instructions.
 
 Single-lane approaches, all-lanes-usable decisions, ambiguous spacing, broken connections, missing truck paths and cyclic/roundabout prefabs produce no ribbon. The UI continues showing ordinary navigation instead. There is no car-only fallback, guessed lane advice, signpost text parser, lane-level road highlighting or new DLL hook/shared-memory protocol version.
 

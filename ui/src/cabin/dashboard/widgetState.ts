@@ -1,5 +1,5 @@
 import { useShallow } from 'zustand/react/shallow'
-import { guidanceOf } from '../maps/guidance'
+import { guidanceFor } from '../maps/guidanceDistance'
 import { useMapData } from '../maps/mapData'
 import { useClockStyle } from '../state/hooks'
 import { useCabin, useLive } from '../state/store'
@@ -46,11 +46,5 @@ export function useAnyWidget(): boolean {
 
 /** Whether turn-by-turn shows: while the route has a step to show (as GuidanceCard decides). */
 export function useGuided(): boolean {
-  return useLive((state) => {
-    const { route, routeNext, telemetry } = state
-    return (
-      route !== null &&
-      guidanceOf(route.distances, route.maneuvers, routeNext, telemetry?.navigationDistance ?? 0) !== null
-    )
-  })
+  return useLive((state) => guidanceFor(state) !== null)
 }

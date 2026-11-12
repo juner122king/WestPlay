@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { guidanceOf, type Maneuver } from './guidance'
 
-// A route of 6 nodes, 1000 m apart (as the game counts them): 5000 m from the first to the destination.
+// A route of 6 nodes, 1000 m apart (physical distances): 5000 m from the first to the destination.
 const distances = [5000, 4000, 3000, 2000, 1000, 0]
 const turn = (node: number, kind: Maneuver['turn'] = 'right'): Maneuver => ({ node, turn: kind, angle: 90, exit: null })
 

@@ -3,7 +3,8 @@ import { useShallow } from 'zustand/react/shallow'
 import { formatTripDistance } from '../../shared/format'
 import { useLive } from '../state/store'
 import { type Strings, useText } from '../state/text'
-import { guidanceOf, type Maneuver, NOW_WITHIN, type Step } from './guidance'
+import { type Maneuver, NOW_WITHIN, type Step } from './guidance'
+import { guidanceFor } from './guidanceDistance'
 import { LaneRibbon } from './LaneRibbon'
 import { useLaneHint } from './useLaneHint'
 import { ManeuverGlyph } from './ManeuverGlyph'
@@ -28,10 +29,7 @@ function useGuidance(): { step: Step | null; distance: string; then: Step | null
   const text = useText()
   const { step, distance, then } = useLive(
     useShallow((state) => {
-      const { route, routeNext, telemetry } = state
-      const guidance = route
-        ? guidanceOf(route.distances, route.maneuvers, routeNext, telemetry?.navigationDistance ?? 0)
-        : null
+      const guidance = guidanceFor(state)
       if (!guidance) return { step: null, distance: '', then: null }
       const distance =
         guidance.distance < NOW_WITHIN ? text.now : formatTripDistance(guidance.distance, text.decimal, state.mph)

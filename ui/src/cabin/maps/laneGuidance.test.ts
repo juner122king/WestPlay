@@ -15,7 +15,7 @@ const hint: LaneHint = {
 const distances = [9000, 8500, 8000, 7500, 7000]
 
 describe('real lane advice', () => {
-  it('enters at 1000 game metres and retains until 1200, without boundary chatter', () => {
+  it('enters at 1000 physical metres and retains until 1200, without boundary chatter', () => {
     expect(laneHintOf([hint], distances, 1, 9001)).toBeNull()
     expect(laneHintOf([hint], distances, 1, 9000)).toBe(hint)
     expect(laneHintOf([hint], distances, 1, 9200, hint)).toBe(hint)

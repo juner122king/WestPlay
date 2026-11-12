@@ -32,7 +32,7 @@ export function validLaneHints(value: unknown, nodeCount: number): LaneHint[] {
     .sort((a, b) => a.node - b.node)
 }
 
-/** Select by verified approach and game-distance, not proximity to a neighbouring road. */
+/** Select by verified approach and physical distance, not proximity to a neighbouring road. */
 export function laneHintOf(
   hints: readonly LaneHint[],
   distances: readonly number[],

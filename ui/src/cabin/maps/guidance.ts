@@ -1,13 +1,7 @@
 /**
- * Turn-by-turn: the route's next turn and how far it is. The host works out the turns at the route's
- * junctions from the game's own lanes (crates/mapdata junctions.rs: only where there's a choice, in the
- * terms of the game's voice navigation), and each route node carries the game's own distance left from it
- * to the destination; the SDK's distance left, less the node's, is how far the truck is from the turn, as
- * the game counts distances (its map's scale, so the same figures as its own GPS).
- *
- * The game's scale is about 3 to 1 in cities and 15-19 to 1 between them, so at a steady speed the
- * distance counts down several times faster out of town. That's deliberate: the
- * figures stay the game's own, matching its GPS, its jobs and the trip pill, rather than metres driven.
+ * Turn-by-turn: the host identifies maneuvers from the game's junctions. Callers supply physical
+ * distances from guidanceDistance.ts, so a nearby turn has the same countdown in town and on a highway.
+ * Trip totals keep their separate, scaled game units.
  */
 
 export type TurnKind =
@@ -39,19 +33,19 @@ export type Step = { kind: 'turn'; maneuver: Maneuver } | { kind: 'arrive' }
 
 export interface Guidance {
   step: Step
-  /** How far to it, metres (as the game counts them). */
+  /** How far to it, physical metres. */
   distance: number
   /** What comes right after it, when it's that close behind (the game's "…and then"). */
   then: Step | null
 }
 
-/** A second step this close behind the first (metres, as the game counts them) is shown with it. */
+/** A second step this close behind the first (physical metres) is shown with it. */
 export const THEN_WITHIN = 400
 
 const ARRIVE: Step = { kind: 'arrive' }
 
 /**
- * The guidance along a route (`distances`: each node's distance left to the destination; `maneuvers` in
+ * The guidance along a route (`distances`: each node's physical distance left to the destination; `maneuvers` in
  * route order) for a truck before its node `next`, with `distanceLeft` to go; `null` without a route. A
  * turn stays next until the truck is through its junction (it's "now" while inside).
  */
@@ -61,7 +55,7 @@ export function guidanceOf(
   next: number,
   distanceLeft: number,
 ): Guidance | null {
-  if (distanceLeft <= 0 || distances.length === 0) return null
+  if (!Number.isFinite(distanceLeft) || distanceLeft <= 0 || distances.length === 0) return null
   const ahead = maneuvers.filter((maneuver) => maneuver.node >= next - 1)
   const to = (maneuver: Maneuver) => Math.max(0, distanceLeft - (distances[maneuver.node] ?? 0))
   const [first, second] = ahead

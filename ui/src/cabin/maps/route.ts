@@ -143,7 +143,7 @@ export function progressOf(spans: Spans, next: number, truck: Point, facing?: Po
  * is; easing between the two, so leaving the route (or joining it) never jumps. A lane of a wide road is
  * well within it. */
 const SNAP_FULL = 10
-const SNAP_NONE = 18
+export const SNAP_NONE = 18
 
 /**
  * Where to show the truck at `truck` while it's on the route: in the middle of the road. (Facing its own

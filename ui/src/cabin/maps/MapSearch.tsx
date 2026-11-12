@@ -5,7 +5,7 @@ import { TextField } from '../keyboard/TextField'
 import { useLive } from '../state/store'
 import { useText } from '../state/text'
 import { Destinations } from './Destinations'
-import { guidanceOf } from './guidance'
+import { guidanceFor } from './guidanceDistance'
 import { recentreLiveMap, useMapBrowsing } from './liveMap'
 
 /** How long the word that the game took a change stays over the map, ms. */
@@ -28,12 +28,7 @@ export function MapSearch() {
   const [query, setQuery] = useState('')
   const [confirmation, setConfirmation] = useState<{ text: string; id: number } | null>(null)
   const typing = useKeyboard((state) => state.field?.id === FIELD)
-  const guided = useLive(({ route, routeNext, telemetry }) => {
-    return (
-      route !== null &&
-      guidanceOf(route.distances, route.maneuvers, routeNext, telemetry?.navigationDistance ?? 0) !== null
-    )
-  })
+  const guided = useLive((state) => guidanceFor(state) !== null)
 
   useEffect(() => {
     if (!confirmation) return
