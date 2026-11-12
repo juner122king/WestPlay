@@ -93,6 +93,7 @@ const SHOWN_PARTS: &[(&str, ShownPart)] = &[
     ("iveco-sway", ShownPart { left: 0.0025, right: 0.9975, top: 0.0, bottom: 1.0 }),
     ("renault-t-2024", ShownPart { left: 0.005, right: 0.995, top: 0.005, bottom: 0.995 }),
     ("volvo-fh", ShownPart { left: 0.0054, right: 0.9946, top: 0.0055, bottom: 0.9945 }),
+    ("volvo-vnl-2025", ShownPart { left: 0.005, right: 0.995, top: 0.005, bottom: 0.995 }),
 ];
 
 /// A mod vehicle's own screen WestPlay draws on (owner 2026-10-24, Oyuncuyusbis' coaches: "directly in their
@@ -1085,6 +1086,190 @@ mod tests {
     }
 
     #[test]
+    fn the_f150s_own_gps_gets_the_screen_without_changing_its_interior() {
+        let root = std::env::temp_dir().join(format!("westplay-f150-screen-{}", std::process::id()));
+        std::fs::create_dir_all(&root).unwrap();
+        let files = GameFiles::new(vec![Mount::Folder(root.clone())]);
+        let empty_mods = GameFiles::new(Vec::new());
+        let marks = cab_mark::Marks::default();
+        // No Ford DLC: it must not claim the screen is patched or invent a GPS script.
+        let (bytes, missing) = build(&files, &[], &empty_mods, &marks).unwrap();
+        assert!(missing.missing.contains(&"ford-f150-2023"));
+        let out = root.join("westplay_ats.scs");
+        std::fs::write(&out, bytes).unwrap();
+        let archive = Archive::open(&out).unwrap();
+        assert!(archive.read("ui/dashboard/ford_f150_gps_23.sii").unwrap().is_none());
+        drop(archive);
+
+        // Synthetic script with the F-150's 1280 x 800 screen-on group. The real script is read from the
+        // player's Ford DLC, never shipped. Its other display/camera groups stay outside this group.
+        let script = SCRIPT.replace("coords_r: 1279", "coords_r: 1280").replace("coords_t: 719", "coords_t: 800");
+        let gps = "ui/dashboard/ford_f150_gps_23.sii";
+        std::fs::create_dir_all(root.join("ui/dashboard")).unwrap();
+        std::fs::write(root.join(gps), &script).unwrap();
+        let computers = "\tgps_path: \"/ui/dashboard/ford_f150_gps_23.sii\"\n\tgps_drawable_size: (1024, 512)\n";
+        let interior = root.join("def/vehicle/car/ford.f150_23/interior/computers.sui");
+        std::fs::create_dir_all(interior.parent().unwrap()).unwrap();
+        std::fs::write(&interior, computers).unwrap();
+        let (bytes, built) = build(&files, &[], &empty_mods, &marks).unwrap();
+        assert!(built.patched.contains(&"ford-f150-2023"), "{built:?}");
+        std::fs::write(&out, bytes).unwrap();
+        let archive = Archive::open(&out).unwrap();
+        let patched = String::from_utf8(archive.read(gps).unwrap().unwrap()).unwrap();
+        let index = screen_layouts().iter().position(|layout| layout.id == "ford-f150-2023").unwrap();
+        let rows = ScreenLayout::texture_height(index);
+        let bottom = (800.0 - 800.0 * f64::from(rows) / f64::from(SCREEN_HEIGHT)).round() as i32;
+        assert!(patched.contains("/material/ui/westplay/screen_ford_f150_2023.mat"));
+        assert!(patched.contains(&format!("coords_l: 0\n coords_r: 1280\n coords_t: 800\n coords_b: {bottom}\n")));
+        assert!(patched.contains("my_children: 3\n"));
+        assert!(patched.contains("my_parent: _nameless.2\n"));
+        let texture = archive.read("material/ui/westplay/screen_ford_f150_2023.dds").unwrap().unwrap();
+        assert_eq!(u32::from_le_bytes(texture[12..16].try_into().unwrap()), rows);
+        assert_eq!(u32::from_le_bytes(texture[16..20].try_into().unwrap()), SCREEN_WIDTH);
+        // Already drawn at 1024 x 512 by the car: no truck-style interior overrides or model edits.
+        assert!(archive.read("def/vehicle/car/ford.f150_23/interior/computers.sui").unwrap().is_none());
+        assert_eq!(std::fs::read_to_string(&interior).unwrap(), computers);
+        assert_eq!(std::fs::read_to_string(root.join(gps)).unwrap(), script);
+        drop(archive);
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn the_broncos_screen_preserves_its_native_parking_camera() {
+        let root = std::env::temp_dir().join(format!("westplay-bronco-screen-{}", std::process::id()));
+        std::fs::create_dir_all(&root).unwrap();
+        let files = GameFiles::new(vec![Mount::Folder(root.clone())]);
+        let empty_mods = GameFiles::new(Vec::new());
+        let marks = cab_mark::Marks::default();
+        let gps = "ui/dashboard/ford_bronco_gps_24.sii";
+        let out = root.join("westplay_ats.scs");
+        let (bytes, missing) = build(&files, &[], &empty_mods, &marks).unwrap();
+        assert!(missing.missing.contains(&"ford-bronco-2024"));
+        std::fs::write(&out, bytes).unwrap();
+        let archive = Archive::open(&out).unwrap();
+        assert!(archive.read(gps).unwrap().is_none());
+        drop(archive);
+
+        // Independent sibling camera group, with the Bronco's native id and parking texture.
+        let parking = "ui::group : _nameless.parking {\n id: 910\n layer: 7\n my_children: 1\n my_children[0]: _nameless.park\n my_parent: _nameless.1\n}\n\nui::text : _nameless.park {\n text: \"<img src=/material/environment/mirror/park_1x1_ui.mat top=1 bottom=0>\"\n layer: 7\n my_parent: _nameless.parking\n}\n";
+        let script =
+            SCRIPT.replace("coords_r: 1279", "coords_r: 1280").replace("coords_t: 719", "coords_t: 800").replacen(
+                "my_children: 1\n my_children[0]: _nameless.2",
+                "my_children: 2\n my_children[0]: _nameless.2\n my_children[1]: _nameless.parking",
+                1,
+            );
+        let script = format!("{}\n{parking}\n}}\n", script.trim_end().strip_suffix('}').unwrap());
+        std::fs::create_dir_all(root.join("ui/dashboard")).unwrap();
+        std::fs::write(root.join(gps), &script).unwrap();
+        let computers = "gps_path: \"/ui/dashboard/ford_bronco_gps_24.sii\"\ngps_drawable_size: (1024, 512)\n";
+        let interior = root.join("def/vehicle/car/ford.bronco_24/interior/computers.sui");
+        std::fs::create_dir_all(interior.parent().unwrap()).unwrap();
+        std::fs::write(&interior, computers).unwrap();
+        let (bytes, built) = build(&files, &[], &empty_mods, &marks).unwrap();
+        assert!(built.patched.contains(&"ford-bronco-2024"), "{built:?}");
+        assert!(!built.patched.contains(&"ford-f150-2023"));
+        std::fs::write(&out, bytes).unwrap();
+        let archive = Archive::open(&out).unwrap();
+        let patched = String::from_utf8(archive.read(gps).unwrap().unwrap()).unwrap();
+        assert!(patched.contains(parking), "{patched}");
+        assert!(patched.contains("my_children[1]: _nameless.parking\n"));
+        assert!(patched.contains("/material/ui/westplay/screen_ford_bronco_2024.mat"));
+        let index = screen_layouts().iter().position(|layout| layout.id == "ford-bronco-2024").unwrap();
+        let rows = ScreenLayout::texture_height(index);
+        let bottom = (800.0 - 800.0 * f64::from(rows) / f64::from(SCREEN_HEIGHT)).round() as i32;
+        assert!(patched.contains(&format!("coords_l: 0\n coords_r: 1280\n coords_t: 800\n coords_b: {bottom}\n")));
+        assert!(patched.contains("my_children: 3\n"));
+        assert!(patched.contains("my_parent: _nameless.2\n"));
+        let texture = archive.read("material/ui/westplay/screen_ford_bronco_2024.dds").unwrap().unwrap();
+        assert_eq!(u32::from_le_bytes(texture[12..16].try_into().unwrap()), rows);
+        assert_eq!(u32::from_le_bytes(texture[16..20].try_into().unwrap()), SCREEN_WIDTH);
+        assert!(archive.read("def/vehicle/car/ford.bronco_24/interior/computers.sui").unwrap().is_none());
+        assert_eq!(std::fs::read_to_string(&interior).unwrap(), computers);
+        assert_eq!(std::fs::read_to_string(root.join(gps)).unwrap(), script);
+        drop(archive);
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn the_vnl_2025_gets_its_own_gps_screen_without_changing_its_interior() {
+        let root = std::env::temp_dir().join(format!("westplay-vnl-2025-screen-{}", std::process::id()));
+        std::fs::create_dir_all(&root).unwrap();
+        let files = GameFiles::new(vec![Mount::Folder(root.clone())]);
+        let empty_mods = GameFiles::new(Vec::new());
+        let marks = cab_mark::Marks::default();
+        let gps = "ui/dashboard/volvo_vnl2025_gps.sii";
+        let out = root.join("westplay_ats.scs");
+
+        // Without the Volvo DLC, do not claim support or add a fabricated copy of its GPS.
+        let (bytes, missing) = build(&files, &[], &empty_mods, &marks).unwrap();
+        assert!(missing.missing.contains(&"volvo-vnl-2025"));
+        std::fs::write(&out, bytes).unwrap();
+        let archive = Archive::open(&out).unwrap();
+        assert!(archive.read(gps).unwrap().is_none());
+        drop(archive);
+
+        // The real GPS script has a 1280 x 720 window with separate screen-on (100) and screen-off (200)
+        // groups. Patch only the screen-on group; the real script and dashboard remain the player's files.
+        let display_off = r#"ui::group : _nameless.display2 {
+ coords_l: 0
+ coords_r: 1280
+ coords_t: 720
+ coords_b: 0
+ id: 200
+ my_children: 1
+ my_children[0]: _nameless.black
+ my_parent: _nameless.1
+}
+
+ui::text : _nameless.black {
+ text: "<img src=/material/ui/white.mat color=ff000000 xscale=stretch yscale=stretch>"
+ my_parent: _nameless.display2
+}
+"#;
+        let script = format!(
+            "{}{display_off}\n}}\n",
+            SCRIPT
+                .replace("coords_r: 1279", "coords_r: 1280")
+                .replace("coords_t: 719", "coords_t: 720")
+                .replace(
+                    "my_children: 1\n my_children[0]: _nameless.2",
+                    "my_children: 2\n my_children[0]: _nameless.2\n my_children[1]: _nameless.display2",
+                )
+                .trim_end()
+                .strip_suffix('}')
+                .unwrap()
+        );
+        std::fs::create_dir_all(root.join("ui/dashboard")).unwrap();
+        std::fs::write(root.join(gps), &script).unwrap();
+        let computers = "\tgps_path: \"/ui/dashboard/volvo_vnl2025_gps.sii\"\n\tgps_drawable_size: (1024, 512)\n";
+        let interior = root.join("def/vehicle/truck/volvo.vnl2025/interior/computers.sui");
+        std::fs::create_dir_all(interior.parent().unwrap()).unwrap();
+        std::fs::write(&interior, computers).unwrap();
+
+        let (bytes, built) = build(&files, &[], &empty_mods, &marks).unwrap();
+        assert!(built.patched.contains(&"volvo-vnl-2025"), "{built:?}");
+        std::fs::write(&out, bytes).unwrap();
+        let archive = Archive::open(&out).unwrap();
+        let patched = String::from_utf8(archive.read(gps).unwrap().unwrap()).unwrap();
+        let layouts = screen_layouts();
+        let index = layouts.iter().position(|layout| layout.id == "volvo-vnl-2025").unwrap();
+        let rows = ScreenLayout::texture_height(index);
+        let bottom = (720.0 * 0.995 - (720.0 * 0.99) * f64::from(rows) / f64::from(SCREEN_HEIGHT)).round() as i32;
+        assert!(patched.contains("/material/ui/westplay/screen_volvo_vnl_2025.mat"));
+        assert!(patched.contains(&format!("coords_l: 6\n coords_r: 1274\n coords_t: 716\n coords_b: {bottom}\n")));
+        assert!(patched.contains("my_parent: _nameless.2\n"));
+        assert!(patched.contains(display_off), "the screen-off group must be untouched");
+        let texture = archive.read("material/ui/westplay/screen_volvo_vnl_2025.dds").unwrap().unwrap();
+        assert_eq!(u32::from_le_bytes(texture[12..16].try_into().unwrap()), rows);
+        assert_eq!(u32::from_le_bytes(texture[16..20].try_into().unwrap()), SCREEN_WIDTH);
+        assert!(archive.read("def/vehicle/truck/volvo.vnl2025/interior/computers.sui").unwrap().is_none());
+        assert_eq!(std::fs::read_to_string(&interior).unwrap(), computers);
+        assert_eq!(std::fs::read_to_string(root.join(gps)).unwrap(), script);
+        drop(archive);
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
+    #[test]
     fn the_s_bevs_screens_file_gets_the_sharp_size() {
         let root = std::env::temp_dir().join(format!("westplay-sharp-bev-{}", std::process::id()));
         let dir = root.join("def/vehicle/truck/scania.s_2024e/interior");
@@ -1223,6 +1408,38 @@ mod tests {
         let actros = "def/vehicle/truck/mercedes.actros2014/accessory/toyhang/westplay_tablet.sii";
         assert!(archive.read(actros).unwrap().is_some());
         assert!(archive.read("vehicle/truck/upgrade/westplay_tablet/westplay_tablet_hang.pmg").unwrap().is_some());
+    }
+
+    /// The real ATS installation: verify the VNL's own screen is patched from the player's DLC, without installing
+    /// anything into ATS. `cargo test -p westplay-setup -- --ignored --nocapture builds_ats_vnl_screen`
+    #[test]
+    #[ignore = "reads this PC's ATS installation"]
+    fn builds_ats_vnl_screen_from_the_installed_game() {
+        let game = crate::game::find(crate::game::Kind::Ats).into_iter().next().expect("ATS installed");
+        let files = GameFiles::install(&game.dir).unwrap();
+        let marks = cab_mark::for_tablet(&files, &[], &[], &[]);
+        assert!(
+            marks.scripts.iter().any(|(path, _)| path == "ui/dashboard/volvo_vnl2025.sii"),
+            "the VNL's digital dashboard must retain the cab marker: {:?}",
+            marks.left
+        );
+        let (bytes, built) = build(&files, &[], &GameFiles::new(Vec::new()), &marks).unwrap();
+        assert!(built.patched.contains(&"volvo-vnl-2025"), "{built:?}");
+        let out = std::env::temp_dir().join(format!("westplay-ats-vnl-{}.scs", std::process::id()));
+        std::fs::write(&out, bytes).unwrap();
+        let archive = westplay_mapdata::archive::Archive::open(&out).unwrap();
+        let script = archive.read("ui/dashboard/volvo_vnl2025_gps.sii").unwrap().unwrap();
+        let script = String::from_utf8(script).unwrap();
+        assert!(script.contains("/material/ui/westplay/screen_volvo_vnl_2025.mat"));
+        let dashboard = archive.read("ui/dashboard/volvo_vnl2025.sii").unwrap().unwrap();
+        assert!(String::from_utf8(dashboard).unwrap().contains("/material/ui/westplay/cab_mark.mat"));
+        let texture = archive.read("material/ui/westplay/screen_volvo_vnl_2025.dds").unwrap().unwrap();
+        let index = screen_layouts().iter().position(|layout| layout.id == "volvo-vnl-2025").unwrap();
+        assert_eq!(u32::from_le_bytes(texture[12..16].try_into().unwrap()), ScreenLayout::texture_height(index));
+        assert_eq!(u32::from_le_bytes(texture[16..20].try_into().unwrap()), SCREEN_WIDTH);
+        assert!(archive.read("def/vehicle/truck/volvo.vnl2025/interior/computers.sui").unwrap().is_none());
+        drop(archive);
+        let _ = std::fs::remove_file(out);
     }
 
     /// A game folder with the Smart Dash's script and screens file, and an Advanced and a 10.1" interior in

@@ -37,3 +37,12 @@ travego-16-23     ui/dashboard/westplay_travego_16_23_gps.sii
 setra-516         ui/dashboard/gps.dlc_toys.sii
 setra-531         ui/dashboard/westplay_setra_531_gps.sii
 man-lions-coach   ui/dashboard/westplay_man_lions_coach_gps.sii
+# ATS Road Trip Ford F-150 (2023), Lariat interior. Its own 1280 x 800 GPS script; the
+# model shows the whole surface on a 25.49 x 16.18 cm display (1.576:1). Keep new layouts last.
+ford-f150-2023    ui/dashboard/ford_f150_gps_23.sii
+# ATS Road Trip Ford Bronco (2024), standard interior. Its own 1280 x 800 GPS script;
+# the rounded screen mesh maps the whole surface to a 25.65 x 15.95 cm display (1.608:1).
+ford-bronco-2024  ui/dashboard/ford_bronco_gps_24.sii
+# ATS Volvo VNL (2025): its 1280 x 720 GPS script, drawn on the whole display except the model's 0.5% edge
+# margins; all cab models use the same 20.61 x 11.47 cm GPS piece (1.797:1). Keep new layouts last.
+volvo-vnl-2025    ui/dashboard/volvo_vnl2025_gps.sii

@@ -1,6 +1,6 @@
 //! The plugin's mapping of the shared bridge (see `westplay-shared`).
 
-use std::sync::atomic::Ordering;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Mutex, OnceLock};
 use std::time::{Duration, Instant};
 
@@ -57,10 +57,28 @@ pub fn host_alive() -> bool {
     last.is_some_and(|(_, changed)| changed.elapsed() <= HOST_TIMEOUT)
 }
 
-/// Whether WestPlay is on the truck's screen: the app is running, the player hasn't switched it off, and the
-/// truck is one WestPlay supports.
+// Keep the last complete answer if a seqlock read overlaps telemetry being published. Otherwise a busy
+// frame could briefly draw WestPlay over the camera or route an invisible click to its page.
+static NATIVE_CAMERA_ACTIVE: AtomicBool = AtomicBool::new(false);
+
+/// Whether the native parking camera currently has priority. Shared by drawing and input, without changing
+/// the app's screen preference, playback, or current page.
+pub fn native_camera_active() -> bool {
+    let Some(bridge) = get() else { return false };
+    if let (Some(truck), Some(telemetry)) = (bridge.plugin.truck.read(), bridge.plugin.telemetry.read()) {
+        let active = westplay_shared::native_camera_active(truck.id.as_str(), telemetry.gear, telemetry.displayed_gear);
+        NATIVE_CAMERA_ACTIVE.store(active, Ordering::Release);
+        active
+    } else {
+        NATIVE_CAMERA_ACTIVE.load(Ordering::Acquire)
+    }
+}
+
+/// Whether WestPlay is on the truck's screen: the app is running, the player hasn't switched it off, the
+/// truck is supported, and its native camera does not currently have priority.
 pub fn screen_on() -> bool {
     host_alive()
         && crate::screens::on_supported_truck()
+        && !native_camera_active()
         && get().is_some_and(|bridge| bridge.host.screen_enabled.load(Ordering::Acquire) == 1)
 }

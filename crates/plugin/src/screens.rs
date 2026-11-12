@@ -439,8 +439,11 @@ unsafe fn refresh(context: &ID3D11DeviceContext, texture: ID3D11Texture2D, heigh
             let truck = truck.map(|truck| truck.id.as_str().to_owned()).unwrap_or_default();
             log!("screen: {} isn't WestPlay's in {truck}, the game's own shows", screen_layouts()[layout].id);
         }
-        // This screen WestPlay's itself: the truck's own, beside the tablet, keeps the game's.
-        let enabled = here && bridge::get().is_some_and(|b| b.host.screen_enabled.load(Ordering::Acquire) == 1);
+        // Reverse in a vehicle with a native camera: clear only our texture so the game's parking display
+        // shows through. The page keeps running and its previous screen returns when reverse ends.
+        let enabled = here
+            && !bridge::native_camera_active()
+            && bridge::get().is_some_and(|b| b.host.screen_enabled.load(Ordering::Acquire) == 1);
         let latest = if enabled { state.frames.update(&device, context) } else { None };
         match latest {
             Some((latest, version)) => {

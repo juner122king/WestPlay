@@ -122,12 +122,17 @@ in the truck shop: under Accessories, in Hanging Items or as a dashboard set. Th
 game's navigation. The tablet is in every truck with hanging items, including truck mods you install later (they
 get it the next time you start the game).
 
-**In American Truck Simulator**, WestPlay is on the tablet in every truck for now. The trucks whose real
-counterparts have CarPlay get WestPlay on their own screens later.
+**In American Truck Simulator**, the official Road Trip **Ford F-150 (2023), Lariat interior**, and
+**Ford Bronco (2024), standard interior**, and **Volvo VNL (2025)** have own-screen integrations on their
+navigation displays, without a tablet. While either engine or dashboard reports reverse in either Ford,
+WestPlay yields to the vehicle's original display and releases screen interaction. The game controls each Ford's
+native parking camera according to the player's settings (including the F-150's 360-degree view). Leaving reverse
+restores WestPlay's current page and playback state. These integrations are checked against installed game
+resources; in-game display and input verification is still pending. Other ATS trucks use the tablet for now.
 
 |  | Truck's own screen | WestPlay tablet |
 |---|---|---|
-| Trucks | The ETS2 trucks above | Every other truck, and every ATS truck for now |
+| Vehicles | The ETS2 vehicles above; ATS Ford F-150 (2023), Bronco (2024), and Volvo VNL (2025) | Other trucks with a suitable accessory slot |
 | To get it | Nothing: it's there | Fit it in the truck shop |
 | The game's navigation | Replaced by WestPlay | Stays on the truck's screen |
 

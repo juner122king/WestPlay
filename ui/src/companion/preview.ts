@@ -291,7 +291,7 @@ const CHECK: GameCheck = {
   otherApps: [],
 }
 
-/** ATS's, as a check of it finds it (its trucks' screens not WestPlay's yet). */
+/** ATS's, as a check of it finds it (including its WestPlay-ready VNL 2025). */
 const ATS_CHECK: GameCheck = {
   ...CHECK,
   game: ATS,
@@ -301,7 +301,7 @@ const ATS_CHECK: GameCheck = {
     { name: 'The Western', dir: 'steam_profiles/546865', map: 'usa', mapMods: [], unreadable: 0, hvtMap: false },
   ],
   trucks: [
-    { id: 'volvo-vnl-2025', name: 'Volvo VNL (2025)', fit: 'notYet', fromMod: false },
+    { id: 'volvo-vnl-2025', name: 'Volvo VNL (2025)', fit: 'ready', fromMod: false },
     { id: 'western-star-57x', name: 'Western Star 57X', fit: 'notYet', fromMod: false },
     { id: 'peterbilt-579', name: 'Peterbilt 579', fit: 'notInGame', fromMod: false },
     { id: 'any-truck-tablet', name: 'Any truck – with the WestPlay tablet', fit: 'ready', fromMod: false },

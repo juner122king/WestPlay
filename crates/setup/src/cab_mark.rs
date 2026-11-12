@@ -1,4 +1,4 @@
-//! The cab's mark (`westplay_shared::CAB_MARK_WIDTH`), in the dashboard scripts of every truck the tablet goes in.
+//! The cab's mark (`westplay_shared::CAB_MARK_WIDTH`), in tablet trucks' and own-screen cars' dashboard scripts.
 //!
 //! The camera system takes the cab being drawn for the camera in it: the game draws a truck's screen scripts every
 //! frame the camera is in the cab, wherever the player looks, and never from outside. A truck whose screen is
@@ -46,13 +46,25 @@ impl Marks {
 /// The marks for the trucks the tablet goes in: the game's (`game`, the installed game mounted) and `mod_trucks`
 /// (the installed mods': `tablet::mod_trucks`), their dashboard scripts read from the game and `mods` (the installed
 /// mods' files, archives or folders, active in a profile or not), each as `profiles` load it (each profile's active
-/// mods' files, as it lists them: the last over the others).
+/// mods' files, as it lists them: the last over the others). Also marks official cars with their own screen:
+/// their native parking display can hide WestPlay's GPS group while the driver remains inside the cab.
 pub fn for_tablet(game: &GameFiles, mods: &[PathBuf], mod_trucks: &[Spot], profiles: &[Vec<PathBuf>]) -> Marks {
     let own = tablet::trucks(game).unwrap_or_default();
-    let trucks: BTreeSet<&str> = own.iter().chain(mod_trucks).map(|spot| spot.truck.as_str()).collect();
+    let mut trucks: BTreeSet<&str> = own.iter().chain(mod_trucks).map(|spot| spot.truck.as_str()).collect();
+    for car in own_screen_cars() {
+        trucks.insert(car);
+    }
     let mods: Vec<(PathBuf, GameFiles)> =
         mods.iter().filter_map(|path| Some((path.clone(), mounted(path)?))).collect();
     marks(game, &mods, &trucks, profiles)
+}
+
+/// Official cars whose own-screen integration needs a cab mark even without a tablet accessory slot.
+fn own_screen_cars() -> impl Iterator<Item = &'static str> {
+    crate::trucks::ATS_TRUCKS.iter().filter_map(|truck| match truck.source {
+        crate::trucks::Source::Car(id) if truck.layout.is_some() => Some(id),
+        _ => None,
+    })
 }
 
 /// A mod's files, mounted alone; `None` if it can't be opened.
@@ -122,8 +134,11 @@ fn marks(game: &GameFiles, mods: &[(PathBuf, GameFiles)], trucks: &BTreeSet<&str
 /// followed. Definitions that aren't text (encrypted) name none.
 fn dashboards(files: &GameFiles, trucks: &BTreeSet<&str>) -> BTreeSet<String> {
     let mut paths = BTreeSet::new();
-    for truck in trucks {
-        let dir = format!("def/vehicle/truck/{truck}/interior");
+    let dirs = trucks
+        .iter()
+        .map(|truck| format!("def/vehicle/truck/{truck}/interior"))
+        .chain(own_screen_cars().filter(|id| trucks.contains(id)).map(|car| format!("def/vehicle/car/{car}/interior")));
+    for dir in dirs {
         for name in files.list(&dir).unwrap_or_default().iter().filter(|name| name.ends_with(".sii")) {
             for unit in sii::read_units(files, &format!("{dir}/{name}")).unwrap_or_default() {
                 if let Some(script) = unit.get("dashboard_path") {
@@ -210,6 +225,36 @@ mod tests {
             )
         );
         assert!(text.contains("<img src=/material/ui/westplay/cab_mark.mat xscale=stretch yscale=stretch>"));
+    }
+
+    #[test]
+    fn the_official_fords_cabs_stay_marked_when_their_native_cameras_hide_the_gps() {
+        // Road Trip cars have no truck tablet slot. Follow each car interior's include to its independent
+        // instrument cluster, which remains drawn when the GPS script switches to its parking groups.
+        let game = Files::new(
+            "ford-cameras",
+            &[
+                ("def/vehicle/car/ford.f150_23/interior/lariat.sii", INTERIOR),
+                (
+                    "def/vehicle/car/ford.f150_23/interior/dash.sui",
+                    "dashboard_path: \"/ui/dashboard/ford_f150_23.sii\"\ngps_path: \"/ui/dashboard/ford_f150_gps_23.sii\"\n",
+                ),
+                ("ui/dashboard/ford_f150_23.sii", DASHBOARD),
+                ("def/vehicle/car/ford.bronco_24/interior/standard.sii", INTERIOR),
+                (
+                    "def/vehicle/car/ford.bronco_24/interior/dash.sui",
+                    "dashboard_path: \"/ui/dashboard/ford_bronco_24.sii\"\ngps_path: \"/ui/dashboard/ford_bronco_gps_24.sii\"\n",
+                ),
+                ("ui/dashboard/ford_bronco_24.sii", DASHBOARD),
+            ],
+        );
+        let found = for_tablet(&game.mounted(), &[], &[], &[]);
+        assert!(found.left.is_empty(), "{:?}", found.left);
+        assert_eq!(found.scripts.len(), 2);
+        for path in ["ui/dashboard/ford_f150_23.sii", "ui/dashboard/ford_bronco_24.sii"] {
+            let (_, bytes) = found.scripts.iter().find(|(name, _)| name == path).expect(path);
+            assert!(String::from_utf8(bytes.clone()).unwrap().contains("/material/ui/westplay/cab_mark.mat"));
+        }
     }
 
     #[test]

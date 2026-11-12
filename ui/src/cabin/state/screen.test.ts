@@ -38,6 +38,42 @@ describe('screenProfile', () => {
     expect(screenProfile('daf-2021', dafXg).oemStrip).toBe('daf-2021')
   })
 
+  it('uses the F-150 screen profile and its physical aspect ratio', () => {
+    const f150 = truck('ford', 'vehicle.ford.f150_23')
+    expect(screenProfile('ford-f150-2023', f150)).toMatchObject({
+      name: 'Ford F-150 (2023)',
+      oemStrip: null,
+      scale: 1,
+    })
+    expect(screenProfile('generic', f150)).toBe(FALLBACK_PROFILE)
+    expect(pageHeight('ford-f150-2023')).toBe(812)
+    expect(pageRows(720, 'ford-f150-2023')).toBe(812)
+  })
+
+  it('uses the Bronco screen profile and its own physical aspect ratio', () => {
+    const bronco = truck('ford', 'vehicle.ford.bronco_24')
+    expect(screenProfile('ford-bronco-2024', bronco)).toMatchObject({
+      name: 'Ford Bronco (2024)',
+      oemStrip: null,
+      scale: 1,
+    })
+    expect(screenProfile('generic', bronco)).toBe(FALLBACK_PROFILE)
+    expect(pageHeight('ford-bronco-2024')).toBe(796)
+    expect(pageRows(720, 'ford-bronco-2024')).toBe(796)
+  })
+
+  it('uses the Volvo VNL 2025 screen profile and its physical aspect ratio', () => {
+    const vnl = truck('volvo', 'vehicle.volvo.vnl2025')
+    expect(screenProfile('volvo-vnl-2025', vnl)).toMatchObject({
+      name: 'Volvo VNL (2025)',
+      oemStrip: null,
+      scale: 1,
+    })
+    expect(screenProfile('generic', vnl)).toBe(FALLBACK_PROFILE)
+    expect(pageHeight('volvo-vnl-2025')).toBe(712)
+    expect(pageRows(720, 'volvo-vnl-2025')).toBe(712)
+  })
+
   it('accepts model ids with or without the vehicle prefix', () => {
     expect(screenProfile('daf-2021', truck('daf', 'daf.2021'))).toBe(screenProfile('daf-2021', dafXg))
   })

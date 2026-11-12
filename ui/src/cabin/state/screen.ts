@@ -20,6 +20,9 @@ export const SCREEN_LAYOUT_IDS = [
   'setra-516',
   'setra-531',
   'man-lions-coach',
+  'ford-f150-2023',
+  'ford-bronco-2024',
+  'volvo-vnl-2025',
 ] as const
 
 export type ScreenLayoutId = (typeof SCREEN_LAYOUT_IDS)[number]
@@ -54,6 +57,9 @@ const PAGE_HEIGHTS: Partial<Record<ScreenLayoutId, number>> = {
   'setra-516': 777,
   'setra-531': 761,
   'man-lions-coach': 778,
+  'ford-f150-2023': 812,
+  'ford-bronco-2024': 796,
+  'volvo-vnl-2025': 712,
 }
 
 /** Frame pixels (SCREEN_WIDTH x SCREEN_HEIGHT, as a screen's script and the truck's strip are measured) as the
@@ -193,6 +199,11 @@ const PROFILES: readonly ProfileEntry[] = [
   { layout: 'setra-516', profile: { name: 'Setra S 516 HD/2', oemStrip: null, scale: 1 } },
   { layout: 'setra-531', profile: { name: 'Setra S 531 DT', oemStrip: null, scale: 1 } },
   { layout: 'man-lions-coach', profile: { name: "MAN Lion's Coach", oemStrip: null, scale: 1 } },
+  // ATS Road Trip Fords: full screens, sized from their models; in-cab tuning still needs verification.
+  { layout: 'ford-f150-2023', profile: { name: 'Ford F-150 (2023)', oemStrip: null, scale: 1 } },
+  { layout: 'ford-bronco-2024', profile: { name: 'Ford Bronco (2024)', oemStrip: null, scale: 1 } },
+  // ATS Volvo VNL 2025: measured from the shared GPS screen mesh; in-cab UI scale still needs verification.
+  { layout: 'volvo-vnl-2025', profile: { name: 'Volvo VNL (2025)', oemStrip: null, scale: 1 } },
 ]
 
 /** Screens not tuned yet: CarPlay on the whole screen, its layout adapting to the space (responsive). */

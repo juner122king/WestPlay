@@ -91,6 +91,12 @@ pub fn page_height(index: usize) -> u32 {
         Some("setra-516") => 777,
         Some("setra-531") => 761,
         Some("man-lions-coach") => 778,
+        // ATS F-150 Lariat: the whole GPS surface on its 1.576:1 display (lariat.pmg, piece 31).
+        Some("ford-f150-2023") => 812,
+        // ATS Bronco: full GPS UV surface fitted to standard.pmg, piece 21 (1.608:1).
+        Some("ford-bronco-2024") => 796,
+        // ATS VNL 2025: 20.61 x 11.47 cm GPS surface, with a 0.5% UV margin (1.797:1).
+        Some("volvo-vnl-2025") => 712,
         _ => SCREEN_HEIGHT,
     }
 }
@@ -206,6 +212,14 @@ pub fn screen_supported(index: usize, truck_id: &str) -> bool {
     let Some(layout) = screen_layouts().get(index) else { return false };
     let model = truck_id.strip_prefix("vehicle.").unwrap_or(truck_id);
     SHARED_LAYOUT_TRUCKS.iter().find(|(id, _)| *id == layout.id).is_none_or(|(_, trucks)| trucks.contains(&model))
+}
+
+/// Whether the vehicle's native parking camera takes priority over WestPlay. Engine and displayed gears
+/// may change on different frames; either reporting reverse keeps the supported Fords' original display visible.
+/// This does not select a camera: the game retains its own camera settings and display switching.
+pub fn native_camera_active(truck_id: &str, gear: i32, displayed_gear: i32) -> bool {
+    let model = truck_id.strip_prefix("vehicle.").unwrap_or(truck_id);
+    matches!(model, "ford.f150_23" | "ford.bronco_24") && (gear < 0 || displayed_gear < 0)
 }
 
 fn parse_screen_layouts(text: &'static str) -> Vec<ScreenLayout> {
@@ -998,10 +1012,17 @@ mod tests {
             assert_eq!(page_height(index(layout)), height, "{layout}");
         }
         // The trucks' own screens, each its display's shape: 1280 x 784 is 1.633:1, 711 1.800 (1.801), 717 1.785
-        // (1.786), 731 1.751 (1.750).
-        for (layout, height) in
-            [("scania-2025", 784), ("scania-2025-advanced", 711), ("iveco-sway", 717), ("volvo-fh", 731)]
-        {
+        // (1.786), 731 1.751 (1.750); the F-150's 812 is 1.576:1, the Bronco's 796 is 1.608:1, and the VNL's 712
+        // is 1.797:1.
+        for (layout, height) in [
+            ("scania-2025", 784),
+            ("scania-2025-advanced", 711),
+            ("iveco-sway", 717),
+            ("volvo-fh", 731),
+            ("ford-f150-2023", 812),
+            ("ford-bronco-2024", 796),
+            ("volvo-vnl-2025", 712),
+        ] {
             assert_eq!(page_height(index(layout)), height, "{layout}");
         }
         assert_eq!(page_height(index("daf-2021")), SCREEN_HEIGHT);
@@ -1127,6 +1148,24 @@ mod tests {
         assert_eq!(screen_layout_for_texture(SCREEN_WIDTH, past_last), None);
         assert_eq!(screen_layout_for_texture(SCREEN_WIDTH, SCREEN_HEIGHT - 1), None);
         assert_eq!(screen_layout_for_texture(SCREEN_WIDTH + 1, SCREEN_HEIGHT), None);
+    }
+
+    #[test]
+    fn the_official_fords_cameras_have_priority_until_both_gears_leave_reverse() {
+        for id in ["vehicle.ford.f150_23", "ford.f150_23", "vehicle.ford.bronco_24", "ford.bronco_24"] {
+            for (gear, displayed) in [(-1, -1), (-2, 0), (0, -1), (1, -1), (-1, 1)] {
+                assert!(native_camera_active(id, gear, displayed), "{id}: {gear}/{displayed}");
+            }
+            for (gear, displayed) in [(0, 0), (1, 1), (1, 0), (0, 1)] {
+                assert!(!native_camera_active(id, gear, displayed), "{id}: {gear}/{displayed}");
+            }
+            // Repeated gear changes restore the normal screen without changing a user preference.
+            let reverse = [1, 0, -1, -1, 0, 1, -1, 1].map(|gear| native_camera_active(id, gear, gear));
+            assert_eq!(reverse, [false, false, true, true, false, false, true, false], "{id}");
+        }
+        for id in ["", "vehicle.ford.unknown", "ford.bronco_240", "vehicle.volvo.vnl2025", "vehicle.scania.s_2016"] {
+            assert!(!native_camera_active(id, -1, -1), "{id}");
+        }
     }
 
     #[test]
