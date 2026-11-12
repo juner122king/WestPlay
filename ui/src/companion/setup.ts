@@ -109,8 +109,10 @@ export interface InstallReport {
 
 export const setupState = () => call<SetupState>('setup_state')
 export const gameRunning = () => call<boolean>('game_running')
-/** The maps in `folders` (`ProfileMap.folder`) prepared again; none given: every map. */
-export const prepareMapsAgain = (folders?: string[]) => call<void>('prepare_maps_again', { folders: folders ?? null })
+/** Validate explicit game/profile targets and prepare only when needed; force bypasses validation. */
+export const prepareMaps = (targets: string[], force = false) => call<void>('prepare_maps', { targets, force })
+export const prepareMapsAgain = (targets: string[]) => call<void>('prepare_maps_again', { targets })
+export const cancelMapPreparation = (taskId: string) => call<boolean>('cancel_map_preparation', { taskId })
 /** Windows' folder picker: the game there, `null` if the player cancelled; rejects for a folder that isn't it. */
 export const chooseGameFolder = (title: string) => call<GameInfo | null>('choose_game_folder', { title })
 export const checkGame = (dir: string) => call<GameCheck>('check_game', { dir })

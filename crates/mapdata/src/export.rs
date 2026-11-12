@@ -74,6 +74,9 @@ pub struct Options {
     /// Set to stop the export (another thread may): it ends at its next step with [`ExportError::Stopped`],
     /// letting go of all it holds. The map it was writing isn't touched: its manifest is written last.
     pub stop: Option<std::sync::Arc<std::sync::atomic::AtomicBool>>,
+    /// A per-task create-new decision file arbitrates cancel versus publish across processes.
+    pub commit_file: Option<std::path::PathBuf>,
+    pub external_inputs: Vec<std::path::PathBuf>,
 }
 
 /// How far an export has got.
@@ -143,6 +146,7 @@ pub enum ExportError {
     Io(std::io::Error),
     /// Stopped by the caller ([`Options::stop`]).
     Stopped,
+    InputsChanged,
 }
 
 impl fmt::Display for ExportError {
@@ -154,6 +158,7 @@ impl fmt::Display for ExportError {
             Self::UnknownCity(city) => write!(f, "{city} isn't on the map"),
             Self::Io(error) => write!(f, "{error}"),
             Self::Stopped => write!(f, "stopped"),
+            Self::InputsChanged => write!(f, "map inputs changed during preparation; checking again"),
         }
     }
 }
@@ -260,6 +265,7 @@ pub fn export(
     let size = std::cell::Cell::new(None);
     let mut tell = |stage, done| progress(Progress { stage, done, size: size.take() });
     tell(Stage::Reading, 0.0);
+    let external_stamp = crate::dependencies::input_stamp(&options.external_inputs);
     let mut definitions = world::load_definitions(files)?;
     surface::find_water(files, &mut definitions);
     let stop = options.stop.clone().unwrap_or_default();
@@ -321,9 +327,24 @@ pub fn export(
         tell(Stage::Drawing, 0.15 + 0.05 * done)
     })?;
     let seconds = SystemTime::now().duration_since(UNIX_EPOCH).map_or(0, |since| since.as_secs());
-    let folder = format!("tiles-{seconds}");
+    let unique = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap_or_default().subsec_nanos();
+    let folder = format!("tiles-{seconds}-{unique}");
     let tiles_dir = out.join(&folder);
     let surfaces_dir = tiles_dir.join(SURFACE_FOLDER);
+    struct PartialOutput {
+        dir: std::path::PathBuf,
+        manifest: std::path::PathBuf,
+        committed: bool,
+    }
+    impl Drop for PartialOutput {
+        fn drop(&mut self) {
+            if !self.committed {
+                let _ = std::fs::remove_dir_all(&self.dir);
+                let _ = std::fs::remove_file(&self.manifest);
+            }
+        }
+    }
+    let mut output = PartialOutput { dir: tiles_dir.clone(), manifest: out.join("map.json.partial"), committed: false };
     std::fs::create_dir_all(&surfaces_dir)?;
     let surfaces = surface::write(files, &definitions, &map, bounds.0, &surfaces_dir, &stop, None, &mut |done| {
         tell(Stage::Drawing, 0.2 + 0.25 * done)
@@ -389,7 +410,8 @@ pub fn export(
     // And the buildings put together from structure sets' walls (owner 2026-10-22).
     let walled = buildings::structure_buildings(&map, &definitions.structure_sets, files, bounds.0);
     let centre = [(x0 + x1) / 2.0, (z0 + z1) / 2.0];
-    let start = if options.around.is_some() { centre } else { city_centre(&map, start_city(&options.map)).unwrap_or(centre) };
+    let start =
+        if options.around.is_some() { centre } else { city_centre(&map, start_city(&options.map)).unwrap_or(centre) };
     let labels: Vec<_> = export
         .labels
         .iter()
@@ -434,7 +456,8 @@ pub fn export(
         })
         .collect();
     // No-entry signs at the hidden roads' entrances, now the places are known.
-    let reached: HashSet<u64> = export.destinations.iter().flat_map(|place| [Some(place.node), place.also]).flatten().collect();
+    let reached: HashSet<u64> =
+        export.destinations.iter().flat_map(|place| [Some(place.node), place.also]).flatten().collect();
     let signs = no_entry::signs(&map, &definitions, &mut prefabs, &reached);
     export.features.extend(signs.iter().map(|&at| area::no_entry_feature(at)));
     let counts = export.counts;
@@ -505,6 +528,7 @@ pub fn export(
         // land is cut off; `null` without one: the cab draws the sea all round the map then.
         "world": world.as_ref().map(|world| json!({ "file": format!("{folder}/{WORLD_FILE}"), "bounds": world_bounds(world), "cut": world_cut(world) })),
         "source": options.source,
+        "dependencies": files.dependencies(),
     });
     std::fs::write(tiles_dir.join("places.json"), serde_json::to_vec(&places).map_err(std::io::Error::other)?)?;
     if let Some(world) = &world {
@@ -515,16 +539,48 @@ pub fn export(
     graph.write(&mut written)?;
     std::io::Write::flush(&mut written)?;
     drop(graph);
+    if stopped() {
+        return Err(ExportError::Stopped);
+    }
+    if !files.inputs_unchanged() || external_stamp != crate::dependencies::input_stamp(&options.external_inputs) {
+        return Err(ExportError::InputsChanged);
+    }
+    if let Some(dependencies) = files.dependencies() {
+        // Tolerated optional-resource errors leave a usable, explicitly unverified cache.
+        // A stable observation set must still match before it may be published as current.
+        if !dependencies.stable
+            || (!dependencies.unreadable
+                && !files
+                    .verify_dependencies_cached(&dependencies, false, options.stop.as_deref())
+                    .map_err(|error| if stopped() { ExportError::Stopped } else { ExportError::Files(error) })?)
+        {
+            return Err(ExportError::InputsChanged);
+        }
+    }
+    if !files.inputs_unchanged() || external_stamp != crate::dependencies::input_stamp(&options.external_inputs) {
+        return Err(ExportError::InputsChanged);
+    }
     // The manifest last, written whole: a map loading meanwhile finds the previous one.
     let partial = out.join("map.json.partial");
     std::fs::write(&partial, serde_json::to_vec(&manifest).map_err(std::io::Error::other)?)?;
+    if stopped() {
+        return Err(ExportError::Stopped);
+    }
+    if let Some(decision) = &options.commit_file {
+        let mut decision = std::fs::OpenOptions::new().write(true).create_new(true).open(decision).map_err(|e| {
+            if e.kind() == std::io::ErrorKind::AlreadyExists { ExportError::Stopped } else { ExportError::Io(e) }
+        })?;
+        std::io::Write::write_all(&mut decision, b"commit")?;
+    }
     std::fs::rename(&partial, out.join("map.json"))?;
+    output.committed = true;
     // Older tile sets go, but not the previous one or any from the last day: a map still running from one
     // (exports made one after another while it runs) keeps its tiles.
     for entry in std::fs::read_dir(out).into_iter().flatten().flatten() {
         let name = entry.file_name().to_string_lossy().into_owned();
         let tile_set = name == "tiles" || name.starts_with("tiles-");
-        let made = name.strip_prefix("tiles-").and_then(|made| made.parse::<u64>().ok()).unwrap_or(0);
+        let made =
+            name.strip_prefix("tiles-").and_then(|made| made.split('-').next()?.parse::<u64>().ok()).unwrap_or(0);
         let recent = seconds.saturating_sub(made) < KEEP_TILES_SECONDS;
         if tile_set && name != folder && Some(&name) != previous.as_ref() && !recent {
             let _ = std::fs::remove_dir_all(entry.path());

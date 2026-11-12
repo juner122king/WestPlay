@@ -8,6 +8,16 @@ use std::path::{Path, PathBuf};
 
 use crate::archive::{Archive, ArchiveError};
 use crate::texture::Texture;
+use std::sync::atomic::{AtomicU64, Ordering};
+static VERIFIED_READS: AtomicU64 = AtomicU64::new(0);
+static VERIFIED_BYTES: AtomicU64 = AtomicU64::new(0);
+pub fn verification_bytes() -> u64 {
+    VERIFIED_BYTES.load(Ordering::Relaxed)
+}
+static VERIFIED_HITS: AtomicU64 = AtomicU64::new(0);
+pub fn verification_totals() -> (u64, u64) {
+    (VERIFIED_READS.load(Ordering::Relaxed), VERIFIED_HITS.load(Ordering::Relaxed))
+}
 
 /// One mounted archive.
 pub enum Mount {
@@ -53,12 +63,14 @@ pub const BASE_ARCHIVES: [&str; 8] =
 pub struct GameFiles {
     /// Earliest first.
     mounts: Vec<Mount>,
+    recorder: crate::dependencies::Recorder,
+    initial_stamp: std::sync::Mutex<Option<String>>,
 }
 
 impl GameFiles {
     /// `mounts` in mount order: a file in a later one replaces the same path in an earlier one.
     pub fn new(mounts: Vec<Mount>) -> Self {
-        Self { mounts }
+        Self { mounts, recorder: Default::default(), initial_stamp: Default::default() }
     }
 
     /// The game as installed in `dir` (the folder with `base.scs`): the base game's archives, then
@@ -112,11 +124,164 @@ impl GameFiles {
         &self.mounts
     }
 
+    /// Enables dependency capture only for map generation.
+    pub fn track_dependencies(&self) {
+        self.recorder.start();
+        *self.initial_stamp.lock().unwrap_or_else(|e| e.into_inner()) = Some(self.input_stamp());
+    }
+    pub fn input_stamp(&self) -> String {
+        crate::dependencies::input_stamp(&self.mounts.iter().map(|m| m.name().to_path_buf()).collect::<Vec<_>>())
+    }
+    pub fn inputs_unchanged(&self) -> bool {
+        self.mounts.iter().all(|m| match m {
+            Mount::Archive(a) => a.unchanged(),
+            _ => true,
+        }) && self
+            .initial_stamp
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .as_ref()
+            .is_none_or(|stamp| *stamp == self.input_stamp())
+    }
+    pub fn dependencies(&self) -> Option<crate::dependencies::Dependencies> {
+        self.recorder.snapshot()
+    }
+
+    fn observed<T>(
+        &self,
+        op: &str,
+        path: &str,
+        value: Result<T, FileError>,
+        hash: impl FnOnce(&T) -> String,
+    ) -> Result<T, FileError> {
+        if self.recorder.enabled() {
+            let digest = match &value {
+                Ok(value) => hash(value),
+                Err(error) => format!("error:{}", error.error),
+            };
+            self.recorder.record(op, path, digest);
+        }
+        value
+    }
+    pub fn read(&self, path: &str) -> Result<Option<Vec<u8>>, FileError> {
+        self.observed("read", path, self.read_untracked(path), |v| crate::dependencies::optional_digest(v.as_deref()))
+    }
+    pub fn read_texture(&self, path: &str) -> Result<Option<Texture>, FileError> {
+        self.observed("texture", path, self.read_texture_untracked(path), |v| match v {
+            None => "missing".into(),
+            Some(t) => {
+                let mut bytes = Vec::with_capacity(t.rgba.len() + 8);
+                bytes.extend(t.width.to_le_bytes());
+                bytes.extend(t.height.to_le_bytes());
+                bytes.extend(&t.rgba);
+                crate::dependencies::optional_digest(Some(&bytes))
+            }
+        })
+    }
+    pub fn read_texture_top(&self, path: &str) -> Result<Option<crate::archive::RawTexture>, FileError> {
+        self.observed("textureTop", path, self.read_texture_top_untracked(path), |v| match v {
+            None => "missing".into(),
+            Some(t) => {
+                let mut bytes = Vec::with_capacity(t.data.len() + 24);
+                bytes.extend(t.width.to_le_bytes());
+                bytes.extend(t.height.to_le_bytes());
+                bytes.extend(t.format.to_le_bytes());
+                bytes.extend((t.row_alignment as u64).to_le_bytes());
+                bytes.extend(&t.data);
+                crate::dependencies::optional_digest(Some(&bytes))
+            }
+        })
+    }
+    pub fn list(&self, path: &str) -> Result<Vec<String>, FileError> {
+        self.observed("list", path, self.list_untracked(path), |v| {
+            crate::dependencies::digest(&serde_json::to_vec(v).unwrap())
+        })
+    }
+    pub fn dirs(&self, path: &str) -> Result<Vec<String>, FileError> {
+        self.observed("dirs", path, self.dirs_untracked(path), |v| {
+            crate::dependencies::digest(&serde_json::to_vec(v).unwrap())
+        })
+    }
+    /// Replay queries so new overrides, directories and previously missing files count too.
+    pub fn verify_dependencies(&self, expected: &crate::dependencies::Dependencies) -> Result<bool, FileError> {
+        self.verify_dependencies_cached(expected, false, None)
+    }
+    pub fn verify_dependencies_cached(
+        &self,
+        expected: &crate::dependencies::Dependencies,
+        allow_cache: bool,
+        stop: Option<&std::sync::atomic::AtomicBool>,
+    ) -> Result<bool, FileError> {
+        use std::collections::HashMap;
+        use std::sync::{Mutex, OnceLock};
+        static CACHE: OnceLock<Mutex<HashMap<String, String>>> = OnceLock::new();
+        let cache = CACHE.get_or_init(Default::default);
+        if expected.version != crate::dependencies::VERSION
+            || !expected.stable
+            || expected.unreadable
+            || expected.queries.is_empty()
+        {
+            return Ok(false);
+        }
+        self.track_dependencies();
+        let stack_stamp = self.input_stamp();
+        for key in expected.queries.keys() {
+            if stop.is_some_and(|s| s.load(std::sync::atomic::Ordering::Acquire)) {
+                return Err(FileError {
+                    path: String::new(),
+                    mount: PathBuf::new(),
+                    error: ArchiveError::Io(std::io::Error::new(std::io::ErrorKind::Interrupted, "cancelled")),
+                });
+            }
+            let Some((op, path)) = key.split_once(':') else { return Ok(false) };
+            // Reads from the same source are shared even when two profiles have different other mods.
+            let identity = if op == "read" {
+                self.source(path)
+                    .map(|source| {
+                        let input = if source.is_dir() { source.join(path) } else { source.to_path_buf() };
+                        format!("{}:{}", source.to_string_lossy(), crate::dependencies::input_stamp(&[input]))
+                    })
+                    .unwrap_or_else(|| stack_stamp.clone())
+            } else {
+                stack_stamp.clone()
+            };
+            let cache_key = format!("{identity}:{key}");
+            let cached = if allow_cache {
+                cache.lock().unwrap_or_else(|e| e.into_inner()).get(&cache_key).cloned()
+            } else {
+                None
+            };
+            if let Some(value) = cached {
+                VERIFIED_HITS.fetch_add(1, Ordering::Relaxed);
+                self.recorder.record(op, path, value);
+                continue;
+            }
+            VERIFIED_READS.fetch_add(1, Ordering::Relaxed);
+            let bytes = match op {
+                "read" => self.read(path)?.map_or(0, |v| v.len()),
+                "texture" => self.read_texture(path)?.map_or(0, |v| v.rgba.len()),
+                "textureTop" => self.read_texture_top(path)?.map_or(0, |v| v.data.len()),
+                "list" => self.list(path)?.iter().map(|v| v.len()).sum(),
+                "dirs" => self.dirs(path)?.iter().map(|v| v.len()).sum(),
+                _ => return Ok(false),
+            };
+            VERIFIED_BYTES.fetch_add(bytes as u64, Ordering::Relaxed);
+            if let Some(value) = self.recorder.value(key) {
+                let mut cache = cache.lock().unwrap_or_else(|e| e.into_inner());
+                if cache.len() >= 200_000 {
+                    cache.clear();
+                }
+                cache.insert(cache_key, value);
+            }
+        }
+        Ok(self.dependencies().as_ref() == Some(expected) && self.inputs_unchanged())
+    }
+
     /// Where a game path is read from (the latest mount that has it: an archive's path, or a folder's), so a
     /// file that can't be understood names the mod it came from.
     pub fn source(&self, path: &str) -> Option<&Path> {
         let has = |mount: &&Mount| match mount {
-            Mount::Archive(archive) => archive.contains(path),
+            Mount::Archive(archive) => archive.contains_file(path),
             Mount::Folder(root) => root.join(path.trim_start_matches('/')).is_file(),
         };
         self.mounts.iter().rev().find(has).map(Mount::name)
@@ -129,7 +294,7 @@ impl GameFiles {
 
     /// Reads a game path such as `/def/world/road_look.sii` (leading slash optional): from the latest
     /// mount that has it, `None` if none does.
-    pub fn read(&self, path: &str) -> Result<Option<Vec<u8>>, FileError> {
+    fn read_untracked(&self, path: &str) -> Result<Option<Vec<u8>>, FileError> {
         for mount in self.mounts.iter().rev() {
             let read = match mount {
                 Mount::Archive(archive) => archive.read(path),
@@ -152,7 +317,7 @@ impl GameFiles {
 
     /// A texture's top level as stored ([`crate::archive::Archive::read_texture_top`]), from the latest archive
     /// that has it (not from extracted folders: there, the `.dds` beside the `.tobj` is the picture).
-    pub fn read_texture_top(&self, path: &str) -> Result<Option<crate::archive::RawTexture>, FileError> {
+    fn read_texture_top_untracked(&self, path: &str) -> Result<Option<crate::archive::RawTexture>, FileError> {
         for mount in self.mounts.iter().rev() {
             if let Mount::Archive(archive) = mount
                 && archive.contains(path)
@@ -165,7 +330,7 @@ impl GameFiles {
 
     /// Reads a texture (a `.tobj` path) from the latest mount that has it: from an archive's texture entry,
     /// or in an extracted folder from the `.dds` file beside its `.tobj`.
-    pub fn read_texture(&self, path: &str) -> Result<Option<Texture>, FileError> {
+    fn read_texture_untracked(&self, path: &str) -> Result<Option<Texture>, FileError> {
         for mount in self.mounts.iter().rev() {
             let read = match mount {
                 Mount::Archive(archive) if archive.contains(path) => archive.read_texture(path),
@@ -191,12 +356,12 @@ impl GameFiles {
     }
 
     /// The names of the files directly in a game directory, across all mounts, sorted.
-    pub fn list(&self, dir: &str) -> Result<Vec<String>, FileError> {
+    fn list_untracked(&self, dir: &str) -> Result<Vec<String>, FileError> {
         self.names(dir, false)
     }
 
     /// The names of the directories directly in a game directory, across all mounts, sorted.
-    pub fn dirs(&self, dir: &str) -> Result<Vec<String>, FileError> {
+    fn dirs_untracked(&self, dir: &str) -> Result<Vec<String>, FileError> {
         self.names(dir, true)
     }
 
@@ -211,9 +376,15 @@ impl GameFiles {
                     );
                 }
                 Mount::Folder(root) => {
-                    let Ok(entries) = std::fs::read_dir(root.join(dir.trim_start_matches('/'))) else { continue };
-                    for entry in entries.flatten() {
-                        if entry.file_type().is_ok_and(|kind| if dirs { kind.is_dir() } else { kind.is_file() }) {
+                    let entries = match std::fs::read_dir(root.join(dir.trim_start_matches('/'))) {
+                        Ok(entries) => entries,
+                        Err(error) if error.kind() == std::io::ErrorKind::NotFound => continue,
+                        Err(error) => return Err(file_error(dir, mount, ArchiveError::Io(error))),
+                    };
+                    for entry in entries {
+                        let entry = entry.map_err(|error| file_error(dir, mount, ArchiveError::Io(error)))?;
+                        let kind = entry.metadata().map_err(|error| file_error(dir, mount, ArchiveError::Io(error)))?;
+                        if if dirs { kind.is_dir() } else { kind.is_file() } {
                             names.insert(entry.file_name().to_string_lossy().into_owned());
                         }
                     }

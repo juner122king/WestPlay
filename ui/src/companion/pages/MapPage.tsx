@@ -1,29 +1,21 @@
 import { useContext, useState } from 'react'
 import { hvtMapMessage } from '../../cabin/maps/blockedMap'
-import { Button, Checking, Group, MapProgress, mapOf, Note, Panel, ProfileRow, Row, Switch, Tick } from '../room/parts'
-import { GAME_NAMES, type ProfileCheck, prepareMapsAgain } from '../setup'
+import { Button, Group, MapProgress, Note, Panel, Row, Switch, Tick } from '../room/parts'
+import { GAME_NAMES, prepareMaps } from '../setup'
 import { banner, WordsContext } from '../room/room'
 import { GLOW, ON_SCREEN, useScreenAt, useTour } from '../room/screen'
-import { list, percent } from '../onboarding/words'
-import type { ProfileMap } from '../useHostStatus'
-import { memoryNote, type PageProps, useGameCheck } from './page'
+import { percent } from '../onboarding/words'
+import { memoryNote, type PageProps } from './page'
 import { type MapChoice, PrepareMapsSheet } from './PrepareMapsSheet'
+import { MapMaintenance } from './MapMaintenance'
 
 /**
  * The map in the cab's Maps app: made from the player's own game, for the profile they play. Its state (built
  * when, or being built now, as in the onboarding), and each profile's map with its map mods. On the room's
  * screen, Maps with the player's map, zooming out and back in.
  */
-/** A profile as it plays now: its map and map mods as the host worked them out at its last look (`live`), over
- * setup's check of the game, which may be older (owner 2026-11-07: a map mod turned off and saved in the game, the
- * page still named it). */
-function livePlaying(profile: ProfileCheck, live: ProfileMap): ProfileCheck {
-  if (live.map === undefined) return profile
-  return { ...profile, map: live.map, mapMods: live.mapMods ?? [], unreadable: live.unreadable ?? 0 }
-}
-
 export function MapPage(props: PageProps) {
-  const { status, cw, checks, setup, mapProgress } = props
+  const { status, cw, mapProgress } = props
   const { settings, update } = props.settings
   const { words, code } = useContext(WordsContext)
   const w = words.map
@@ -34,7 +26,6 @@ export function MapPage(props: PageProps) {
   // Seen building on this visit: once it's ready, its stages stay up, all ticked.
   const [watched, setWatched] = useState(false)
   if (building && !watched) setWatched(true)
-  const error = useGameCheck(props)
   const [hvtTitle, hvtText] = [
     ...new Intl.Segmenter(words.locale, { granularity: 'sentence' }).segment(hvtMapMessage(code)),
   ].map((part) => part.segment.trim())
@@ -85,39 +76,30 @@ export function MapPage(props: PageProps) {
   // A map being made: the button waits for it. Once asked, it turns until a map is being made, or for a moment
   // (the game open, the maps wait for it to close).
   const [asked, setAsked] = useState(false)
+  const [preparationError, setPreparationError] = useState<string | null>(null)
   if (asked && building) setAsked(false)
-  const ask = (folders?: string[]) => {
+  const ask = (targets: string[], force = false) => {
     setAsked(true)
-    prepareMapsAgain(folders).then(
+    setPreparationError(null)
+    prepareMaps(targets, force).then(
       () => setTimeout(() => setAsked(false), 2500),
-      () => setAsked(false),
+      (error) => {
+        setAsked(false)
+        setPreparationError(String(error))
+      },
     )
   }
   // Each map once, with the profiles playing it (two games: its game's name first), for the player to pick from
   // when there's more than one (owner 2026-11-06); HVT's, never made, left out.
-  const choices: (MapChoice & { names: string[] })[] = []
-  for (const each of status?.profileMaps ?? []) {
-    if (!each.folder || each.status.state === 'notAllowed') continue
-    const game = setup.games.find((game) => game.kind === each.game)
-    const profile = game ? checks[game.dir]?.profiles.find((profile) => profile.dir === each.dir) : undefined
-    const name = each.truckersmp ? (each.promods ? 'TruckersMP ProMods' : 'TruckersMP') : profile?.name
-    if (!name) continue
-    const known = choices.find((choice) => choice.folder === each.folder)
-    if (known) {
-      known.names.push(name)
-      known.title = list(words, known.names)
-      continue
-    }
-    const map = profile && !each.truckersmp ? mapOf(words, livePlaying(profile, each)) : words.check.baseMap
-    choices.push({
-      folder: each.folder,
-      names: [name],
-      title: name,
-      detail: setup.games.length > 1 ? `${GAME_NAMES[each.game]} · ${map}` : map,
-    })
-  }
+  const choices: MapChoice[] = (status?.profileMaps ?? [])
+    .filter((map) => map.target && map.status.state !== 'notAllowed')
+    .map((map) => ({
+      target: map.target!,
+      title: map.name || (map.truckersmp ? 'TruckersMP' : map.dir),
+      detail: `${GAME_NAMES[map.game]} · ${map.map ?? words.check.baseMap}`,
+    }))
   const [picking, setPicking] = useState(false)
-  const again = () => (choices.length > 1 ? setPicking(true) : ask())
+  const again = () => setPicking(true)
   return (
     <Panel
       place="page"
@@ -200,68 +182,16 @@ export function MapPage(props: PageProps) {
           />
         </Group>
       )}
-      {(setup.games.length ? setup.games : [null]).map((game, at) => {
-        const check = game ? checks[game.dir] : undefined
-        // Each game's own profiles' maps (with two games, its name over them).
-        const maps = (status?.profileMaps ?? []).filter((each) => !game || each.game === game.kind)
-        return (
-          <Group
-            key={game?.dir ?? 'none'}
-            title={game && setup.games.length > 1 ? GAME_NAMES[game.kind] : cw.map.profiles}
-            place={5 + at}
-          >
-            {check ? (
-              check.profiles.length ? (
-                [
-                  ...check.profiles.map((profile) => {
-                    const map = maps.find((each) => each.dir === profile.dir)
-                    return (
-                      <ProfileRow
-                        key={profile.dir}
-                        profile={map ? livePlaying(profile, map) : profile}
-                        map={map?.status}
-                        leftOut={map?.leftOut}
-                      />
-                    )
-                  }),
-                  // TruckersMP's, with TruckersMP installed: the game's map with TruckersMP's own over it, which
-                  // every profile plays there (no profile's mods load on TruckersMP); and its ProMods servers', once
-                  // the player played on one.
-                  ...maps
-                    .filter((each) => each.truckersmp)
-                    .map((each) => (
-                      <ProfileRow
-                        key={`${each.dir}#${each.promods ? 'promods' : ''}`}
-                        profile={{
-                          name: each.promods ? 'TruckersMP ProMods' : 'TruckersMP',
-                          dir: each.dir,
-                          map: each.game === 'ats' ? 'usa' : 'europe',
-                          mapMods: [],
-                          unreadable: 0,
-                          hvtMap: false,
-                        }}
-                        map={each.status}
-                        leftOut={each.leftOut}
-                      />
-                    )),
-                ]
-              ) : (
-                <Row title={words.check.noProfiles} detail={words.check.noProfilesDetail} />
-              )
-            ) : (
-              <Row title={error ?? cw.map.checking} accessory={error ? undefined : <Checking />} />
-            )}
-          </Group>
-        )
-      })}
+      {preparationError && <Note tone="bad">{preparationError}</Note>}
+      <MapMaintenance status={status} settings={props.settings} cw={cw} />
       {picking && (
         <PrepareMapsSheet
           cw={cw}
           maps={choices}
           close={() => setPicking(false)}
-          prepare={(folders) => {
+          prepare={(targets, force) => {
             setPicking(false)
-            ask(folders.length === choices.length ? undefined : folders)
+            ask(targets, force)
           }}
         />
       )}

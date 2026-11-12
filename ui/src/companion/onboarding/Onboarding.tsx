@@ -24,6 +24,7 @@ import {
 import { DEFAULT_KEY, type SettingsState } from '../useSettings'
 import { memoryNote } from '../pages/page'
 import { companionWords } from '../pages/words'
+import { MapMaintenance } from '../pages/MapMaintenance'
 import '../room/room.css'
 import { type Banner, GlassCursor, type Pose, TruckScreen } from '../room/TruckScreen'
 import {
@@ -294,7 +295,7 @@ export function Onboarding({
                 back={back}
               />
             )}
-            {step === 'map' && <MapStep status={status} next={next} back={back} />}
+            {step === 'map' && <MapStep status={status} settings={settings} next={next} back={back} />}
             {step === 'controls' && <Controls settings={settings} next={next} back={back} />}
             {step === 'accounts' && <Accounts status={status} next={next} back={back} />}
             {step === 'appleMusic' && <ServiceSignIn service="appleMusic" status={status} next={next} back={back} />}
@@ -767,14 +768,23 @@ function Install({
   )
 }
 
-function MapStep({ status, next, back }: { status: HostStatus | null; next(): void; back?: () => void }) {
+function MapStep({
+  status,
+  settings,
+  next,
+  back,
+}: {
+  status: HostStatus | null
+  settings: SettingsState
+  next(): void
+  back?: () => void
+}) {
   const map = status?.map ?? { state: 'unknown' as const }
   const building = map.state === 'building' ? map : null
   const shown = useGlidingProgress(building?.done ?? null, building?.stage ?? null)
   // Seen building on this visit: once it's ready, its stages stay up, all ticked.
   const [watched, setWatched] = useState(false)
   if (building && !watched) setWatched(true)
-  const settled = map.state === 'ready' || map.state === 'notAllowed' || map.state === 'failed'
   const { words, code } = useContext(WordsContext)
   const w = words.map
   // The HVT message, its two sentences as the banner's title and line.
@@ -800,7 +810,15 @@ function MapStep({ status, next, back }: { status: HostStatus | null; next(): vo
               ? { title: hvtTitle, detail: hvtText }
               : map.state === 'failed'
                 ? banner(w.banners.failed)
-                : { title: w.banners.getting, busy: true },
+                : map.state === 'checking' || map.state === 'queued'
+                  ? {
+                      title:
+                        map.state === 'checking'
+                          ? companionWords(code).map.maintenance.checking
+                          : companionWords(code).map.maintenance.queued,
+                      busy: true,
+                    }
+                  : null,
   )
 
   useTour(
@@ -820,15 +838,16 @@ function MapStep({ status, next, back }: { status: HostStatus | null; next(): vo
   return (
     <Panel
       place="side"
-      title={map.state === 'ready' ? w.titleReady : w.title}
+      title={map.state === 'ready' ? w.titleReady : building ? w.title : companionWords(code).map.titles.ready}
       sub={w.sub}
       back={back}
       action={
-        <Button onClick={next} disabled={!settled}>
-          {words.continue}
+        <Button onClick={next}>
+          {map.state === 'ready' ? words.continue : companionWords(code).map.maintenance.skip}
         </Button>
       }
     >
+      <MapMaintenance status={status} settings={settings} cw={companionWords(code)} />
       {(building || (watched && map.state === 'ready')) && (
         <MapProgress shown={shown} stage={building?.stage ?? null} finished={map.state === 'ready'} />
       )}
@@ -849,7 +868,7 @@ function MapStep({ status, next, back }: { status: HostStatus | null; next(): vo
 }
 
 /**
- * Before WestPlay is installed (its maps are drawn as soon as it is: `MapWatch`, the game set up): whether they're
+ * Before WestPlay is installed: whether explicitly selected maps are
  * drawn faster, on the whole processor and up to 80% of the memory, off unless the player turns it on; and a box
  * to tick saying they've read the page, Continue waiting for it (owner 2026-11-06: "people don't read"). The
  * choice is the Map page's Prepare Maps Faster, changed there later.

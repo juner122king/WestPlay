@@ -3,18 +3,14 @@ import { createPortal } from 'react-dom'
 import { Button, Group, Row, Tick } from '../room/parts'
 import type { CompanionWords } from './words'
 
-/** One map to prepare again: its folder (what the host asks by), the profiles playing it and what it's made of. */
+/** An explicit game/profile target; cache folder names are never command identities. */
 export interface MapChoice {
-  folder: string
+  target: string
   title: string
   detail: string
 }
 
-/**
- * Prepare Maps Again, with more than one map: a sheet over the room listing each map once (profiles playing the
- * same map share it), every one ticked; the player unticks those to keep as they are (owner 2026-11-06: a player
- * with many profiles' maps picks which to draw again), and Prepare asks for the rest.
- */
+/** Select profiles to validate and prepare once, or explicitly force a full rebuild. */
 export function PrepareMapsSheet({
   cw,
   maps,
@@ -23,15 +19,15 @@ export function PrepareMapsSheet({
 }: {
   cw: CompanionWords
   maps: MapChoice[]
-  prepare(folders: string[]): void
+  prepare(targets: string[], force?: boolean): void
   close(): void
 }) {
   const w = cw.map
-  const [chosen, setChosen] = useState(() => new Set(maps.map((map) => map.folder)))
-  const toggle = (folder: string) =>
+  const [chosen, setChosen] = useState(() => new Set<string>())
+  const toggle = (target: string) =>
     setChosen((before) => {
       const after = new Set(before)
-      if (!after.delete(folder)) after.add(folder)
+      if (!after.delete(target)) after.add(target)
       return after
     })
   // Whether the list holds more than it shows: only then does it fade at its foot.
@@ -67,21 +63,33 @@ export function PrepareMapsSheet({
           <Group place={0}>
             {maps.map((map) => (
               <Row
-                key={map.folder}
+                key={map.target}
                 title={map.title}
                 detail={map.detail}
-                accessory={chosen.has(map.folder) ? <Tick key="chosen" /> : undefined}
-                onClick={() => toggle(map.folder)}
+                accessory={chosen.has(map.target) ? <Tick key="chosen" /> : undefined}
+                onClick={() => toggle(map.target)}
               />
             ))}
           </Group>
         </div>
         <div className="cp-sheet-actions">
+          <Button
+            glass
+            disabled={chosen.size === 0}
+            onClick={() =>
+              prepare(
+                maps.filter((map) => chosen.has(map.target)).map((map) => map.target),
+                true,
+              )
+            }
+          >
+            {w.maintenance.forcePrepare}
+          </Button>
           <Button glass onClick={close}>
             {cw.uninstall.cancel}
           </Button>
           <Button
-            onClick={() => prepare(maps.filter((map) => chosen.has(map.folder)).map((map) => map.folder))}
+            onClick={() => prepare(maps.filter((map) => chosen.has(map.target)).map((map) => map.target))}
             disabled={chosen.size === 0}
           >
             {w.prepare}

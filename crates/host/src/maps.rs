@@ -1,26 +1,18 @@
-//! The player's maps for the cab's Maps app, watched while WestPlay runs: a map for each of their profiles,
-//! built by `westplay_setup::map` from the game WestPlay is set up in (the companion's setup chooses it), its
-//! DLCs and that profile's map mods, one by one (the profile they play, from the save the game last wrote,
-//! first), and the played profile's served to the cabin page from WestPlay's `maps` folder. Profiles with the
-//! same map and map mods share it. A map that can't be made (a map mod WestPlay can't read) or isn't allowed
-//! doesn't stop the others'. A player with no profile yet gets the base game's map, the one the profile they
-//! make will play (unless they add map mods to it).
+//! The player's maps for the cab, discovered from each game's profiles and served from WestPlay's
+//! `maps` folder. Discovery stays lightweight for unselected targets. Automatic preparation requires
+//! both the game and profile switches; explicit requests prepare only their selected targets.
 //!
-//! A map is built only while the game is closed (it takes gigabytes of memory): one to build while the game
-//! runs waits for it to close, the cab keeping the map it had (an older build of the same map, if there's
-//! one). It waits too while the PC hasn't the memory free for it ([`MEMORY_NEEDED`]), and starts once it
-//! has; a PC that hasn't that much memory at all builds it anyway (slower, Windows lending it disk). Players run WestPlay first, for its first setup, then the game. A map WestPlay doesn't allow (HVT's
-//! Road to Heavy) is never built.
+//! Profiles with the same game, map and active mount stack share a task and its result. Existing caches
+//! remain usable while stale or unverified. Legacy caches need one explicit preparation to establish
+//! the dependency baseline; version and package metadata changes then trigger validation, not a rebuild.
 //!
-//! With TruckersMP installed, there's one more map: TruckersMP's, which every profile plays there (no
-//! profile's mods load on TruckersMP; its own packs do: westplay_setup::truckersmp), built from the game, its
-//! DLCs and the packs the last TruckersMP session mounted (until there's been one, all it has), right after
-//! the played profile's map; while the game's last session was TruckersMP's, it's the one played (owner
-//! 2026-10-21: made as soon as TruckersMP is found, not after a first session).
+//! Full generation waits for the game to close and for sufficient free memory ([`MEMORY_NEEDED`]),
+//! with the recently played profile first. HVT's Road to Heavy is never built. TruckersMP's ordinary
+//! and ProMods maps are separate opt-in targets under each game.
 //!
-//! Finding the profiles' map mods opens their archives, so it's done again only when something it depends
-//! on changes: another profile played, a profile's mods changed (its `profile.sii` rewritten), the game
-//! updated. A map that failed is tried again once what it's built from changes.
+//! Requests and persisted cancellation are managed by [`Control`]. A task records the effective inputs
+//! observed by the generator, and publishes its dependencies with the manifest after new resources
+//! have been written. Cancelling a task keeps the previous cache and does not stop this watcher.
 
 use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
@@ -34,6 +26,7 @@ use westplay_setup::game::{Game, Kind};
 use westplay_setup::{map, map_builder, places, profiles, truckersmp};
 
 use crate::map_process;
+use crate::map_tasks::Control;
 use crate::settings::SharedSettings;
 
 /// The packs the last TruckersMP session in the game `kind` mounted, kept in the `maps` folder (truckersmp.rs):
@@ -71,6 +64,11 @@ pub enum MapStatus {
     /// WestPlay isn't set up in a game yet, or the game isn't there any more.
     NoGame,
     Ready,
+    NotPrepared,
+    Unverified,
+    Stale,
+    Checking,
+    Cancelled,
     /// Being built: how far, 0 to 1.
     Building {
         done: f32,
@@ -101,9 +99,18 @@ pub struct ProfileMap {
     /// Its game: `ets2` or `ats`.
     pub game: Kind,
     pub dir: String,
-    /// Its map's folder, by name: profiles sharing a map share it (what [`SetUpGame::prepare_maps_again`] asks by).
+    /// Its map's folder, by name: profiles sharing a map share it (what [`SetUpGame::prepare_maps`] asks by).
     pub folder: String,
     pub status: MapStatus,
+    pub target: String,
+    pub name: String,
+    pub auto_enabled: bool,
+    pub game_auto_enabled: bool,
+    pub has_cache: bool,
+    pub cache_state: String,
+    pub task_id: Option<String>,
+    pub reason: Option<String>,
+    pub shared_targets: Vec<String>,
     /// The map it plays (`europe`, or a standalone map mod's) and the mods that change it as the game names them,
     /// with how many of those can't be read: as worked out from its profile at this look, so the companion's rows
     /// say what the profile plays now (owner 2026-11-07: Grand Utopia turned off in the game and saved, the Map page
@@ -167,6 +174,7 @@ pub struct MapUpdate {
 /// at either.
 #[derive(Debug, Default)]
 pub struct SetUpGame {
+    control: Arc<Control>,
     state: Mutex<SetUp>,
     changed: Condvar,
 }
@@ -176,41 +184,15 @@ struct SetUp {
     dirs: Vec<PathBuf>,
     /// How many times the player has asked to prepare the maps again.
     asked_again: u64,
-    /// The maps asked for since the watch last looked: `None` once it has.
-    asked: Option<Asked>,
-}
-
-/// The maps the player asked to prepare again.
-#[derive(Clone, Debug, PartialEq)]
-enum Asked {
-    All,
-    /// Those in these folders (their names: `ProfileMap::folder`).
-    Maps(std::collections::BTreeSet<String>),
-}
-
-impl Asked {
-    /// This ask and `other`, made before the watch looked.
-    fn and(self, other: Self) -> Self {
-        match (self, other) {
-            (Self::Maps(mut these), Self::Maps(those)) => {
-                these.extend(those);
-                Self::Maps(these)
-            }
-            _ => Self::All,
-        }
-    }
-
-    fn has(&self, folder: &Path) -> bool {
-        match self {
-            Self::All => true,
-            Self::Maps(names) => folder.file_name().is_some_and(|name| names.contains(&*name.to_string_lossy())),
-        }
-    }
 }
 
 impl SetUpGame {
     pub fn new(dirs: Vec<PathBuf>) -> Self {
-        Self { state: Mutex::new(SetUp { dirs, asked_again: 0, asked: None }), changed: Condvar::new() }
+        Self {
+            state: Mutex::new(SetUp { dirs, asked_again: 0 }),
+            changed: Condvar::new(),
+            control: Arc::new(Control::default()),
+        }
     }
 
     fn state(&self) -> std::sync::MutexGuard<'_, SetUp> {
@@ -226,24 +208,18 @@ impl SetUpGame {
         self.state().dirs.clone()
     }
 
-    /// Asks for the maps in `folders` (their names: `ProfileMap::folder`; `None`: every map) to be prepared again,
-    /// failed ones included: each is built anew in turn (as ever, while the game is closed), the cab keeping the
-    /// map it has meanwhile (owner 2026-11-06: a player with many profiles' maps picks those to draw again).
-    pub fn prepare_maps_again(&self, folders: Option<Vec<String>>) {
-        let asked = folders.map_or(Asked::All, |folders| Asked::Maps(folders.into_iter().collect()));
-        let mut state = self.state();
-        state.asked_again += 1;
-        state.asked = Some(match state.asked.take() {
-            Some(before) => before.and(asked),
-            None => asked,
-        });
-        drop(state);
-        self.changed.notify_all();
+    /// Explicit, stable profile targets; there is no implicit "all games" request.
+    pub fn prepare_maps(&self, targets: Vec<String>, force: bool) -> Result<(), String> {
+        self.control.request(targets, force)?;
+        self.state().asked_again += 1;
+        self.wake();
+        Ok(())
     }
-
-    /// The maps asked for since the last look, forgotten as they're taken.
-    fn take_asked(&self) -> Option<Asked> {
-        self.state().asked.take()
+    pub fn cancel_map_preparation(&self, task_id: &str) -> Result<bool, String> {
+        let result = self.control.cancel(task_id);
+        self.state().asked_again += 1;
+        self.wake();
+        result
     }
 
     /// Waits up to `timeout` for the game, or the player's asks, to be other than `known`, or for `builds` to stop.
@@ -297,6 +273,7 @@ impl MapWatch {
     /// How hard each build works is read from `settings` as it starts (`MapSettings::fast`); each is built by the
     /// map builder `builder` (`map_process`), or in WestPlay's own process without one.
     pub fn start(maps: PathBuf, game: Arc<SetUpGame>, settings: Arc<SharedSettings>, builder: Option<PathBuf>) -> Self {
+        game.control.load(&maps);
         let (sender, updates) = mpsc::channel();
         let played = PlayedMap::default();
         let telling = played.clone();
@@ -317,6 +294,7 @@ type TruckersMpPacks = (PathBuf, Vec<(PathBuf, Option<SystemTime>)>);
 /// What the profiles' maps were worked out from: when none of it changes, the maps stay what they were.
 #[derive(Clone, Debug, PartialEq)]
 struct Basis {
+    selection: u64,
     /// The game's folder (WestPlay set up in another).
     game: PathBuf,
     /// The profile the game has selected, by name (its log), and the folder of the one with the newest save.
@@ -356,8 +334,8 @@ fn watch(
     // A game's maps that couldn't be worked out (a panic), from what, and why.
     let mut wants_failed: HashMap<PathBuf, (Basis, String)> = HashMap::new();
     let mut failed = Failures::new();
-    // Maps the player asked to prepare again (by folder), each built anew in its turn, and the last ask seen.
-    let mut again: HashSet<PathBuf> = HashSet::new();
+    let mut verified: HashMap<PathBuf, (String, map::CacheCheck)> = HashMap::new();
+    // The last explicit request/cancellation seen, to refresh lightweight discovery immediately.
     let mut asked_again = 0;
     // Unused maps not removed whole yet, told once (tried again at each look).
     let mut not_removed: HashSet<PathBuf> = HashSet::new();
@@ -375,16 +353,11 @@ fn watch(
             .collect();
         let games = played_first(games, userdata.as_deref());
         let asked_now = set_up_in.asked_again != asked_again;
-        let mut asked = None;
         if asked_now {
             asked_again = set_up_in.asked_again;
-            asked = set_up.take_asked();
             // Everything looked at afresh; the maps asked for, their failures forgotten.
             worked_out.clear();
             wants_failed.clear();
-            if let Some(asked) = &asked {
-                failed.retain(|folder, _| !asked.has(folder));
-            }
         }
         // Every game's maps in one list, the played game's first (its played profile's map the one the cab shows);
         // whether each game's were worked out, and why the played game's couldn't be.
@@ -392,7 +365,8 @@ fn watch(
         let mut all_worked_out = true;
         let mut played_failed: Option<String> = None;
         for (index, (game, documents)) in games.iter().enumerate() {
-            let basis = basis(game, documents, userdata.as_deref());
+            let mut basis = basis(game, documents, userdata.as_deref());
+            basis.selection = settings.generation().wrapping_add(set_up.control.generation().rotate_left(32));
             // A TruckersMP session's packs, kept for its map until the next session: once the game has closed, its
             // log whole. While it starts, the log has only the packs mounted so far (23 of 24), which made another
             // map of TruckersMP's, the one it had removed, and the whole one built again at every quit (owner
@@ -406,7 +380,17 @@ fn watch(
                     log!("TruckersMP: its last session ({server}) mounted {} packs", session.len());
                 }
             }
-            match work_out(game, documents, userdata.as_deref(), basis, maps, &mut worked_out, &mut wants_failed) {
+            match work_out(
+                game,
+                documents,
+                userdata.as_deref(),
+                basis,
+                maps,
+                settings,
+                &set_up.control,
+                &mut worked_out,
+                &mut wants_failed,
+            ) {
                 Ok(game_wants) => wants.extend(game_wants),
                 // A game whose maps couldn't be worked out leaves the others' to be made (owner 2026-10-18: one
                 // profile's map failing must not stop the others').
@@ -438,14 +422,20 @@ fn watch(
                 *shared = Some((game.clone(), profile.clone()));
             }
             drop(shared);
-            if let Some(asked) = &asked {
-                again.extend(
-                    wants.iter().filter(|want| want.allowed && asked.has(&want.folder)).map(|want| want.folder.clone()),
-                );
-            }
             let fast = settings.get().map.fast;
-            let (mut update, more) =
-                carry_out(&wants, maps, fast, builder, &mut failed, &mut again, sender, &mut sent, builds);
+            let (mut update, more) = carry_out(
+                &wants,
+                maps,
+                fast,
+                builder,
+                &mut failed,
+                sender,
+                &mut sent,
+                builds,
+                settings,
+                &set_up.control,
+                &mut verified,
+            );
             // A game running that WestPlay isn't set up in (ATS beside an ETS2 set up before it, its plugin put
             // there by hand): no map in its cab, never the other game's.
             if Kind::ALL.iter().any(|kind| kind.running() && !games.iter().any(|(game, _)| game.kind == *kind)) {
@@ -454,6 +444,7 @@ fn watch(
             }
             (update, more)
         };
+        set_up.control.known(wants.iter().flat_map(targets_of));
         if sent.as_ref() != Some(&update) {
             if sender.send(update.clone()).is_err() {
                 return;
@@ -465,7 +456,15 @@ fn watch(
         // (its Prepare Maps Again hidden, 2.0). Only once every game's maps are known: another game's maps are
         // wanted too.
         if !games.is_empty() && all_worked_out {
-            remove_unused(maps, &wants, &mut not_removed);
+            let mut keep = wants.clone();
+            if let Some(template) = wants.first() {
+                for folder in set_up.control.pinned() {
+                    let mut pin = template.clone();
+                    pin.folder = maps.join(folder);
+                    keep.push(pin);
+                }
+            }
+            remove_unused(maps, &keep, &mut not_removed);
         }
         // A map just built: on to the next at once.
         if !more {
@@ -488,12 +487,15 @@ fn played_first(mut games: Vec<(Game, PathBuf)>, userdata: Option<&Path>) -> Vec
 /// The maps `game`'s profiles want ([`wants`]): as last worked out while what they're worked out from (`basis`)
 /// is the same, else worked out anew (kept in `worked_out`); why not, if that failed (a panic, kept in
 /// `wants_failed`: not tried again until something of it changes).
+#[allow(clippy::too_many_arguments)]
 fn work_out(
     game: &Game,
     documents: &Path,
     userdata: Option<&Path>,
     basis: Basis,
     maps: &Path,
+    settings: &SharedSettings,
+    control: &Control,
     worked_out: &mut HashMap<PathBuf, (Basis, Vec<Want>)>,
     wants_failed: &mut HashMap<PathBuf, (Basis, String)>,
 ) -> Result<Vec<Want>, String> {
@@ -512,8 +514,9 @@ fn work_out(
     // not the maps' watch stopping for good.
     let started = std::time::Instant::now();
     log!("maps: working out each profile's map");
-    let worked =
-        std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| wants(game, documents, userdata, &basis, maps)));
+    let worked = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        wants(game, documents, userdata, &basis, maps, settings, control)
+    }));
     match worked {
         Ok(wants) => {
             log!(
@@ -540,6 +543,7 @@ fn basis(game: &Game, documents: &Path, userdata: Option<&Path>) -> Basis {
         .and_then(|save| save::profile_of(&save)?.parent().map(Path::to_path_buf));
     let written = |path: &Path| std::fs::metadata(path).and_then(|m| m.modified()).ok();
     Basis {
+        selection: 0,
         game: game.dir.clone(),
         selected: profiles::selected(documents),
         profile,
@@ -587,6 +591,8 @@ fn profile_dirs(kind: Kind, documents: &Path, userdata: Option<&Path>) -> Vec<Pa
 /// profile that plays it.
 #[derive(Clone)]
 struct Want {
+    resolved: bool,
+    names: HashMap<PathBuf, String>,
     game: Game,
     profile: profiles::Profile,
     dirs: Vec<PathBuf>,
@@ -603,8 +609,21 @@ struct Want {
 /// The maps the profiles want, the played profile's first (the profile last saved in; before any save, the
 /// most recently made one; before any profile, the one a new player makes), then the others', the most
 /// recently played first. Profiles playing the same map with the same map mods share one.
-fn wants(game: &Game, documents: &Path, userdata: Option<&Path>, basis: &Basis, maps: &Path) -> Vec<Want> {
-    let mut all = profiles::find(game.kind, documents, userdata, Some(game));
+fn wants(
+    game: &Game,
+    documents: &Path,
+    userdata: Option<&Path>,
+    basis: &Basis,
+    maps: &Path,
+    settings: &SharedSettings,
+    control: &Control,
+) -> Vec<Want> {
+    let maintenance = settings.get().map.maintenance;
+    let resolve = |dir: &Path| {
+        let target = map::target(game.kind, dir, false, false);
+        maintenance.enabled(game.kind, &target) || control.requested(&target)
+    };
+    let mut all = profiles::find_with_resolution(game.kind, documents, userdata, Some(game), &resolve);
     // The profile played: the one the game has selected (its log; two of the same name, the one with the
     // newest save first), else the one with the newest save, else the newest.
     let named = basis.selected.as_ref().and_then(|name| {
@@ -619,20 +638,46 @@ fn wants(game: &Game, documents: &Path, userdata: Option<&Path>, basis: &Basis, 
     };
     let first = match played {
         Some(index) => all.remove(index),
-        None => profiles::Profile::new_player(game.kind),
+        None => {
+            let mut profile = profiles::Profile::new_player(game.kind);
+            profile.dir = documents.join("profiles");
+            profile.name = game.kind.base_map().into();
+            profile
+        }
     };
     let language = std::fs::read_to_string(documents.join("config.cfg")).ok().and_then(|c| locale::game_language(&c));
     let mut wants: Vec<Want> = Vec::new();
     for profile in std::iter::once(first).chain(all) {
-        let folder = map::folder(maps, &profile);
+        let resolved = resolve(&profile.dir);
+        // Package identities are available from profile.sii without opening archives.
+        let folder = map::folder_for(maps, game, &profile);
         if let Some(want) = wants.iter_mut().find(|want| want.folder == folder) {
+            want.names.insert(profile.dir.clone(), profile.name.clone());
             want.dirs.push(profile.dir.clone());
+            if resolved && !want.resolved {
+                want.source = map::source(game, &profile, language.as_deref());
+                want.allowed = !profile.plays_hvt_map();
+                // Borrow the resolved mount stack while keeping the played profile's identity.
+                want.profile.mods = profile.mods;
+                want.resolved = true;
+            }
             continue;
         }
+        let source = if resolved {
+            map::source(game, &profile, language.as_deref())
+        } else {
+            serde_json::json!({
+                "game": game.version.map(|version| version.to_string()),
+                "map": profile.map,
+                "profileWritten": map::profile_stamp(&profile.dir),
+            })
+        };
         wants.push(Want {
+            resolved,
             dirs: vec![profile.dir.clone()],
+            names: HashMap::from([(profile.dir.clone(), profile.name.clone())]),
             game: game.clone(),
-            source: map::source(game, &profile, language.as_deref()),
+            source,
             allowed: !profile.plays_hvt_map(),
             folder,
             profile,
@@ -647,12 +692,20 @@ fn wants(game: &Game, documents: &Path, userdata: Option<&Path>, basis: &Basis, 
     if let Some((installation, on_disk)) = &basis.truckersmp {
         let last = basis.session.as_deref().map(truckersmp::promods);
         let made = |packs: Vec<PathBuf>, promods: bool| {
-            let profile = truckersmp::profile(game.kind, installation, &packs);
+            let target = map::target(game.kind, installation, true, promods);
+            let resolved = maintenance.enabled(game.kind, &target) || control.requested(&target);
+            let profile = truckersmp::profile_with_resolution(game.kind, installation, &packs, resolved);
             Want {
+                resolved,
                 game: game.clone(),
                 dirs: vec![installation.clone()],
-                source: map::source(game, &profile, language.as_deref()),
-                folder: map::folder(maps, &profile),
+                names: HashMap::new(),
+                source: if resolved {
+                    map::source(game, &profile, language.as_deref())
+                } else {
+                    serde_json::json!({"map":profile.map})
+                },
+                folder: map::folder_for(maps, game, &profile),
                 allowed: true,
                 profile,
                 language: language.clone(),
@@ -767,6 +820,7 @@ fn is_map_folder(folder: &Path) -> bool {
 
 /// A map's state without building it: not allowed, failed (and nothing it's built from changed since),
 /// built, or to build (the player asked for it again, `again`).
+#[cfg(test)]
 fn state_of(want: &Want, failed: &Failures, again: &HashSet<PathBuf>) -> MapStatus {
     if !want.allowed {
         return MapStatus::NotAllowed;
@@ -805,6 +859,15 @@ fn profile_maps(wants: &[Want], states: &[MapStatus]) -> Vec<ProfileMap> {
                 dir: dir.to_string_lossy().into_owned(),
                 folder: folder.clone(),
                 status: status.clone(),
+                target: map::target(want.game.kind, dir, want.truckersmp, want.promods),
+                name: want.names.get(dir).unwrap_or(&want.profile.name).clone(),
+                auto_enabled: false,
+                game_auto_enabled: false,
+                has_cache: false,
+                cache_state: "missing".into(),
+                task_id: None,
+                reason: None,
+                shared_targets: Vec::new(),
                 map: map.clone(),
                 map_mods: map_mods.clone(),
                 unreadable,
@@ -823,6 +886,114 @@ fn is_zero(count: &usize) -> bool {
 /// Shows the played profile's map if it's built, and builds the next map that isn't (the played profile's
 /// first) if the game is closed, or waits. Returns what to show and say, and whether it built one (so the next
 /// is looked at at once).
+fn targets_of(want: &Want) -> Vec<String> {
+    want.dirs.iter().map(|dir| map::target(want.game.kind, dir, want.truckersmp, want.promods)).collect()
+}
+fn auto_enabled(want: &Want, settings: &SharedSettings) -> bool {
+    let policy = settings.get().map.maintenance;
+    targets_of(want).iter().any(|target| policy.enabled(want.game.kind, target))
+}
+/// Last-good references permit mod-combination changes, but never cross a game or standalone map.
+fn cache_folder(want: &Want, maps: &Path, control: &Control) -> Option<PathBuf> {
+    if built_at(&want.folder).is_some() {
+        return Some(want.folder.clone());
+    }
+    let targets = targets_of(want);
+    if let Some(cache) = control.cached(&targets, &want.profile.map) {
+        let folder = maps.join(cache.folder);
+        if built_at(&folder).is_some() {
+            return Some(folder);
+        }
+    }
+    // Adopt old-format caches without opening any mod archive or rebuilding them.
+    let active: Vec<_> = want.profile.mods.iter().map(|m| m.package.as_str()).collect();
+    let mut candidates: Vec<_> = std::fs::read_dir(maps)
+        .into_iter()
+        .flatten()
+        .flatten()
+        .filter_map(|entry| {
+            let folder = entry.path();
+            let source = westplay_mapdata::export::built_from(&folder)?;
+            if source["map"].as_str()? != want.profile.map {
+                return None;
+            }
+            if let Some(kind) = source.get("kind") {
+                if kind != &serde_json::json!(want.game.kind) {
+                    return None;
+                }
+            } else if want.profile.map != want.game.kind.base_map() {
+                return None;
+            }
+            if let Some(install) = source["installation"].as_str()
+                && install != map::normal_path(&want.game.dir)
+            {
+                return None;
+            }
+            if !source["mods"].as_array()?.iter().all(|m| m["package"].as_str().is_some_and(|m| active.contains(&m))) {
+                return None;
+            }
+            Some((built_at(&folder)?, folder))
+        })
+        .collect();
+    candidates.sort_by_key(|(at, _)| std::cmp::Reverse(*at));
+    candidates.into_iter().next().map(|(_, folder)| folder)
+}
+
+/// Settings and explicit cancellation remain responsive during both validation and generation.
+fn watch_preparation<T>(
+    task: &crate::map_tasks::Task,
+    want: &Want,
+    settings: &SharedSettings,
+    control: &Control,
+    builds: &map_process::Builds,
+    run: impl FnOnce() -> T,
+) -> T {
+    use std::sync::atomic::{AtomicBool, Ordering};
+    struct Done<'a>(&'a AtomicBool);
+    impl Drop for Done<'_> {
+        fn drop(&mut self) {
+            self.0.store(true, Ordering::Release);
+        }
+    }
+    let ended = AtomicBool::new(false);
+    std::thread::scope(|scope| {
+        scope.spawn(|| {
+            while !ended.load(Ordering::Acquire) {
+                let manual = control.mode(&targets_of(want)).is_some();
+                if builds.stopped() || (!manual && !auto_enabled(want, settings)) {
+                    let _ = control.cancel(&task.id);
+                }
+                if task.stop.load(Ordering::Acquire) {
+                    builds.cancel_running();
+                }
+                std::thread::sleep(Duration::from_millis(50));
+            }
+        });
+        let _done = Done(&ended);
+        run()
+    })
+}
+
+fn dependency_unreadable(folder: &Path) -> bool {
+    std::fs::read(folder.join("map.json"))
+        .ok()
+        .and_then(|v| serde_json::from_slice::<serde_json::Value>(&v).ok())
+        .is_some_and(|v| v["dependencies"]["unreadable"] == true)
+}
+
+fn cache_has_dependencies(folder: &Path) -> bool {
+    std::fs::read(folder.join("map.json"))
+        .ok()
+        .and_then(|v| serde_json::from_slice::<serde_json::Value>(&v).ok())
+        .and_then(|v| {
+            serde_json::from_value::<westplay_mapdata::dependencies::Dependencies>(v["dependencies"].clone()).ok()
+        })
+        .is_some_and(|d| {
+            d.version == westplay_mapdata::dependencies::VERSION && d.stable && !d.unreadable && !d.queries.is_empty()
+        })
+        && map::left_out(folder).is_empty()
+}
+
 #[allow(clippy::too_many_arguments)]
 fn carry_out(
     wants: &[Want],
@@ -830,177 +1001,386 @@ fn carry_out(
     fast: bool,
     builder: Option<&Path>,
     failed: &mut Failures,
-    again: &mut HashSet<PathBuf>,
     sender: &Sender<MapUpdate>,
     sent: &mut Option<MapUpdate>,
     builds: &map_process::Builds,
+    settings: &SharedSettings,
+    control: &Control,
+    verified: &mut HashMap<PathBuf, (String, map::CacheCheck)>,
 ) -> (MapUpdate, bool) {
-    let played = &wants[0];
-    let name = played.folder.file_name().map(|name| name.to_string_lossy().into_owned());
-    let built = built_at(&played.folder);
-    // The played profile's map once built; meanwhile an older build of it, if there's one.
-    let older = name.clone().filter(|_| built.is_some());
-    let update = |states: &[MapStatus]| {
-        let (folder, built) = match states[0] {
-            MapStatus::Ready => (name.clone(), built_at(&played.folder)),
-            MapStatus::NotAllowed => (None, None),
-            _ => (older.clone(), built),
+    let mut states = vec![MapStatus::Unknown; wants.len()];
+    let mut reasons: Vec<Option<String>> = vec![None; wants.len()];
+    let mut caches: Vec<Option<PathBuf>> = wants.iter().map(|w| cache_folder(w, maps, control)).collect();
+    let mut tasks: Vec<Option<crate::map_tasks::Task>> = vec![None; wants.len()];
+    let make_update = |states: &[MapStatus],
+                       caches: &[Option<PathBuf>],
+                       tasks: &[Option<crate::map_tasks::Task>],
+                       reasons: &[Option<String>]| {
+        let mut profiles = profile_maps(wants, states);
+        let policy = settings.get().map.maintenance;
+        for profile in &mut profiles {
+            let index = wants.iter().position(|w| targets_of(w).contains(&profile.target)).unwrap();
+            profile.auto_enabled = policy.profiles.get(&profile.target).copied().unwrap_or(false);
+            profile.game_auto_enabled = policy
+                .games
+                .get(match profile.game {
+                    Kind::Ets2 => "ets2",
+                    Kind::Ats => "ats",
+                })
+                .copied()
+                .unwrap_or(false);
+            profile.has_cache = caches[index].is_some();
+            profile.left_out = caches[index]
+                .as_ref()
+                .map(|cache| map::left_out(cache).into_iter().map(|m| m.name).collect())
+                .unwrap_or_default();
+            let active = |i: usize| {
+                tasks[i].as_ref().is_some_and(|t| control.pending(&t.id))
+                    && matches!(
+                        states[i],
+                        MapStatus::Checking
+                            | MapStatus::Queued
+                            | MapStatus::WaitingForGame
+                            | MapStatus::WaitingForMemory { .. }
+                            | MapStatus::Building { .. }
+                    )
+            };
+            let task_index = if active(index) {
+                index
+            } else {
+                wants
+                    .iter()
+                    .enumerate()
+                    .find(|(i, other)| other.folder == wants[index].folder && active(*i))
+                    .map_or(index, |(i, _)| i)
+            };
+            let current_shared = wants
+                .iter()
+                .zip(states)
+                .any(|(other, state)| other.folder == wants[index].folder && *state == MapStatus::Ready);
+            if task_index != index {
+                profile.status = states[task_index].clone();
+            } else if current_shared
+                && matches!(profile.status, MapStatus::Stale | MapStatus::Unverified | MapStatus::NotPrepared)
+            {
+                profile.status = MapStatus::Ready;
+            }
+
+            profile.cache_state = match profile.status {
+                MapStatus::Ready => "current",
+                MapStatus::Unverified => "unverified",
+                _ if profile.has_cache => "stale",
+                _ => "missing",
+            }
+            .into();
+            profile.task_id = tasks[task_index].as_ref().filter(|_| active(task_index)).map(|t| t.id.clone());
+            profile.shared_targets = wants
+                .iter()
+                .enumerate()
+                .filter(|(other, w)| {
+                    w.folder == wants[index].folder || (caches[index].is_some() && caches[index] == caches[*other])
+                })
+                .flat_map(|(_, w)| targets_of(w))
+                .filter(|target| target != &profile.target)
+                .collect();
+            profile.reason = reasons[task_index].clone().or_else(|| {
+                match profile.status {
+                    MapStatus::Unverified => Some(
+                        if caches[index].as_ref().is_some_and(|cache| {
+                            westplay_mapdata::export::built_from(cache).is_some_and(|s| {
+                                s.get("leftOut").and_then(|v| v.as_array()).is_some_and(|v| !v.is_empty())
+                            }) || dependency_unreadable(cache)
+                        }) {
+                            "dependencyVerificationUnavailable"
+                        } else {
+                            "initializeDependencies"
+                        },
+                    ),
+                    MapStatus::Cancelled => Some("cancelled"),
+                    MapStatus::Stale => Some("notChecked"),
+                    _ if !profile.auto_enabled || !profile.game_auto_enabled => Some("automaticMaintenanceDisabled"),
+                    _ => None,
+                }
+                .map(str::to_owned)
+            });
+            if let Some(folder) = &caches[index] {
+                profile.folder = folder.file_name().unwrap().to_string_lossy().into_owned();
+            }
+        }
+        let cache = if states[0] == MapStatus::NotAllowed { None } else { caches[0].as_ref() };
+        let status = profiles
+            .iter()
+            .find(|p| targets_of(&wants[0]).contains(&p.target))
+            .map(|p| p.status.clone())
+            .unwrap_or_else(|| states[0].clone());
+        MapUpdate {
+            folder: cache.and_then(|p| p.file_name()).map(|v| v.to_string_lossy().into_owned()),
+            built: cache.and_then(|p| built_at(p)),
+            status,
+            profiles,
+        }
+    };
+    let mut next = None;
+    for (index, want) in wants.iter().enumerate() {
+        let targets = targets_of(want);
+        if let Some(cache) = &caches[index] {
+            control.remember(&targets, &want.profile.map, cache);
+        }
+        if !want.allowed {
+            states[index] = MapStatus::NotAllowed;
+            continue;
+        }
+        let manual = control.mode(&targets);
+        let enabled = auto_enabled(want, settings);
+        let key = want.folder.to_string_lossy().into_owned();
+        let mut identity = want.source.clone();
+        if let Some(fields) = identity.as_object_mut() {
+            fields.remove("profileWritten");
+        }
+        let input = identity.to_string();
+        let hint = want.source.to_string();
+        if manual.is_some() {
+            control.clear_cancel(&key);
+        }
+        if manual.is_none() && (control.cancelled(&key, &input) || (!want.resolved && control.has_cancelled(&key))) {
+            states[index] = MapStatus::Cancelled;
+            continue;
+        }
+        if manual.is_none() && (!enabled || !want.resolved) {
+            states[index] = match &caches[index] {
+                None => MapStatus::NotPrepared,
+                Some(cache) => {
+                    let has_deps = cache_has_dependencies(cache);
+                    if has_deps { MapStatus::Stale } else { MapStatus::Unverified }
+                }
+            };
+            continue;
+        }
+        if let Some((source, error)) = failed.get(&want.folder)
+            && source == &want.source
+            && manual.is_none()
+        {
+            states[index] = MapStatus::Failed { error: error.clone() };
+            continue;
+        }
+        let task = control.register(&key, &input, targets.clone(), maps);
+        tasks[index] = Some(task.clone());
+        let check = if manual == Some(true) {
+            map::CacheCheck::Changed("forced".into())
+        } else if manual.is_none()
+            && verified.get(&want.folder).is_some_and(|(hint, _)| hint == &want.source.to_string())
+        {
+            verified[&want.folder].1.clone()
+        } else if let Some(cache) = &caches[index] {
+            states[index] = MapStatus::Checking;
+            let update = make_update(&states, &caches, &tasks, &reasons);
+            let _ = sender.send(update.clone());
+            *sent = Some(update);
+            let started = std::time::Instant::now();
+            let before_reads = westplay_mapdata::files::verification_totals();
+            let before_bytes = westplay_mapdata::files::verification_bytes();
+            match watch_preparation(&task, want, settings, control, builds, || {
+                map::check_cache_controlled(
+                    cache,
+                    &want.game,
+                    &want.profile,
+                    want.language.as_deref(),
+                    true,
+                    Some(&task.stop),
+                )
+            }) {
+                Ok(check) => {
+                    let after = westplay_mapdata::files::verification_totals();
+                    log!(
+                        "map validation {}: {:?}, {:.3} s, {} queries read, {} bytes read, {} reused, complete generation: {}",
+                        task.id,
+                        check,
+                        started.elapsed().as_secs_f64(),
+                        after.0 - before_reads.0,
+                        westplay_mapdata::files::verification_bytes() - before_bytes,
+                        after.1 - before_reads.1,
+                        matches!(check, map::CacheCheck::Changed(_))
+                            || (check == map::CacheCheck::Unverified && manual.is_some())
+                    );
+                    check
+                }
+                Err(_) if task.stop.load(std::sync::atomic::Ordering::Acquire) => {
+                    states[index] = MapStatus::Cancelled;
+                    control.finish(&task);
+                    continue;
+                }
+                Err(error) => {
+                    let error = error.to_string();
+                    failed.insert(want.folder.clone(), (want.source.clone(), error.clone()));
+                    states[index] = MapStatus::Failed { error };
+                    control.consume(&targets);
+                    control.finish(&task);
+                    continue;
+                }
+            }
+        } else {
+            map::CacheCheck::Missing
         };
-        MapUpdate { folder, built, status: states[0].clone(), profiles: profile_maps(wants, states) }
-    };
-    let mut states: Vec<MapStatus> = wants.iter().map(|want| state_of(want, failed, again)).collect();
-    let Some(next) = states.iter().position(|state| *state == MapStatus::Queued) else {
-        return (update(&states), false);
-    };
+        if task.stop.load(std::sync::atomic::Ordering::Acquire) {
+            states[index] = MapStatus::Cancelled;
+            control.finish(&task);
+            continue;
+        }
+        reasons[index] = match &check {
+            map::CacheCheck::Changed(reason) => Some(reason.clone()),
+            map::CacheCheck::Missing => Some("noCache".into()),
+            _ => None,
+        };
+        verified.insert(want.folder.clone(), (hint, check.clone()));
+        match check {
+            map::CacheCheck::Current => {
+                states[index] = MapStatus::Ready;
+                control.consume(&targets);
+                control.finish(&task);
+            }
+            map::CacheCheck::Unverified if manual.is_none() => {
+                states[index] = MapStatus::Unverified;
+                control.finish(&task);
+            }
+            map::CacheCheck::Changed(ref reason) if reason == "inputsChangedDuringCheck" => {
+                states[index] = MapStatus::Checking;
+                control.finish(&task);
+                verified.remove(&want.folder);
+                control.recheck();
+            }
+            _ => {
+                states[index] = MapStatus::Queued;
+                if next.is_none() {
+                    next = Some(index);
+                }
+            }
+        }
+    }
+    control.retire_except(&tasks.iter().flatten().map(|t| t.id.clone()).collect());
+    let Some(next) = next else { return (make_update(&states, &caches, &tasks, &reasons), false) };
     if westplay_setup::game::running() {
         states[next] = MapStatus::WaitingForGame;
-        return (update(&states), false);
+        return (make_update(&states, &caches, &tasks, &reasons), false);
     }
     if let Some(free) = memory_short(memory()) {
         states[next] = MapStatus::WaitingForMemory { needed: MEMORY_NEEDED, free };
-        return (update(&states), false);
+        return (make_update(&states, &caches, &tasks, &reasons), false);
     }
     let want = &wants[next];
-    let mut during = states.clone();
-    let mut last_told = -1.0f32;
-    let mut last_stage = None;
-    // What's built, how big it is and the memory it takes as it goes, in the log: a build that takes too long
-    // or too much says where.
-    let folder = want.folder.file_name().map(|name| name.to_string_lossy().into_owned()).unwrap_or_default();
-    let mods: Vec<&str> = want.profile.map_mods().map(|m| m.package.as_str()).collect();
-    let started = std::time::Instant::now();
-    log!(
-        "map {folder}: building for {:?} ({}, map mods {mods:?}){}, {}; {} free",
-        want.profile.name,
-        want.profile.map,
-        if fast { ", faster: every thread, blocks at once up to four fifths of the memory" } else { "" },
-        match (builder.is_some(), fast) {
-            (true, true) => "in the map builder, mimalloc its allocator",
-            (true, false) => "in the map builder",
-            (false, _) => "in WestPlay itself (no map builder)",
-        },
-        memory().map_or("?".into(), |(free, total)| format!("{} of {}", gigabytes(free), gigabytes(total)))
-    );
-    let mut logged_at = -1.0f32;
-    let mut logged_stage = None;
-    // `memory`: the build's, as it says (the builder's own process, or WestPlay's).
-    let mut tell = |progress: Progress, memory: Option<u64>| {
-        if let Some(size) = progress.size {
-            let [x0, z0, x1, z1] = size.extent;
-            log!(
-                "map {folder}: {} items, roads reaching {:.0} x {:.0} km, sea grid {:.0} million cells of {} m",
-                size.items,
-                (x1 - x0) / 1000.0,
-                (z1 - z0) / 1000.0,
-                size.sea_cells as f64 / 1e6,
-                size.sea_cell
-            );
-        }
-        if Some(progress.stage) != logged_stage || progress.done - logged_at >= 0.05 {
-            logged_at = progress.done;
-            logged_stage = Some(progress.stage);
-            log!(
-                "map {folder}: {:?} {:.0}% at {:.0} s, WestPlay using {}",
-                progress.stage,
-                progress.done * 100.0,
-                started.elapsed().as_secs_f32(),
-                memory.map_or("?".into(), gigabytes)
-            );
-        }
-        let stage = MapStage::of(&progress);
-        during[next] = MapStatus::Building { done: progress.done, stage };
-        let update = update(&during);
-        // Each new stage, and steps of the way within one.
-        if (Some(stage) != last_stage || progress.done - last_told >= 0.01) && sender.send(update.clone()).is_ok() {
-            last_told = progress.done;
-            last_stage = Some(stage);
-            *sent = Some(update);
-        }
-    };
-    tell(Progress { stage: Stage::Reading, done: 0.0, size: None }, None);
+    let targets = targets_of(want);
+    let manual = control.mode(&targets).is_some();
+    let task = tasks[next].as_ref().unwrap().clone();
+    if let Err(error) = control.start(&task) {
+        states[next] = MapStatus::Failed { error: error.to_string() };
+        return (make_update(&states, &caches, &tasks, &reasons), false);
+    }
+    let before_output: HashSet<PathBuf> =
+        std::fs::read_dir(&want.folder).into_iter().flatten().flatten().map(|e| e.path()).collect();
     let request = map_builder::Request {
         game: want.game.clone(),
         profile: want.profile.clone(),
         language: want.language.clone(),
         maps: maps.to_owned(),
         fast,
+        commit_file: Some(task.decision.clone()),
     };
-    // A build failing (a mod read wrong, a panic, the builder crashing) is this map failing, as any other error is:
-    // the others are still made (owner 2026-10-18: one profile's map failing must not stop the others').
-    let ended = map_process::build(builder, &request, builds, &mut |said| {
-        if let map_builder::Said::Progress { stage, done, size, memory } = said
-            && let Some(progress) = map_builder::progress_of(&stage, done, size)
-        {
-            tell(progress, memory);
-        }
-    });
-    // Stopped (the watch ending): no failure to keep, the next watch builds it.
-    if builds.stopped() {
-        return (update(&states), false);
+    if manual {
+        control.clear_cancel(&task.key);
     }
-    match ended {
-        map_builder::Said::Built(outcome) => {
-            for left in &outcome.left_out {
-                log!(
-                    "map {}: built without {}, which couldn't be read: {}",
-                    want.folder.display(),
-                    left.name,
-                    left.error
+    let build_started = std::time::Instant::now();
+    let ended = watch_preparation(&task, want, settings, control, builds, || {
+        let mut last_told = -1.0f32;
+        let mut last_stage = None;
+        map_process::build_controlled(builder, &request, builds, &task.stop, &mut |said| {
+            if let map_builder::Said::Progress { stage, done, .. } = said
+                && let Some(progress) = map_builder::progress_of(&stage, done, None)
+            {
+                let stage = MapStage::of(&progress);
+                if last_stage.as_ref() == Some(&stage) && progress.done - last_told < 0.01 {
+                    return;
+                }
+                last_told = progress.done;
+                last_stage = Some(stage);
+                states[next] = MapStatus::Building { done: progress.done, stage };
+                let update = make_update(&states, &caches, &tasks, &reasons);
+                let _ = sender.send(update.clone());
+                *sent = Some(update);
+            }
+        })
+    });
+    log!(
+        "map preparation {}: complete generation invoked, {:.3} s, {}",
+        task.id,
+        build_started.elapsed().as_secs_f64(),
+        if matches!(ended, map_builder::Said::Built(_)) { "published" } else { "not published" }
+    );
+    let was_cancelled = task.stop.load(std::sync::atomic::Ordering::Acquire);
+    if !matches!(
+        ended,
+        map_builder::Said::Failed(map_builder::Failure::InputsChanged | map_builder::Failure::GameRunning)
+    ) {
+        control.consume(&targets);
+    }
+    if matches!(ended, map_builder::Said::Failed(map_builder::Failure::GameRunning)) {
+        control.park(&task);
+    } else {
+        control.finish(&task);
+    }
+    if was_cancelled {
+        for entry in std::fs::read_dir(&want.folder).into_iter().flatten().flatten() {
+            let path = entry.path();
+            if !before_output.contains(&path)
+                && entry.file_type().is_ok_and(|t| t.is_dir() && !t.is_symlink())
+                && entry.file_name().to_string_lossy().starts_with("tiles-")
+            {
+                let _ = std::fs::remove_dir_all(path);
+            }
+        }
+        let _ = std::fs::remove_file(want.folder.join("map.json.partial"));
+        states[next] = MapStatus::Cancelled;
+    } else {
+        match ended {
+            map_builder::Said::Built(_) => {
+                states[next] =
+                    if cache_has_dependencies(&want.folder) { MapStatus::Ready } else { MapStatus::Unverified };
+                for (index, other) in wants.iter().enumerate().filter(|(_, other)| other.folder == want.folder) {
+                    caches[index] = Some(want.folder.clone());
+                    control.remember(&targets_of(other), &other.profile.map, &want.folder);
+                }
+                control.remember(&targets, &want.profile.map, &want.folder);
+                failed.remove(&want.folder);
+                verified.insert(
+                    want.folder.clone(),
+                    (
+                        want.source.to_string(),
+                        if states[next] == MapStatus::Ready {
+                            map::CacheCheck::Current
+                        } else {
+                            map::CacheCheck::Unverified
+                        },
+                    ),
                 );
             }
-            if let Some(error) = &outcome.time_zones_unread {
-                log!(
-                    "map {}: built without time zones (the cab's clock the game's time): {error}",
-                    want.folder.display()
-                );
+            map_builder::Said::Failed(map_builder::Failure::GameRunning) => {
+                states[next] = MapStatus::WaitingForGame;
+                return (make_update(&states, &caches, &tasks, &reasons), false);
             }
-            match outcome.not_owned {
-                Some((guarded, elsewhere)) => log!(
-                    "map {}: only what the game has: {guarded} items of map DLCs it hasn't and {elsewhere} in states it hasn't left out",
-                    want.folder.display()
-                ),
-                None if want.game.kind == Kind::Ats => log!(
-                    "map {}: drawn whole: the game's list of its map DLCs wasn't found in its executable",
-                    want.folder.display()
-                ),
-                None => {}
+            map_builder::Said::Failed(map_builder::Failure::Cancelled) => states[next] = MapStatus::Cancelled,
+            map_builder::Said::Failed(map_builder::Failure::InputsChanged) => {
+                states[next] = MapStatus::Checking;
+                verified.remove(&want.folder);
+                control.recheck();
             }
-            if let Some((fit, used)) = outcome.world {
-                log!(
-                    "map {}: the game's world picture fits {:.1}% of its roads ({})",
-                    want.folder.display(),
-                    100.0 * fit,
-                    if used { "used for its sea and beyond" } else { "not used: sea by the roads alone" }
-                );
-            }
-            if map::needs_building(&want.folder, &want.source) {
-                // Built, yet not from what it was asked for (what it's built from changed meanwhile): not built again
-                // and again at once, but as a failure, tried again once it changes.
-                let error = "the map built isn't the one asked for".to_owned();
+            map_builder::Said::Failed(map_builder::Failure::Error { error }) => {
                 failed.insert(want.folder.clone(), (want.source.clone(), error.clone()));
                 states[next] = MapStatus::Failed { error };
-            } else {
-                states[next] = MapStatus::Ready;
             }
+            _ => states[next] = MapStatus::Failed { error: "Map preparation ended unexpectedly".into() },
         }
-        // The game started meanwhile: once it's closed.
-        map_builder::Said::Failed(map_builder::Failure::GameRunning) => {
-            states[next] = MapStatus::WaitingForGame;
-            return (update(&states), false);
-        }
-        map_builder::Said::Failed(map_builder::Failure::Error { error }) => {
-            log!("map {}: {error}", want.folder.display());
-            failed.insert(want.folder.clone(), (want.source.clone(), error.clone()));
-            states[next] = MapStatus::Failed { error };
-        }
-        map_builder::Said::Progress { .. } => unreachable!("a build ends built or failed"),
     }
-    // Asked for again: done (or, failing, kept as a failure).
-    again.remove(&want.folder);
-    (update(&states), true)
+    (make_update(&states, &caches, &tasks, &reasons), true)
 }
 
-/// What a panic said (its message, if it gave one as text).
 pub(crate) fn panic_message(panic: &(dyn std::any::Any + Send)) -> String {
     panic
         .downcast_ref::<&str>()
@@ -1025,6 +1405,7 @@ pub(crate) fn process_memory() -> Option<u64> {
     Some(counters.PrivateUsage as u64)
 }
 
+#[cfg(test)]
 fn gigabytes(bytes: u64) -> String {
     format!("{:.1} GB", bytes as f64 / (1u64 << 30) as f64)
 }
@@ -1058,6 +1439,9 @@ fn built_at(folder: &Path) -> Option<u64> {
 
 /// `{"type":"map","folder":"europe-cbf29ce484222325","built":1792112933}`: the map the cab shows, in WestPlay's
 /// maps folder (served at `https://westplay.maps/`), and when it was built; `null` for none.
+pub fn preparation_message(state: &MapStatus, cached: bool) -> String {
+    serde_json::json!({"type":"mapPreparation","state":state,"cached":cached}).to_string()
+}
 pub fn map_message(folder: Option<&str>, built: Option<u64>) -> String {
     serde_json::json!({ "type": "map", "folder": folder, "built": built }).to_string()
 }
@@ -1111,11 +1495,12 @@ mod tests {
     fn looks_at_once_when_the_player_asks_to_prepare_the_maps_again() {
         let set_up = Arc::new(SetUpGame::new(vec![PathBuf::from("game")]));
         let known = set_up.state().clone();
+        set_up.control.known(["ets2:profile".to_owned()].into_iter());
         let asker = set_up.clone();
         let started = std::time::Instant::now();
         let thread = std::thread::spawn(move || {
             std::thread::sleep(Duration::from_millis(50));
-            asker.prepare_maps_again(None);
+            asker.prepare_maps(vec!["ets2:profile".into()], false).unwrap();
         });
         set_up.wait_for_another(&known, Duration::from_secs(10), &map_process::Builds::default());
         assert!(started.elapsed() < Duration::from_secs(5));
@@ -1160,22 +1545,23 @@ mod tests {
     #[test]
     fn asks_made_before_a_look_add_up() {
         let set_up = SetUpGame::new(Vec::new());
-        let names = |names: &[&str]| Some(names.iter().map(|name| name.to_string()).collect::<Vec<_>>());
-        set_up.prepare_maps_again(names(&["europe-1"]));
-        set_up.prepare_maps_again(names(&["europe-2"]));
-        let asked = set_up.take_asked().unwrap();
-        assert!(asked.has(Path::new("maps/europe-1")) && asked.has(Path::new("maps/europe-2")));
-        assert!(!asked.has(Path::new("maps/europe-3")));
-        assert_eq!(set_up.take_asked(), None, "taken once");
-        // Every map asked for, with some: every map.
-        set_up.prepare_maps_again(names(&["europe-1"]));
-        set_up.prepare_maps_again(None);
-        assert!(set_up.take_asked().unwrap().has(Path::new("maps/europe-3")));
-        assert_eq!(set_up.state().asked_again, 4);
+        set_up.control.known(["ets2:a".into(), "ats:b".into()].into_iter());
+        set_up.prepare_maps(vec!["ets2:a".into()], false).unwrap();
+        set_up.prepare_maps(vec!["ats:b".into()], true).unwrap();
+        assert_eq!(set_up.control.mode(&["ets2:a".into()]), Some(false));
+        assert_eq!(set_up.control.mode(&["ats:b".into()]), Some(true));
+        assert!(set_up.prepare_maps(Vec::new(), true).is_err());
+        assert!(set_up.prepare_maps(vec!["unknown".into()], true).is_err());
+        set_up.control.consume(&["ets2:a".into()]);
+        assert!(!set_up.control.requested("ets2:a"));
+        assert!(set_up.control.requested("ats:b"));
+        assert_eq!(set_up.state().asked_again, 2);
     }
 
     fn a_want(dirs: &[&str], folder: &str, allowed: bool) -> Want {
         Want {
+            resolved: true,
+            names: HashMap::new(),
             game: Game {
                 kind: Kind::Ets2,
                 dir: PathBuf::from("game"),
@@ -1345,3 +1731,7 @@ mod tests {
         assert!(free > 0 && total >= free);
     }
 }
+
+#[cfg(test)]
+#[path = "map_preparation_tests.rs"]
+mod preparation_tests;

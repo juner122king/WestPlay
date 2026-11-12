@@ -243,6 +243,7 @@ export type HostMessage =
   /** The map the cab shows: its folder in WestPlay's maps (served at `https://westplay.maps/`), and when it
    * was built; `null` for none (none built yet). */
   | { type: 'map'; folder: string | null; built: number | null }
+  | { type: 'mapPreparation'; state: { state: string }; cached: boolean }
   /** Bilibili: whether it's signed in and playing, and whether its sign-in QR window is open. */
   | { type: 'bilibili'; signedIn: boolean | null; playing: boolean | null; signingIn: boolean }
   | ({ type: 'bilibiliAnswer'; id: number; failed?: boolean; error?: string } & Partial<BilibiliAnswers>)

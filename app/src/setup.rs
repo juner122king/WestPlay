@@ -195,11 +195,20 @@ pub fn game_running() -> bool {
     game::running()
 }
 
-/// The player asks for the maps they picked (their folders' names; none given: every map) to be prepared again
-/// (the Map page): the host builds each anew in turn, failed ones included.
+/// Explicitly selected game/profile targets rebuilt in full; no implicit all-games request.
 #[tauri::command]
-pub fn prepare_maps_again(folders: Option<Vec<String>>, store: State<'_, SetupStore>) {
-    store.0.game.prepare_maps_again(folders);
+pub fn prepare_maps_again(targets: Vec<String>, store: State<'_, SetupStore>) -> Result<(), String> {
+    store.0.game.prepare_maps(targets, true)
+}
+
+#[tauri::command]
+pub fn prepare_maps(targets: Vec<String>, force: bool, store: State<'_, SetupStore>) -> Result<(), String> {
+    store.0.game.prepare_maps(targets, force)
+}
+
+#[tauri::command]
+pub fn cancel_map_preparation(task_id: String, store: State<'_, SetupStore>) -> Result<bool, String> {
+    store.0.game.cancel_map_preparation(&task_id)
 }
 
 /// Asks the player where the game is (Windows' folder picker, titled `title`, in their language): the game

@@ -107,6 +107,11 @@ pub fn remember(record: &Path, packs: &[PathBuf]) -> bool {
 /// round), each read as a mod is (what it brings to the map), `dir` naming it (TruckersMP's installation).
 /// ProMods' map (`packs` with ProMods among them) is named apart, as its own map.
 pub fn profile(kind: Kind, dir: &Path, packs: &[PathBuf]) -> Profile {
+    profile_with_resolution(kind, dir, packs, true)
+}
+
+/// Lightweight target discovery keeps the same mount identity without opening unselected packs.
+pub fn profile_with_resolution(kind: Kind, dir: &Path, packs: &[PathBuf], resolve: bool) -> Profile {
     Profile {
         name: if promods(packs) { "TruckersMP ProMods" } else { "TruckersMP" }.into(),
         dir: dir.to_path_buf(),
@@ -118,7 +123,19 @@ pub fn profile(kind: Kind, dir: &Path, packs: &[PathBuf]) -> Profile {
             .rev()
             .map(|pack| {
                 let package = pack.file_stem().map(|stem| stem.to_string_lossy().into_owned()).unwrap_or_default();
-                profiles::mod_from_files(kind, &package, &package, pack)
+                if resolve {
+                    profiles::mod_from_files(kind, &package, &package, pack)
+                } else {
+                    profiles::Mod {
+                        name: package.clone(),
+                        package,
+                        files: Some(pack.clone()),
+                        categories: vec![],
+                        author: None,
+                        map: Default::default(),
+                        problem: None,
+                    }
+                }
             })
             .collect(),
     }

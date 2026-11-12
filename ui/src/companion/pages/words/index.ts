@@ -115,6 +115,29 @@ export interface CompanionWords {
     sub: string
   }
   map: {
+    maintenance: {
+      automaticGame: string
+      automaticProfile: string
+      note: string
+      shared: string
+      prepareOnce: string
+      forcePrepare: string
+      cancel: string
+      skip: string
+      initialize: string
+      unverifiable: string
+      stale: string
+      notPrepared: string
+      checking: string
+      cancelled: string
+      current: string
+      queued: string
+      waitingForGame: string
+      waitingForMemory: string
+      building: string
+      failed: string
+      notAllowed: string
+    }
     titles: { ready: string; building: string; waiting: string; failed: string; unknown: string; noGame: string }
     sub: string
     /** The button that prepares every profile's map again. */

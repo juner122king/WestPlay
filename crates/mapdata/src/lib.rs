@@ -17,6 +17,7 @@ pub mod buildings;
 pub use westplay_shared::cityhash;
 pub mod countries;
 pub mod data;
+pub mod dependencies;
 pub mod dlc;
 pub mod export;
 pub mod files;

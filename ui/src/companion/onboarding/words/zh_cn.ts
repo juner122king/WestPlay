@@ -66,11 +66,11 @@ export const words: Words = {
     profiles: '档案',
     profileCount: { other: '{n} 个档案' },
     noProfiles: '还没有档案',
-    noProfilesDetail: '创建第一个档案后，WestPlay 会为它准备地图。',
+    noProfilesDetail: '创建档案后，可以在“地图”页面选择准备；新档案默认关闭自动维护。',
     baseMap: '原版地图',
     withMods: '{map}，含 {mods}',
     unreadable: { other: '有 {n} 个地图模组无法读取，它们的改动不会显示在地图上' },
-    mapNote: 'WestPlay 会为每个档案分别准备地图，从最近玩过的档案开始，依次进行。地图在游戏关闭时准备。',
+    mapNote: '只会自动维护你开启的游戏和档案，也可以随时选择“准备一次”。地图在游戏关闭时准备，优先处理最近玩过的档案。',
   },
   install: {
     title: '安装 WestPlay',
@@ -112,18 +112,18 @@ export const words: Words = {
   },
   speed: {
     title: '地图要以多快的速度制作？',
-    sub: '接下来，WestPlay 会安装到你的游戏中，并为你的每个档案制作地图。这会在一段时间内让电脑高负荷运行。如果内存充足、处理器强劲，它可以全部用上，更快完成。如果不确定，请保持关闭：之后可以在“地图”页面更改。',
+    sub: '地图只在你选择准备或开启自动维护后处理。处理时可能长时间占用电脑资源；此开关让地图生成使用更多处理器和内存，不会开启自动维护。如果不确定，请保持关闭，之后可以在“地图”页面更改。',
     confirm: '我已阅读本页并确认我的选择。',
   },
   map: {
     title: '正在准备地图…',
     titleReady: '地图已准备就绪',
-    sub: 'WestPlay 会用你自己的游戏数据制作“地图”应用的地图，包括地图 DLC 和地图模组。这需要一两分钟。',
+    sub: '可以选择现在准备，或稍后在“地图”页面处理。地图使用自己的游戏、地图 DLC 和模组数据，耗时取决于地图规模；无需等待即可继续设置。',
     banners: {
       building: '正在准备地图',
       ready: { title: '地图已准备就绪', text: '已包含 DLC 和地图模组' },
       waiting: { title: '请关闭游戏', text: '地图会在游戏关闭时准备' },
-      failed: { title: '无法准备地图', text: 'WestPlay 稍后会再试一次' },
+      failed: { title: '无法准备地图', text: '可在“地图”页面重试，或继续使用其他功能' },
       getting: '正在准备…',
     },
     waiting: {

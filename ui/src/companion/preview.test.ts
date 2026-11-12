@@ -44,3 +44,27 @@ describe('domestic companion preview', () => {
     stop()
   })
 })
+
+it('prepares explicit preview targets and cancels only the matching task without changing maintenance', async () => {
+  vi.useFakeTimers()
+  vi.stubGlobal('location', { search: '?ats&game=off' })
+  const preview = await import('./preview')
+  let status: HostStatus | null = null
+  preview.subscribe('host-status', (value) => {
+    status = value as HostStatus
+  })
+  await vi.advanceTimersByTimeAsync(50)
+  expect(status!.profileMaps.map((map) => map.status.state)).toEqual(['notPrepared', 'notPrepared', 'notPrepared'])
+  const request = preview.answer('prepare_maps', { targets: ['ets2:profiles/57657374'], force: false })
+  await vi.advanceTimersByTimeAsync(1000)
+  await request
+  const taskId = status!.profileMaps[0].taskId
+  expect(status!.profileMaps[0].status.state).toBe('building')
+  const cancel = preview.answer('cancel_map_preparation', { taskId })
+  await vi.advanceTimersByTimeAsync(1000)
+  expect(await cancel).toBe(true)
+  expect(status!.profileMaps.map((map) => map.status.state)).toEqual(['cancelled', 'notPrepared', 'notPrepared'])
+  const settings = preview.answer('get_settings')
+  await vi.advanceTimersByTimeAsync(1000)
+  expect(((await settings) as { map: { maintenance: unknown } }).map.maintenance).toEqual({ games: {}, profiles: {} })
+})

@@ -308,6 +308,8 @@ fn main() {
             setup::setup_state,
             setup::game_running,
             setup::prepare_maps_again,
+            setup::prepare_maps,
+            setup::cancel_map_preparation,
             setup::choose_game_folder,
             setup::check_game,
             setup::install_into_game,

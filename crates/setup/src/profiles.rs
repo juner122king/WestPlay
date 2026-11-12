@@ -111,6 +111,23 @@ impl Profile {
         }
     }
 
+    /// Resolve only this profile's deferred mods when a consumer actually needs their files.
+    /// Steam Cloud profiles still use the game's Documents mod folder, not their profile parent.
+    pub fn resolve_pending_mods(&self, game: &Game, game_documents: &Path) -> Self {
+        let mut profile = self.clone();
+        for item in &mut profile.mods {
+            if item.files.is_none() && item.problem.is_none() {
+                *item = find_mod(
+                    game.kind,
+                    &format!("{}|{}", item.package, item.name),
+                    Some(game),
+                    &game_documents.join("mod"),
+                );
+            }
+        }
+        profile
+    }
+
     /// Whether it plays HVT's map, which WestPlay doesn't allow.
     pub fn plays_hvt_map(&self) -> bool {
         self.mods.iter().any(Mod::is_hvt_map)
@@ -136,6 +153,16 @@ pub fn map_of(map_path: Option<&str>, kind: Kind) -> String {
 /// Steam's `userdata`), the most recently saved first; each one's mods found for `game` (its Workshop folder,
 /// its version) and the Documents folder's `mod`.
 pub fn find(kind: Kind, game_documents: &Path, steam_userdata: Option<&Path>, game: Option<&Game>) -> Vec<Profile> {
+    find_with_resolution(kind, game_documents, steam_userdata, game, &|_| true)
+}
+
+pub fn find_with_resolution(
+    kind: Kind,
+    game_documents: &Path,
+    steam_userdata: Option<&Path>,
+    game: Option<&Game>,
+    resolve: &dyn Fn(&Path) -> bool,
+) -> Vec<Profile> {
     let mut folders = vec![(game_documents.join("profiles"), false), (game_documents.join("steam_profiles"), true)];
     if let Some(userdata) = steam_userdata {
         for user in std::fs::read_dir(userdata).into_iter().flatten().flatten() {
@@ -148,7 +175,7 @@ pub fn find(kind: Kind, game_documents: &Path, steam_userdata: Option<&Path>, ga
         .flat_map(|(folder, cloud)| {
             std::fs::read_dir(folder).into_iter().flatten().flatten().map(move |entry| (entry.path(), *cloud))
         })
-        .filter_map(|(dir, cloud)| read_profile(kind, &dir, cloud, game, &mod_dir))
+        .filter_map(|(dir, cloud)| read_profile_with_resolution(kind, &dir, cloud, game, &mod_dir, resolve(&dir)))
         .collect();
     profiles.sort_by_key(|profile| std::cmp::Reverse(profile.last_saved));
     profiles
@@ -184,14 +211,39 @@ pub fn active_mod_files(
         .collect()
 }
 
-fn read_profile(kind: Kind, dir: &Path, cloud: bool, game: Option<&Game>, mod_dir: &Path) -> Option<Profile> {
+fn read_profile_with_resolution(
+    kind: Kind,
+    dir: &Path,
+    cloud: bool,
+    game: Option<&Game>,
+    mod_dir: &Path,
+    resolve: bool,
+) -> Option<Profile> {
     let units = read_units(&dir.join("profile.sii"))?;
     let user = units.iter().find(|unit| unit.class == "user_profile");
     let name = user
         .and_then(|unit| unit.get("profile_name"))
         .map(str::to_owned)
         .or_else(|| name_from_folder(dir.file_name()?.to_str()?))?;
-    let mods = save::active_mods(&units).iter().map(|listed| find_mod(kind, listed, game, mod_dir)).collect();
+    let mods = save::active_mods(&units)
+        .iter()
+        .map(|listed| {
+            if resolve {
+                find_mod(kind, listed, game, mod_dir)
+            } else {
+                let (package, name) = listed.split_once('|').unwrap_or((listed, listed));
+                Mod {
+                    package: package.into(),
+                    name: name.into(),
+                    files: None,
+                    categories: vec![],
+                    author: None,
+                    map: MapContent::default(),
+                    problem: None,
+                }
+            }
+        })
+        .collect();
     let map = map_of(user.and_then(|unit| unit.get("map_path")), kind);
     Some(Profile { name, dir: dir.to_path_buf(), cloud, last_saved: last_saved(dir), map, mods })
 }
@@ -610,6 +662,46 @@ mod tests {
         for dir in [standalone, extension, definitions, truck] {
             let _ = std::fs::remove_dir_all(dir);
         }
+    }
+
+    #[test]
+    fn deferred_cloud_profile_mods_resolve_only_when_requested() {
+        let dir = std::env::temp_dir().join(format!("westplay-lazy-profile-{}", std::process::id()));
+        let documents = dir.join("documents");
+        let cloud = dir.join("userdata/123/227300/remote/profiles/player");
+        let roads = documents.join("mod/roads/map/europe");
+        std::fs::create_dir_all(&roads).unwrap();
+        std::fs::write(roads.join("sec+0000+0000.base"), b"roads").unwrap();
+        std::fs::create_dir_all(&cloud).unwrap();
+        std::fs::write(
+            cloud.join("profile.sii"),
+            r#"SiiNunit
+{
+user_profile : _nameless.profile {
+profile_name: "Player"
+active_mods[]: "roads|Roads"
+}
+}
+"#,
+        )
+        .unwrap();
+        let game = Game {
+            kind: Kind::Ets2,
+            dir: dir.join("game"),
+            found_by: crate::game::FoundBy::Chosen,
+            version: None,
+            dlcs: vec![],
+        };
+        let profile =
+            read_profile_with_resolution(Kind::Ets2, &cloud, true, Some(&game), &documents.join("mod"), false).unwrap();
+        assert!(profile.mods[0].files.is_none() && profile.mods[0].problem.is_none());
+        let resolved = profile.resolve_pending_mods(&game, &documents);
+        assert_eq!(resolved.mods[0].files, Some(documents.join("mod/roads")));
+        assert!(resolved.mods[0].affects_map("europe"));
+        assert_eq!((&resolved.dir, resolved.cloud, &resolved.name), (&cloud, true, &profile.name));
+        assert!(profile.mods[0].files.is_none()); // The inventory stays lightweight.
+        assert_eq!(resolved.resolve_pending_mods(&game, &documents), resolved);
+        let _ = std::fs::remove_dir_all(dir);
     }
 
     #[test]

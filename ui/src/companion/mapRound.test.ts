@@ -57,3 +57,18 @@ describe('a round of maps being prepared', () => {
     expect(roundProgress(round, done, 0)).toBeNull()
   })
 })
+
+it('counts a shared task once and excludes idle maps from the preparation round', () => {
+  const shared: ProfileMap[] = [
+    { game: 'ets2', dir: 'a', folder: 'same', taskId: 'job-1', status: { state: 'queued' } },
+    { game: 'ets2', dir: 'b', folder: 'same', taskId: 'job-1', status: { state: 'queued' } },
+    { game: 'ats', dir: 'c', folder: 'other', status: { state: 'notPrepared' } },
+  ]
+  expect(nextRound([], shared)).toEqual(['job-1'])
+  expect(
+    nextRound(
+      [],
+      shared.map((m) => ({ ...m, status: { state: 'cancelled' } as MapStatus })),
+    ),
+  ).toEqual([])
+})

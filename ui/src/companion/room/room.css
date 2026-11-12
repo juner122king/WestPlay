@@ -1236,3 +1236,12 @@ button.ob-row:active {
     transition-duration: 1ms !important;
   }
 }
+
+/* Existing row controls, allowed to wrap in the narrow onboarding panel. */
+.cp-map-maintenance-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 8px;
+}

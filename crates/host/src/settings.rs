@@ -68,7 +68,7 @@ impl<'de> Deserialize<'de> for LanguageCode {
 
 /// The cab's map (the companion's Map page): whether its buildings rise from it, and its bridges and ramps; and
 /// how the maps are prepared.
-#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase", default)]
 pub struct MapSettings {
     pub buildings: bool,
@@ -77,11 +77,29 @@ pub struct MapSettings {
     /// four fifths of the PC's memory (`westplay_mapdata::threads::FULL_SHARE`), for PCs with plenty of both
     /// (owner 2026-11-06). Off: half the processor, the memory kept low.
     pub fast: bool,
+    pub maintenance: MapMaintenance,
 }
 
 impl Default for MapSettings {
     fn default() -> Self {
-        Self { buildings: true, roads: true, fast: false }
+        Self { buildings: true, roads: true, fast: false, maintenance: MapMaintenance::default() }
+    }
+}
+
+/// Opt-in maintenance. Target keys are game kind + normalized profile directory (+ TMP variant).
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase", default)]
+pub struct MapMaintenance {
+    pub games: std::collections::BTreeMap<String, bool>,
+    pub profiles: std::collections::BTreeMap<String, bool>,
+}
+impl MapMaintenance {
+    pub fn enabled(&self, kind: westplay_setup::game::Kind, target: &str) -> bool {
+        let game = match kind {
+            westplay_setup::game::Kind::Ets2 => "ets2",
+            westplay_setup::game::Kind::Ats => "ats",
+        };
+        self.games.get(game).copied().unwrap_or(false) && self.profiles.get(target).copied().unwrap_or(false)
     }
 }
 
@@ -501,7 +519,7 @@ mod tests {
                 equalizer: crate::speakers::Equalizer { bass: -3, mid: 1, treble: 2 },
                 custom: true,
             },
-            map: MapSettings { buildings: false, roads: false, fast: true },
+            map: MapSettings { buildings: false, roads: false, fast: true, maintenance: MapMaintenance::default() },
             language: LanguageCode::new("pt_br"),
         };
         let json = to_json(&settings);

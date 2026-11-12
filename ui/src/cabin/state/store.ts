@@ -302,6 +302,7 @@ function isRoute(route: unknown): route is Route {
 
 /** Live data from the game. */
 export interface LiveState {
+  mapPreparation: { state: string; cached: boolean } | null
   telemetry: Telemetry | null
   truck: TruckInfo | null
   /** The player's job (`null`: none). */
@@ -390,6 +391,7 @@ export const useLive = create<LiveState>()(() => ({
   hvtMap: null,
   gameLanguage: null,
   chosenLanguage: null,
+  mapPreparation: null,
   timeZones: false,
   mph: false,
   clockShift: 0,
@@ -662,6 +664,9 @@ function receiveHostMessage(now: () => number): (message: HostMessage) => void {
         break
       case 'youtubeSignIn':
         useYouTube.setState({ signingIn: message.open })
+        break
+      case 'mapPreparation':
+        useLive.setState({ mapPreparation: { state: message.state.state, cached: message.cached } })
         break
       case 'map':
         receiveMapFolder(message.folder, message.built)

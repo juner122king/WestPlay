@@ -37,6 +37,8 @@ pub struct Request {
     pub maps: PathBuf,
     /// Prepare Maps Faster: every thread, more drawn at once while the memory has room.
     pub fast: bool,
+    #[serde(default)]
+    pub commit_file: Option<PathBuf>,
 }
 
 /// How a build goes.
@@ -86,6 +88,8 @@ pub struct Outcome {
 pub enum Failure {
     /// The game is running: built once it's closed.
     GameRunning,
+    Cancelled,
+    InputsChanged,
     Error {
         error: String,
     },
@@ -93,6 +97,14 @@ pub enum Failure {
 
 /// Builds `request`'s map in this process, telling `said` how it goes, and says how it ended.
 pub fn build(request: &Request, said: &mut dyn FnMut(Said), memory: &dyn Fn() -> Option<u64>) -> Said {
+    build_controlled(request, said, memory, None)
+}
+pub fn build_controlled(
+    request: &Request,
+    said: &mut dyn FnMut(Said),
+    memory: &dyn Fn() -> Option<u64>,
+    stop: Option<std::sync::Arc<std::sync::atomic::AtomicBool>>,
+) -> Said {
     let mut tell = |progress: Progress| {
         said(Said::Progress {
             stage: stage_name(progress.stage).to_owned(),
@@ -106,8 +118,15 @@ pub fn build(request: &Request, said: &mut dyn FnMut(Said), memory: &dyn Fn() ->
             memory: memory(),
         })
     };
-    let built =
-        map::build(&request.game, &request.profile, request.language.as_deref(), &request.maps, None, &mut tell);
+    let built = map::build_controlled(
+        &request.game,
+        &request.profile,
+        request.language.as_deref(),
+        &request.maps,
+        stop,
+        request.commit_file.clone(),
+        &mut tell,
+    );
     match built {
         Ok(built) => Said::Built(Outcome {
             left_out: built.left_out,
@@ -115,7 +134,11 @@ pub fn build(request: &Request, said: &mut dyn FnMut(Said), memory: &dyn Fn() ->
             not_owned: built.summary.not_owned.map(|dropped| (dropped.guarded, dropped.elsewhere)),
             world: built.summary.world,
         }),
+        Err(BuildError::Export(westplay_mapdata::export::ExportError::Stopped)) => Said::Failed(Failure::Cancelled),
         Err(BuildError::GameRunning) => Said::Failed(Failure::GameRunning),
+        Err(BuildError::Export(westplay_mapdata::export::ExportError::InputsChanged)) => {
+            Said::Failed(Failure::InputsChanged)
+        }
         Err(error) => Said::Failed(Failure::Error { error: error.to_string() }),
     }
 }
@@ -167,6 +190,7 @@ mod tests {
             language: Some("tr_tr".into()),
             maps: PathBuf::from("C:/maps"),
             fast: true,
+            commit_file: None,
         };
         let json = serde_json::to_string(&request).unwrap();
         assert!(!json.contains('\n'), "one line");

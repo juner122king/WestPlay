@@ -4186,7 +4186,9 @@ dependencies = [
  "cbc",
  "flate2",
  "i_overlay",
+ "serde",
  "serde_json",
+ "sha2",
  "westplay-shared",
 ]
 

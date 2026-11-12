@@ -252,6 +252,15 @@ impl Archive {
     }
 
     /// Whether the archive has an entry (file or directory) at `path`.
+    pub fn contains_file(&self, path: &str) -> bool {
+        self.entries.get(&self.hash(path)).is_some_and(|entry| !entry.directory)
+    }
+    pub fn unchanged(&self) -> bool {
+        match (self.file.metadata(), std::fs::metadata(&self.path)) {
+            (Ok(open), Ok(now)) => open.len() == now.len() && open.modified().ok() == now.modified().ok(),
+            _ => false,
+        }
+    }
     pub fn contains(&self, path: &str) -> bool {
         self.entries.contains_key(&self.hash(path))
     }

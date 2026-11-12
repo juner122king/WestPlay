@@ -66,7 +66,8 @@ export const words: Words = {
     profiles: 'Profiles',
     profileCount: { one: '{n} profile', other: '{n} profiles' },
     noProfiles: 'No profiles yet',
-    noProfilesDetail: 'WestPlay will prepare the map for the first profile you create.',
+    noProfilesDetail:
+      'After creating a profile, choose Prepare on the Map page. Automatic maintenance starts off for new profiles.',
     baseMap: 'Original map',
     withMods: '{map} with {mods}',
     unreadable: {
@@ -74,7 +75,7 @@ export const words: Words = {
       other: '{n} map mods couldn’t be read, so their changes won’t show',
     },
     mapNote:
-      'WestPlay prepares a map for each of your profiles, one after another, starting with the one you played last. Maps are prepared while the game is closed.',
+      'Only games and profiles you enable are maintained automatically. You can also choose Prepare once. Maps are prepared while the game is closed, with recently played profiles first.',
   },
   install: {
     title: 'Install WestPlay',
@@ -116,18 +117,21 @@ export const words: Words = {
   },
   speed: {
     title: 'How fast should your maps be drawn?',
-    sub: 'Next, WestPlay installs into your game and draws a map for each of your profiles. That works your PC hard for a while. With plenty of memory and a strong processor, it can use all of them and finish sooner. If you’re not sure, leave it off: you can change it later on the Map page.',
+    sub: 'Maps are processed only when you request preparation or enable automatic maintenance. Processing can use substantial resources for a while. This switch lets generation use more processor and memory; it does not enable maintenance. If unsure, leave it off and change it later on the Map page.',
     confirm: 'I’ve read this page and confirm my choice.',
   },
   map: {
     title: 'Preparing your map…',
     titleReady: 'Your map is ready',
-    sub: 'WestPlay builds the Maps app’s map from your own game, including your map DLCs and map mods. This takes a minute or two.',
+    sub: 'Choose to prepare now or later on the Map page. Maps use your own game, map DLCs and mods; preparation time depends on map size. You can continue setup without waiting.',
     banners: {
       building: 'Preparing your map',
       ready: { title: 'Your map is ready', text: 'With your DLCs and map mods' },
       waiting: { title: 'Close the game', text: 'The map is prepared while it’s closed' },
-      failed: { title: 'The map couldn’t be prepared', text: 'WestPlay will try again later' },
+      failed: {
+        title: 'The map couldn’t be prepared',
+        text: 'Retry on the Map page, or continue using other features',
+      },
       getting: 'Getting ready…',
     },
     waiting: {

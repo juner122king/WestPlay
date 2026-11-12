@@ -32,7 +32,9 @@ export function useMapProgress(status: HostStatus | null): MapProgress {
   const another = others.find((each) => each.status.state === 'building')
   const building = map.state === 'building' ? map : another?.status.state === 'building' ? another.status : null
   const buildingWhich = map.state === 'building' ? 'played' : another ? mapKey(another) : null
-  const pending = others.some((each) => each.status.state === 'building' || each.status.state === 'queued')
+  const pending = others.some((each) =>
+    ['checking', 'building', 'queued', 'waitingForGame', 'waitingForMemory'].includes(each.status.state),
+  )
   const making = useGlidingProgress(building?.done ?? null, building?.stage ?? null, buildingWhich)
   return {
     building,

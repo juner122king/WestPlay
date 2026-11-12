@@ -336,3 +336,17 @@ describe('Safari host protocol alongside domestic resources', () => {
     disconnect()
   })
 })
+
+describe('map preparation messages', () => {
+  it('tracks availability separately from task state and receives the state again after connecting', async () => {
+    const webview = fakeWebView()
+    vi.stubGlobal('window', { chrome: { webview: webview.bridge } })
+    const { connectHost, useLive } = await import('./store')
+    const disconnect = connectHost(() => 0)
+    webview.send({ type: 'mapPreparation', state: { state: 'unverified' }, cached: true })
+    expect(useLive.getState().mapPreparation).toEqual({ state: 'unverified', cached: true })
+    webview.send({ type: 'mapPreparation', state: { state: 'cancelled' }, cached: false })
+    expect(useLive.getState().mapPreparation).toEqual({ state: 'cancelled', cached: false })
+    disconnect()
+  })
+})

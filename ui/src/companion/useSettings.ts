@@ -36,6 +36,7 @@ export interface Settings {
     buildings: boolean
     roads: boolean
     fast: boolean
+    maintenance?: { games: Record<string, boolean>; profiles: Record<string, boolean> }
   }
   /** The language WestPlay speaks in the cab and here: one of the game's (`de_de`), or `null`: the game's. */
   language: string | null

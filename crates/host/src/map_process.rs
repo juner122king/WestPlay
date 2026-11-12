@@ -13,7 +13,7 @@ use std::os::windows::process::CommandExt;
 use std::path::Path;
 use std::process::{Command, Stdio};
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::{Mutex, OnceLock};
+use std::sync::{Arc, Mutex, OnceLock};
 
 use westplay_setup::map_builder::{self, ALLOCATOR_VARIABLE, Failure, MIMALLOC, Request, Said};
 use windows::Win32::Foundation::HANDLE;
@@ -49,6 +49,14 @@ impl Builds {
         }
     }
 
+    /// Cancels just the running child; unlike stop(), later tasks remain enabled.
+    pub fn cancel_running(&self) {
+        let running = self.running.lock().unwrap_or_else(|e| e.into_inner());
+        if let Some(handle) = *running {
+            // SAFETY: the Child keeps this process handle open while it is registered under this mutex.
+            let _ = unsafe { TerminateProcess(HANDLE(handle as *mut _), 1) };
+        }
+    }
     pub fn stopped(&self) -> bool {
         self.stopped.load(Ordering::Acquire)
     }
@@ -56,23 +64,33 @@ impl Builds {
 
 /// Builds `request`'s map with the builder `builder` (or in this process, without one), telling `said` how it
 /// goes; how it ended: [`Said::Built`] or [`Said::Failed`]. Stopped (`builds`), the builder is ended.
+#[cfg(test)]
 pub fn build(builder: Option<&Path>, request: &Request, builds: &Builds, said: &mut dyn FnMut(Said)) -> Said {
-    if builds.stopped() {
-        return Said::Failed(Failure::Error { error: "stopped".into() });
+    build_controlled(builder, request, builds, &Arc::new(AtomicBool::new(false)), said)
+}
+pub fn build_controlled(
+    builder: Option<&Path>,
+    request: &Request,
+    builds: &Builds,
+    stop: &Arc<AtomicBool>,
+    said: &mut dyn FnMut(Said),
+) -> Said {
+    if builds.stopped() || stop.load(Ordering::Acquire) {
+        return Said::Failed(Failure::Cancelled);
     }
     match builder {
         Some(builder) => in_builder(builder, request, builds, said),
-        None => here(request, said),
+        None => here(request, stop, said),
     }
 }
 
 /// In WestPlay's own process: a panic is this map failing.
-fn here(request: &Request, said: &mut dyn FnMut(Said)) -> Said {
+fn here(request: &Request, stop: &Arc<AtomicBool>, said: &mut dyn FnMut(Said)) -> Said {
     let _effort = request.fast.then(crate::maps::total_memory).flatten().map(|total| {
         westplay_mapdata::threads::Effort::full(westplay_mapdata::threads::room_on(total, crate::maps::process_memory))
     });
     let built = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-        map_builder::build(request, said, &crate::maps::process_memory)
+        map_builder::build_controlled(request, said, &crate::maps::process_memory, Some(stop.clone()))
     }));
     built.unwrap_or_else(|panic| {
         let what = crate::maps::panic_message(&*panic);
@@ -108,6 +126,7 @@ fn in_builder(builder: &Path, request: &Request, builds: &Builds, said: &mut dyn
     if let Err(error) = asked {
         let _ = child.kill();
         let _ = child.wait();
+        *builds.running.lock().unwrap_or_else(|e| e.into_inner()) = None;
         return failed(format!("the map builder couldn't be asked: {error}"));
     }
     // Its standard error, read beside (a pipe left unread would stall it), the last lines kept.
@@ -231,7 +250,7 @@ mod tests {
     use westplay_setup::profiles::Profile;
 
     fn request(game: game::Game, maps: PathBuf, fast: bool) -> Request {
-        Request { game, profile: Profile::new_player(Kind::Ets2), language: None, maps, fast }
+        Request { game, profile: Profile::new_player(Kind::Ets2), language: None, maps, fast, commit_file: None }
     }
 
     fn any_game() -> game::Game {
@@ -290,9 +309,42 @@ mod tests {
         assert!(builds.running.lock().unwrap().is_none());
         // Stopped: the next isn't started.
         let ended = build(Some(&builder), &request(any_game(), dir.clone(), false), &builds, &mut |_| {});
-        let Said::Failed(Failure::Error { error }) = ended else { panic!("{ended:?}") };
-        assert_eq!(error, "stopped");
+        assert_eq!(ended, Said::Failed(Failure::Cancelled));
         let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn cancelling_one_child_does_not_stop_the_next_task() {
+        let dir = std::env::temp_dir().join(format!("westplay-cancel-child-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let builder = dir.join("waiting.bat");
+        std::fs::write(&builder, "@echo off\r\n:again\r\ngoto again\r\n").unwrap();
+        let builds = Arc::new(Builds::default());
+        let stop = Arc::new(AtomicBool::new(false));
+        std::thread::scope(|scope| {
+            scope.spawn(|| {
+                let started = std::time::Instant::now();
+                while builds.running.lock().unwrap().is_none() && started.elapsed() < std::time::Duration::from_secs(3)
+                {
+                    std::thread::sleep(std::time::Duration::from_millis(10));
+                }
+                stop.store(true, Ordering::Release);
+                builds.cancel_running();
+            });
+            let ended =
+                build_controlled(Some(&builder), &request(any_game(), dir.clone(), false), &builds, &stop, &mut |_| {});
+            assert!(matches!(ended, Said::Failed(_)));
+        });
+        assert!(!builds.stopped());
+        assert!(builds.running.lock().unwrap().is_none());
+        let next = dir.join("finished.bat");
+        let outcome = serde_json::to_string(&Said::Built(Default::default())).unwrap();
+        std::fs::write(&next, format!("@echo off\r\necho {outcome}\r\n")).unwrap();
+        assert!(matches!(
+            build(Some(&next), &request(any_game(), dir.clone(), false), &builds, &mut |_| {}),
+            Said::Built(_)
+        ));
+        let _ = std::fs::remove_dir_all(dir);
     }
 
     /// The base game's map built by the real builder (`WESTPLAY_MAP_BUILDER`: its file, e.g. the release build's),

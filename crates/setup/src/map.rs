@@ -1,16 +1,12 @@
-//! The player's map, built for the Maps app from their own game: the map a profile plays (`europe`, or a
-//! standalone map mod's), from the game, its DLCs and the profile's map mods, into WestPlay's data folder. One
-//! map for each combination (a vanilla profile and a ProMods one each have theirs), each built again only
-//! when what it's built from changes: the game's version or DLCs, the map mods (or their files), the
-//! language, or how WestPlay builds maps.
+//! Maps generated from the player's game, DLCs and active mods, with one cache namespace per
+//! installation, map and ordered mount stack. The host decides which profiles to maintain.
 //!
-//! What a map is built from is kept in it (`map.json`'s `source`): the mods by their file names (never their
-//! names as shown: a licence file's can hold the player's key), sizes and times.
+//! Package metadata in `map.json`'s `source` is an invalidation hint. The versioned dependency record
+//! captures effective virtual filesystem queries, so unrelated changes and repackaging can be
+//! validated without full generation. Semantic inputs include language, builder and ATS DLC guards.
 //!
-//! A map is only ever built while the game is closed: building the whole map takes several gigabytes of
-//! memory (5.3 GB for the base map with every DLC), which a PC running the game may not have to spare.
-//! Players run WestPlay first, for its first setup, then the game; a map to build again (the game updated, a
-//! map mod changed) waits until the game is closed, the cab keeping the map it has meanwhile.
+//! Generation runs only while the game is closed. New resources and their dependency record are
+//! committed by replacing the manifest last, retaining the previous map on cancellation or failure.
 
 use std::path::{Path, PathBuf};
 use std::time::UNIX_EPOCH;
@@ -61,7 +57,8 @@ use crate::profiles::{Mod, Profile};
 /// dlc.rs). 44 (2.2.1): ATS's map starts at San Francisco (it started in empty desert), and every map is prepared
 /// again with the surfaces' lower memory (the maps alike, byte for byte): owner 2026-11-04, "everyone should get SF",
 /// and the maps prepared again with the update.
-pub const BUILDER_VERSION: u32 = 44;
+// 45: resolve actual model/material overrides from the full active mod stack.
+pub const BUILDER_VERSION: u32 = 45;
 /// The oldest builder whose maps are today's but for the mods they left out: one of those that left none out
 /// is kept (a mod's old prefabs it skipped are drawn once it's built again for another reason).
 const SAME_BUT_LEFT_OUT: u32 = 40;
@@ -72,10 +69,21 @@ pub fn folder(maps: &Path, profile: &Profile) -> PathBuf {
     maps.join(format!("{}-{:016x}", profile.map, fnv1a(mods.join("\n").as_bytes())))
 }
 
+/// A cache namespace includes the installation, so two games/installations cannot overwrite each other.
+pub fn folder_for(maps: &Path, game: &Game, profile: &Profile) -> PathBuf {
+    let mods: Vec<&str> = profile.mods.iter().map(|m| m.package.as_str()).collect();
+    maps.join(format!(
+        "{}-{:016x}",
+        profile.map,
+        fnv1a(format!("{:?}\n{}\n{}", game.kind, normal_path(&game.dir), mods.join("\n")).as_bytes())
+    ))
+}
+
 /// What the map `profile` plays would be built from now.
 pub fn source(game: &Game, profile: &Profile, language: Option<&str>) -> serde_json::Value {
     let mods: Vec<_> = profile
-        .map_mods()
+        .mods
+        .iter()
         .map(|m| {
             let (size, modified) = m.files.as_deref().map(stamp).unwrap_or((0, 0));
             json!({ "package": m.package, "size": size, "modified": modified })
@@ -83,12 +91,164 @@ pub fn source(game: &Game, profile: &Profile, language: Option<&str>) -> serde_j
         .collect();
     json!({
         "builder": BUILDER_VERSION,
+        "kind": game.kind,
+        "installation": normal_path(&game.dir),
+        "inputs": input_stamp(game, profile),
+        "profileWritten": profile_stamp(&profile.dir),
         "game": game.version.map(|version| version.to_string()),
         "dlcs": game.dlcs,
         "map": profile.map,
         "mods": mods,
         "language": language,
     })
+}
+
+/// Windows paths are case insensitive; profile names and cache folders are not identities.
+pub fn normal_path(path: &Path) -> String {
+    let raw = path.to_string_lossy().replace('\\', "/").to_lowercase();
+    let raw = raw.strip_prefix("//?/").unwrap_or(&raw);
+    let prefix = if raw.starts_with("//") {
+        "//"
+    } else if raw.starts_with('/') {
+        "/"
+    } else {
+        ""
+    };
+    let mut parts = Vec::new();
+    for part in raw.split('/') {
+        match part {
+            "" | "." => {}
+            ".." if parts.last().is_some_and(|p: &&str| !p.ends_with(':') && *p != "..") => {
+                parts.pop();
+            }
+            _ => parts.push(part),
+        }
+    }
+    format!("{prefix}{}", parts.join("/"))
+}
+pub fn target(kind: game::Kind, dir: &Path, truckersmp: bool, promods: bool) -> String {
+    format!(
+        "{}:{}{}",
+        match kind {
+            game::Kind::Ets2 => "ets2",
+            game::Kind::Ats => "ats",
+        },
+        normal_path(dir),
+        if truckersmp { if promods { "#truckersmp-promods" } else { "#truckersmp" } } else { "" }
+    )
+}
+pub fn profile_stamp(dir: &Path) -> serde_json::Value {
+    json!(
+        std::fs::metadata(dir.join("profile.sii"))
+            .ok()
+            .and_then(|m| m.modified().ok())
+            .and_then(|t| t.duration_since(UNIX_EPOCH).ok())
+            .map(|t| t.as_nanos().to_string())
+    )
+}
+pub fn input_stamp(game: &Game, profile: &Profile) -> String {
+    let mut paths: Vec<PathBuf> = std::fs::read_dir(&game.dir)
+        .into_iter()
+        .flatten()
+        .flatten()
+        .map(|e| e.path())
+        .filter(|p| p.extension().is_some_and(|x| x == "scs"))
+        .collect();
+    paths.sort();
+    paths.push(game.dir.join(game.kind.executable()));
+    paths.extend(profile.mods.iter().filter_map(|m| m.files.clone()));
+    westplay_mapdata::dependencies::input_stamp(&paths)
+}
+pub fn semantic_source(game: &Game, profile: &Profile, language: Option<&str>) -> serde_json::Value {
+    let guards = if game.kind == game::Kind::Ats {
+        std::fs::read(game.dir.join(game.kind.executable()))
+            .ok()
+            .and_then(|exe| westplay_mapdata::dlc::read_guards(&exe))
+    } else {
+        None
+    };
+    json!({ "builder": BUILDER_VERSION, "kind": game.kind, "map": profile.map, "language": language, "guards": guards })
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub enum CacheCheck {
+    Current,
+    Missing,
+    Unverified,
+    Changed(String),
+}
+
+/// Checks the effective virtual file contents. Version numbers and packaging do not decide freshness.
+pub fn check_cache(
+    folder: &Path,
+    game: &Game,
+    profile: &Profile,
+    language: Option<&str>,
+) -> Result<CacheCheck, BuildError> {
+    check_cache_controlled(folder, game, profile, language, false, None)
+}
+pub fn check_cache_controlled(
+    folder: &Path,
+    game: &Game,
+    profile: &Profile,
+    language: Option<&str>,
+    allow_cache: bool,
+    stop: Option<&std::sync::atomic::AtomicBool>,
+) -> Result<CacheCheck, BuildError> {
+    let Ok(bytes) = std::fs::read(folder.join("map.json")) else { return Ok(CacheCheck::Missing) };
+    let Ok(manifest) = serde_json::from_slice::<serde_json::Value>(&bytes) else { return Ok(CacheCheck::Unverified) };
+    let Some(value) = manifest.get("dependencies") else { return Ok(CacheCheck::Unverified) };
+    let Ok(deps) = serde_json::from_value::<westplay_mapdata::dependencies::Dependencies>(value.clone()) else {
+        return Ok(CacheCheck::Unverified);
+    };
+    if deps.version != westplay_mapdata::dependencies::VERSION || !deps.stable || deps.queries.is_empty() {
+        return Ok(CacheCheck::Unverified);
+    }
+    let before = input_stamp(game, profile);
+    let profile_before = profile_stamp(&profile.dir);
+    if manifest["source"]["semantic"] != semantic_source(game, profile, language) {
+        return Ok(CacheCheck::Changed("mapContextChanged".into()));
+    }
+    // Omitted packages belong to this same atomic manifest. Retry only if their state changes.
+    let omitted = manifest["source"]["omitted"].as_array();
+    let mut skipped = Vec::new();
+    if let Some(omitted) = omitted {
+        for entry in omitted {
+            let item = profile.mods.iter().find(|m| Some(m.package.as_str()) == entry["package"].as_str());
+            let Some(item) = item else {
+                return Ok(CacheCheck::Changed("omittedModChanged".into()));
+            };
+            if entry["stamp"] != omitted_mod_stamp(item) {
+                return Ok(CacheCheck::Changed("omittedModChanged".into()));
+            }
+            skipped.extend(item.files.clone());
+        }
+    } else if !left_out(folder).is_empty() {
+        return Ok(CacheCheck::Changed("omittedModChanged".into()));
+    }
+    if deps.unreadable {
+        return Ok(CacheCheck::Unverified);
+    }
+    let files = mount_without(game, profile, &skipped)?;
+    let equal = files.verify_dependencies_cached(&deps, allow_cache, stop)?;
+    if before != input_stamp(game, profile) || profile_before != profile_stamp(&profile.dir) {
+        return Ok(CacheCheck::Changed("inputsChangedDuringCheck".into()));
+    }
+    Ok(if !equal {
+        CacheCheck::Changed("mapDependenciesChanged".into())
+    } else if omitted.is_some_and(|items| !items.is_empty()) {
+        CacheCheck::Unverified
+    } else {
+        CacheCheck::Current
+    })
+}
+
+/// Include missing active packages in the same conservative state check as unreadable ones.
+fn omitted_mod_stamp(item: &Mod) -> String {
+    item.files.as_ref().map_or_else(
+        || "missing".into(),
+        |path| westplay_mapdata::dependencies::input_stamp(std::slice::from_ref(path)),
+    )
 }
 
 /// Whether the map in `folder` isn't (yet) what `source` would build.
@@ -117,7 +277,7 @@ pub fn mount(game: &Game, profile: &Profile) -> Result<GameFiles, FileError> {
 /// [`mount`], leaving out the mods whose files are `left_out`.
 fn mount_without(game: &Game, profile: &Profile, left_out: &[PathBuf]) -> Result<GameFiles, FileError> {
     let mut files = GameFiles::install(&game.dir)?;
-    for m in profile.map_mods() {
+    for m in &profile.mods {
         if m.files.as_ref().is_some_and(|path| left_out.contains(path)) {
             continue;
         }
@@ -193,6 +353,11 @@ const LEFT_OUT_FILE: &str = "left-out.json";
 
 /// The map mods left out of the map built in `folder`.
 pub fn left_out(folder: &Path) -> Vec<LeftOut> {
+    if let Some(source) = export::built_from(folder)
+        && let Some(value) = source.get("leftOut")
+    {
+        return serde_json::from_value(value.clone()).unwrap_or_default();
+    }
     std::fs::read(folder.join(LEFT_OUT_FILE))
         .ok()
         .and_then(|bytes| serde_json::from_slice(&bytes).ok())
@@ -210,16 +375,39 @@ pub fn build(
     stop: Option<std::sync::Arc<std::sync::atomic::AtomicBool>>,
     progress: &mut dyn FnMut(Progress),
 ) -> Result<Built, BuildError> {
+    build_controlled(game, profile, language, maps, stop, None, progress)
+}
+
+pub fn build_controlled(
+    game: &Game,
+    profile: &Profile,
+    language: Option<&str>,
+    maps: &Path,
+    stop: Option<std::sync::Arc<std::sync::atomic::AtomicBool>>,
+    commit_file: Option<PathBuf>,
+    progress: &mut dyn FnMut(Progress),
+) -> Result<Built, BuildError> {
     if game::running() {
         return Err(BuildError::GameRunning);
     }
-    let out = folder(maps, profile);
-    let options = Options {
+    let out = folder_for(maps, game, profile);
+    let initial = input_stamp(game, profile);
+    let initial_profile = profile_stamp(&profile.dir);
+    let mut options = Options {
         map: profile.map.clone(),
         language: language.map(str::to_owned),
         around: None,
-        source: Some(source(game, profile, language)),
+        source: Some({
+            let mut source = source(game, profile, language);
+            source["semantic"] = semantic_source(game, profile, language);
+            source
+        }),
         stop,
+        commit_file,
+        external_inputs: std::iter::once(game.dir.clone())
+            .chain(std::iter::once(profile.dir.join("profile.sii")))
+            .chain(profile.mods.iter().filter_map(|m| m.files.clone()))
+            .collect(),
         game_zone: Some(game.kind.sdk_time_zone()),
         sea_by_nearest: game.kind == game::Kind::Ats,
         // ATS's map holds every state, each guarded by its DLC: drawn only as the player's game has it (its guards'
@@ -230,20 +418,38 @@ pub fn build(
             .and_then(|exe| westplay_mapdata::dlc::read_guards(&exe)),
     };
     let mut skipped: Vec<PathBuf> = Vec::new();
-    let mut left_out: Vec<LeftOut> = Vec::new();
+    let mut left_out: Vec<LeftOut> = profile
+        .mods
+        .iter()
+        .filter(|m| m.files.is_none())
+        .map(|m| LeftOut {
+            name: m.name.clone(),
+            error: m.problem.clone().unwrap_or_else(|| "mod files unavailable".into()),
+        })
+        .collect();
     loop {
-        let built = mount_without(game, profile, &skipped)
-            .map_err(BuildError::from)
-            .and_then(|files| Ok(export::export(&files, &options, &out, progress)?));
+        if let Some(source) = options.source.as_mut() {
+            source["leftOut"] =
+                serde_json::to_value(&left_out).map_err(std::io::Error::other).map_err(ExportError::Io)?;
+            source["omitted"] = serde_json::Value::Array(
+                profile
+                    .mods
+                    .iter()
+                    .filter(|m| m.files.is_none() || m.files.as_ref().is_some_and(|p| skipped.contains(p)))
+                    .map(|item| json!({ "package": item.package, "stamp": omitted_mod_stamp(item) }))
+                    .collect(),
+            );
+        }
+        let built = mount_without(game, profile, &skipped).map_err(BuildError::from).and_then(|files| {
+            if initial != input_stamp(game, profile) || initial_profile != profile_stamp(&profile.dir) {
+                return Err(ExportError::InputsChanged.into());
+            }
+            files.track_dependencies();
+            Ok(export::export(&files, &options, &out, progress)?)
+        });
         let error = match built {
             Ok(summary) => {
-                let kept = out.join(LEFT_OUT_FILE);
-                if left_out.is_empty() {
-                    let _ = std::fs::remove_file(&kept);
-                } else {
-                    let json = serde_json::to_vec_pretty(&left_out).map_err(std::io::Error::from);
-                    json.and_then(|json| std::fs::write(&kept, json)).map_err(ExportError::Io)?;
-                }
+                let _ = std::fs::remove_file(out.join(LEFT_OUT_FILE));
                 return Ok(Built { folder: out, summary, left_out });
             }
             Err(error) => error,
@@ -263,7 +469,7 @@ fn unread_mod<'a>(error: &BuildError, profile: &'a Profile) -> Option<&'a Mod> {
         BuildError::Export(ExportError::Map(MapError::Sector { from: Some(from), .. })) => from,
         _ => return None,
     };
-    profile.map_mods().find(|m| m.files.as_deref() == Some(from.as_path()))
+    profile.mods.iter().find(|m| m.files.as_deref() == Some(from.as_path()))
 }
 
 /// A file's (or folder's) size and when it was last changed (seconds since 1970), to tell a mod updated.
@@ -391,7 +597,8 @@ mod tests {
     fn is_built_again_when_what_it_is_built_from_changes() {
         let profile = profile("europe", vec![a_mod("promods", &["europe"], true), a_mod("truck", &[], false)]);
         let source = source(&game(), &profile, Some("en_us"));
-        assert_eq!(source["mods"].as_array().unwrap().len(), 1);
+        // All active mounts are hints; actual dependency contents decide whether to regenerate.
+        assert_eq!(source["mods"].as_array().unwrap().len(), 2);
         assert_eq!(source["game"], "1.61.1.9");
         // A folder with no map, or another's: built.
         let dir = std::env::temp_dir().join(format!("westplay-map-{}", std::process::id()));
@@ -430,5 +637,166 @@ mod tests {
         built_by(SAME_BUT_LEFT_OUT - 1);
         assert!(needs_building(&dir, &source));
         let _ = std::fs::remove_dir_all(dir);
+    }
+}
+
+#[cfg(test)]
+mod dependency_tests {
+    use super::*;
+    struct Fixture {
+        root: PathBuf,
+        game: Game,
+        profile: Profile,
+        cache: PathBuf,
+    }
+    impl Fixture {
+        fn new() -> Self {
+            static N: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+            let root = std::env::temp_dir().join(format!(
+                "westplay-map-validation-{}-{}",
+                std::process::id(),
+                N.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
+            ));
+            let game = Game {
+                kind: game::Kind::Ets2,
+                dir: root.join("game"),
+                version: Some(game::Version([1, 61, 1, 9])),
+                found_by: game::FoundBy::Chosen,
+                dlcs: vec![],
+            };
+            std::fs::create_dir_all(&game.dir).unwrap();
+            let mod_dir = root.join("mod");
+            std::fs::create_dir_all(mod_dir.join("def")).unwrap();
+            std::fs::write(mod_dir.join("def/city.sii"), b"city").unwrap();
+            let mut profile = Profile::new_player(game::Kind::Ets2);
+            profile.mods.push(Mod {
+                package: "test".into(),
+                name: "Test".into(),
+                files: Some(mod_dir),
+                categories: vec![],
+                author: None,
+                map: crate::profiles::MapContent { definitions: true, ..Default::default() },
+                problem: None,
+            });
+            let cache = root.join("cache");
+            std::fs::create_dir_all(&cache).unwrap();
+            let files = mount(&game, &profile).unwrap();
+            files.track_dependencies();
+            files.read("def/city.sii").unwrap();
+            files.read("def/country.missing.sii").unwrap();
+            files.list("def").unwrap();
+            let manifest = json!({
+                "source": { "semantic": semantic_source(&game, &profile, Some("en_us")) },
+                "dependencies": files.dependencies(),
+            });
+            std::fs::write(cache.join("map.json"), manifest.to_string()).unwrap();
+            Self { root, game, profile, cache }
+        }
+        fn check(&self) -> CacheCheck {
+            check_cache(&self.cache, &self.game, &self.profile, Some("en_us")).unwrap()
+        }
+    }
+    impl Drop for Fixture {
+        fn drop(&mut self) {
+            let _ = std::fs::remove_dir_all(&self.root);
+        }
+    }
+    #[test]
+    fn patch_version_and_unrelated_dlc_do_not_rebuild() {
+        let mut f = Fixture::new();
+        assert_eq!(f.check(), CacheCheck::Current);
+        f.game.version = Some(game::Version([1, 61, 1, 10]));
+        f.game.dlcs.push("dlc_cosmetics".into());
+        let mut empty_zip = vec![0u8; 22];
+        empty_zip[..4].copy_from_slice(b"PK\x05\x06");
+        std::fs::write(f.game.dir.join("dlc_cosmetics.scs"), empty_zip).unwrap();
+        assert_eq!(f.check(), CacheCheck::Current);
+    }
+    #[test]
+    fn content_and_new_missing_dependency_require_rebuild() {
+        let f = Fixture::new();
+        let mod_dir = f.profile.mods[0].files.as_ref().unwrap();
+        std::fs::write(mod_dir.join("def/city.sii"), b"another city").unwrap();
+        assert!(matches!(f.check(), CacheCheck::Changed(_)));
+        std::fs::write(mod_dir.join("def/city.sii"), b"city").unwrap();
+        assert_eq!(f.check(), CacheCheck::Current);
+        std::fs::write(mod_dir.join("def/country.missing.sii"), b"new").unwrap();
+        assert!(matches!(f.check(), CacheCheck::Changed(_)));
+    }
+    #[test]
+    fn language_builder_and_ats_guards_are_semantic_inputs() {
+        let f = Fixture::new();
+        assert!(matches!(check_cache(&f.cache, &f.game, &f.profile, Some("zh_cn")).unwrap(), CacheCheck::Changed(_)));
+        let mut m: serde_json::Value =
+            serde_json::from_slice(&std::fs::read(f.cache.join("map.json")).unwrap()).unwrap();
+        m["source"]["semantic"]["builder"] = json!(0);
+        std::fs::write(f.cache.join("map.json"), m.to_string()).unwrap();
+        assert!(matches!(f.check(), CacheCheck::Changed(_)));
+        let mut game = f.game.clone();
+        game.kind = game::Kind::Ats;
+        std::fs::create_dir_all(game.dir.join(game.kind.executable()).parent().unwrap()).unwrap();
+        std::fs::write(game.dir.join(game.kind.executable()), b"\0dlc_az\0dlc_ca\0").unwrap();
+        let first = semantic_source(&game, &f.profile, None);
+        std::fs::write(game.dir.join(game.kind.executable()), b"\0dlc_az\0dlc_ca\0dlc_tx\0").unwrap();
+        assert_ne!(first, semantic_source(&game, &f.profile, None));
+    }
+    #[test]
+    fn legacy_and_damaged_dependencies_are_not_treated_as_current() {
+        let f = Fixture::new();
+        std::fs::write(f.cache.join("map.json"), b"{\"source\":{}}").unwrap();
+        assert_eq!(f.check(), CacheCheck::Unverified);
+        std::fs::write(f.cache.join("map.json"), b"broken").unwrap();
+        assert_eq!(f.check(), CacheCheck::Unverified);
+        std::fs::remove_file(f.cache.join("map.json")).unwrap();
+        assert_eq!(f.check(), CacheCheck::Missing);
+    }
+    #[test]
+    fn installation_namespace_is_independent_of_game_version() {
+        let mut f = Fixture::new();
+        let folder = folder_for(&f.root, &f.game, &f.profile);
+        f.game.version = None;
+        assert_eq!(folder, folder_for(&f.root, &f.game, &f.profile));
+        f.game.dir = f.root.join("other-game");
+        assert_ne!(folder, folder_for(&f.root, &f.game, &f.profile));
+    }
+    #[test]
+    fn missing_active_mods_remain_unverified_until_their_state_changes() {
+        let mut f = Fixture::new();
+        let mut missing = f.profile.mods[0].clone();
+        missing.package = "missing".into();
+        missing.files = None;
+        missing.problem = Some("not found".into());
+        f.profile.mods.push(missing);
+        let file = f.cache.join("map.json");
+        let mut manifest: serde_json::Value = serde_json::from_slice(&std::fs::read(&file).unwrap()).unwrap();
+        manifest["source"]["omitted"] = json!([{"package":"missing","stamp":"missing"}]);
+        manifest["source"]["leftOut"] = json!([{"name":"Missing","error":"not found"}]);
+        std::fs::write(&file, manifest.to_string()).unwrap();
+        assert_eq!(f.check(), CacheCheck::Unverified);
+        assert_eq!(f.check(), CacheCheck::Unverified); // No automatic rebuild loop while absent.
+        f.profile.mods[1].files = f.profile.mods[0].files.clone();
+        f.profile.mods[1].problem = None;
+        assert_eq!(f.check(), CacheCheck::Changed("omittedModChanged".into()));
+    }
+
+    #[test]
+    fn omitted_mod_state_is_atomic_and_only_retries_when_changed() {
+        let mut f = Fixture::new();
+        let bad = f.root.join("bad.scs");
+        std::fs::write(&bad, b"broken mod").unwrap();
+        let mut skipped = f.profile.mods[0].clone();
+        skipped.package = "bad".into();
+        skipped.files = Some(bad.clone());
+        f.profile.mods.push(skipped);
+        let file = f.cache.join("map.json");
+        let mut manifest: serde_json::Value = serde_json::from_slice(&std::fs::read(&file).unwrap()).unwrap();
+        manifest["source"]["omitted"] =
+            json!([{"package":"bad","stamp":westplay_mapdata::dependencies::input_stamp(std::slice::from_ref(&bad))}]);
+        manifest["source"]["leftOut"] = json!([{"name":"Bad","error":"unreadable"}]);
+        std::fs::write(&file, manifest.to_string()).unwrap();
+        assert_eq!(f.check(), CacheCheck::Unverified);
+        assert_eq!(left_out(&f.cache)[0].name, "Bad");
+        std::fs::write(&bad, b"updated different package").unwrap();
+        assert_eq!(f.check(), CacheCheck::Changed("omittedModChanged".into()));
     }
 }

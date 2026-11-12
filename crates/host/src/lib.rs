@@ -25,6 +25,7 @@ mod handover;
 mod hongguo;
 mod lyrics;
 mod map_process;
+mod map_tasks;
 pub mod maps;
 mod music_folder;
 mod netease;
@@ -909,6 +910,7 @@ pub fn run(mut config: Config, stop: Arc<AtomicBool>) -> Result<(), Error> {
                 (config.on_status)(&status);
             }
             if status.map != update.status || status.profile_maps != update.profiles {
+                let _ = webview.post_json(&maps::preparation_message(&update.status, update.folder.is_some()));
                 status.map = update.status;
                 status.profile_maps = update.profiles;
                 (config.on_status)(&status);
@@ -963,6 +965,7 @@ pub fn run(mut config: Config, stop: Arc<AtomicBool>) -> Result<(), Error> {
                     let _ = webview.post_json(&game_message(game_running));
                     let _ = webview.post_json(&truckersmp_message(truckersmp, truckersmp_game));
                     let _ = webview.post_json(&maps::map_message(map_shown.0.as_deref(), map_shown.1));
+                    let _ = webview.post_json(&maps::preparation_message(&status.map, map_shown.0.is_some()));
                     if apple_music.is_some() {
                         let signing_in = apple_music_window_open || apple_music_confirming;
                         let message = apple_music::state_message(apple_music_state.as_ref(), signing_in);
@@ -3299,6 +3302,15 @@ mod tests {
                 map_mods: vec!["Custom roads".into()],
                 unreadable: 0,
                 status: super::maps::MapStatus::Ready,
+                name: "Driver".into(),
+                target: "ets2:profiles/driver".into(),
+                auto_enabled: false,
+                game_auto_enabled: false,
+                has_cache: true,
+                cache_state: "current".into(),
+                task_id: None,
+                reason: None,
+                shared_targets: vec![],
                 left_out: vec![],
                 truckersmp: false,
                 promods: false,

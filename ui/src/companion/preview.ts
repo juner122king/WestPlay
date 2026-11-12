@@ -67,7 +67,7 @@ let settings: Settings = {
   screen: { truckStrip: 'auto' },
   look: { wallpaper: null, iconSet: null, iconStyle: 'auto' },
   graphics: { gpu: null },
-  map: { buildings: true, roads: true, fast: false },
+  map: { buildings: true, roads: true, fast: false, maintenance: { games: {}, profiles: {} } },
   language: null,
 }
 
@@ -108,11 +108,28 @@ function startingMap(): MapStatus {
       return { state: 'waitingForMemory', needed: 3_500_000_000, free: 2_140_000_000 }
     case 'failed':
       return { state: 'failed', error: 'The map couldn’t be read: def/world/road_look.sii is missing.' }
-    default:
+    case 'ready':
       return { state: 'ready' }
+    case 'unverified':
+      return { state: 'unverified' }
+    case 'stale':
+      return { state: 'stale' }
+    case 'cancelled':
+      return { state: 'cancelled' }
+    default:
+      return { state: 'notPrepared' }
   }
 }
 let map = startingMap()
+let previewSequence = 0
+const previewJobs = new Map<string, { id: string; state: MapStatus }>([
+  ['ets2:profiles/57657374', { id: 'preview-west', state: map }],
+  [
+    'ets2:profiles/54657374',
+    { id: 'preview-test', state: { state: query.get('others') === 'ready' ? 'ready' : 'notPrepared' } },
+  ],
+  ['ats:profiles/driver', { id: 'preview-ats', state: { state: 'notPrepared' } }],
+])
 let westplayOpen: boolean | null = gameState === 'live' ? true : null
 
 /** A laptop's two graphics cards, the fast one first. */
@@ -161,6 +178,9 @@ function status(): HostStatus {
       {
         game: 'ets2',
         dir: 'profiles/57657374',
+        target: 'ets2:profiles/57657374',
+        name: 'West',
+        taskId: previewJobs.get('ets2:profiles/57657374')?.id,
         folder: 'europe-cbf29ce484222325',
         status: map,
         leftOut: map.state === 'ready' && query.has('leftOut') ? ['Crni Kal 1.61'] : undefined,
@@ -168,15 +188,25 @@ function status(): HostStatus {
       {
         game: 'ets2',
         dir: 'profiles/54657374',
+        target: 'ets2:profiles/54657374',
+        name: 'Test',
+        taskId: previewJobs.get('ets2:profiles/54657374')?.id,
         folder: 'europe-6350e2ab6a0e4959',
-        // `?others=ready`: made too (Prepare Maps Again then offers both to pick from).
-        status:
-          map.state === 'ready'
-            ? query.get('others') === 'ready'
-              ? map
-              : { state: 'building', done: 0.4, stage: 'drawing' }
-            : { state: 'queued' },
+        status: previewJobs.get('ets2:profiles/54657374')!.state,
       },
+      ...(GAMES.some((game) => game.kind === 'ats')
+        ? [
+            {
+              game: 'ats' as const,
+              dir: 'profiles/driver',
+              target: 'ats:profiles/driver',
+              name: 'ATS Driver',
+              folder: 'usa-preview',
+              status: previewJobs.get('ats:profiles/driver')!.state,
+              taskId: previewJobs.get('ats:profiles/driver')!.id,
+            },
+          ]
+        : []),
     ],
     error: null,
   }
@@ -189,11 +219,13 @@ const emit = (event: string, payload: unknown) => listeners.get(event)?.forEach(
 const STAGES = ['reading', 'drawing', 'tiles', 'saving'] as const
 const ENDS = [0.15, 0.6, 0.95, 1]
 setInterval(() => {
-  if (map.state === 'building') {
-    const done = Math.min(1, map.done + 0.012)
+  for (const job of previewJobs.values()) {
+    if (job.state.state !== 'building') continue
+    const done = Math.min(1, job.state.done + 0.012)
     const stage = STAGES[ENDS.findIndex((end) => done < end)] ?? 'saving'
-    map = done >= 1 ? { state: 'ready' } : { state: 'building', done, stage }
+    job.state = done >= 1 ? { state: 'ready' } : { state: 'building', done, stage }
   }
+  map = previewJobs.get('ets2:profiles/57657374')!.state
   emit('host-status', status())
 }, 1000)
 
@@ -337,11 +369,27 @@ export function answer(command: string, args?: Record<string, unknown>): Promise
     case 'set_westplay_open':
       westplayOpen = Boolean(args?.open)
       return later(undefined, 200)
-    case 'prepare_maps_again':
+    case 'cancel_map_preparation': {
+      const job = [...previewJobs.values()].find((job) => job.id === args?.taskId)
+      if (!job) return later(false)
+      job.state = { state: 'cancelled' }
+      map = previewJobs.get('ets2:profiles/57657374')!.state
+      return later(true)
+    }
+    case 'prepare_maps':
+    case 'prepare_maps_again': {
       console.info('prepare_maps_again', args)
-      // The played profile's map made anew (the status's ticking carries it on).
-      map = { state: 'building', done: 0, stage: 'reading' }
+      const targets = args?.targets as string[]
+      if (!targets?.length || targets.some((target) => !previewJobs.has(target)))
+        throw new Error('Choose map targets explicitly')
+      for (const target of targets)
+        previewJobs.set(target, {
+          id: `preview-${++previewSequence}`,
+          state: { state: 'building', done: 0, stage: 'reading' },
+        })
+      map = previewJobs.get('ets2:profiles/57657374')!.state
       return later(undefined, 300)
+    }
     case 'youtube_check':
     case 'apple_music_check':
     case 'bilibili_check':

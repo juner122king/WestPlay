@@ -70,9 +70,18 @@ export interface ProfileMap {
   game: GameKind
   /** The profile's folder, as the setup's check of the game names it (`ProfileCheck.dir`). */
   dir: string
-  /** Its map's folder, by name: profiles sharing a map share it (what `prepareMapsAgain` asks by). */
+  /** The usable map cache folder; command targets are identified separately. */
   folder: string
   status: MapStatus
+  target?: string
+  name?: string
+  autoEnabled?: boolean
+  gameAutoEnabled?: boolean
+  hasCache?: boolean
+  cacheState?: 'current' | 'stale' | 'unverified' | 'missing'
+  taskId?: string | null
+  reason?: string | null
+  sharedTargets?: string[]
   /** The map it plays (`europe`, or a standalone map mod's), the mods that change it as the game names them, and
    * how many of those can't be read: as the host worked them out from the profile now (setup's check of the game
    * may be older: a mod turned off since). */
@@ -96,6 +105,7 @@ export type MapStatus =
   /** WestPlay isn't set up in a game yet. */
   | { state: 'noGame' }
   | { state: 'ready' }
+  | { state: 'notPrepared' | 'unverified' | 'stale' | 'checking' | 'cancelled' }
   /** How far, 0 to 1. */
   | { state: 'building'; done: number; stage: MapStage }
   /** To build once the game is closed. */

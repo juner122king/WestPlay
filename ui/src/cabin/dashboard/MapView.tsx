@@ -8,6 +8,7 @@ import { DashboardMapControls, MapControls } from '../maps/MapControls'
 import { MapSearch } from '../maps/MapSearch'
 import { nextStop } from '../maps/nextStop'
 import { useMapData } from '../maps/mapData'
+import { MapCacheNotice } from '../maps/MapCacheNotice'
 import { RoadMap } from '../maps/RoadMap'
 import { SpeedDisplay } from '../maps/SpeedDisplay'
 import { useClockStyle } from '../state/hooks'
@@ -84,6 +85,7 @@ export function MapView({ interactive = false }: { interactive?: boolean }) {
           {data && interactive && <MapControls />}
           {data && !interactive && <DashboardMapControls />}
           {data && interactive && <MapSearch />}
+          <MapCacheNotice />
         </div>
       </div>
     </div>

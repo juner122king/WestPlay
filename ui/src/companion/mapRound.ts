@@ -2,15 +2,15 @@ import type { HostStatus, MapStatus, ProfileMap } from './useHostStatus'
 
 /**
  * A round of maps being prepared: the profiles whose map was waiting or being made since the round began
- * (each by [`mapKey`]), in the order first seen. Prepare Maps Again makes every profile's map, so all of them; a
- * profile whose mods changed, just its own. The Map page's bar shows the round, each profile an equal share
- * (ten profiles: a tenth each).
+ * (each by [`mapKey`]), in the order first seen. Only requested or automatically maintained targets join;
+ * profiles sharing a task count once. The Map page's bar gives each task an equal share of the round.
  */
 export type MapRound = string[]
 
 /** Waiting its turn or being made: not done in this round yet. */
-function pending(status: MapStatus): boolean {
+export function pending(status: MapStatus): boolean {
   return (
+    status.state === 'checking' ||
     status.state === 'building' ||
     status.state === 'queued' ||
     status.state === 'waitingForGame' ||
@@ -21,12 +21,12 @@ function pending(status: MapStatus): boolean {
 /** A map, told apart from the others: its folder, and its game and ProMods' or not (TruckersMP's maps, ETS2's,
  * ATS's and ProMods', all have TruckersMP's folder: ATS's being made counted as ETS2's, done). */
 export function mapKey(map: ProfileMap): string {
-  return `${map.game}|${map.dir}|${map.promods ? 'promods' : ''}`
+  return map.taskId ?? `${map.game}|${map.dir}|${map.promods ? 'promods' : ''}`
 }
 
 /** The round after the host's latest word on each profile's map: those pending join it; none pending, it's over. */
 export function nextRound(round: MapRound, maps: ProfileMap[]): MapRound {
-  const now = maps.filter((each) => pending(each.status)).map(mapKey)
+  const now = [...new Set(maps.filter((each) => pending(each.status)).map(mapKey))]
   if (now.length === 0) return []
   return [...round, ...now.filter((key) => !round.includes(key))]
 }

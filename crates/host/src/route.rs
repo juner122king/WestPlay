@@ -517,13 +517,16 @@ struct JunctionFiles {
     base: &'static str,
     map: String,
     mods: Vec<PathBuf>,
+    /// Package order before a disabled-maintenance profile has resolved its mods.
+    unresolved: Vec<String>,
     /// The profile played, to mount its map mods (`None`: not worked out yet, the base game's map).
     played: Option<(westplay_setup::game::Game, westplay_setup::profiles::Profile)>,
 }
 
 impl PartialEq for JunctionFiles {
     fn eq(&self, other: &Self) -> bool {
-        (&self.install, &self.map, &self.mods) == (&other.install, &other.map, &other.mods)
+        (&self.install, &self.map, &self.mods, &self.unresolved)
+            == (&other.install, &other.map, &other.mods, &other.unresolved)
     }
 }
 
@@ -537,19 +540,39 @@ impl JunctionFiles {
         let base = running.or(played.map(|(game, _)| game.kind)).unwrap_or(Kind::Ets2).base_map();
         // The running game's own install, whichever WestPlay is set up in.
         let played = played.map(|(game, profile)| (Game { dir: install.to_owned(), ..game.clone() }, profile.clone()));
-        let (map, mods) = match &played {
-            Some((_, profile)) => (profile.map.clone(), profile.map_mods().filter_map(|m| m.files.clone()).collect()),
-            None => (base.to_owned(), Vec::new()),
+        let (map, mods, unresolved) = match &played {
+            Some((_, profile)) => (
+                profile.map.clone(),
+                profile.mods.iter().filter_map(|m| m.files.clone()).collect(),
+                profile
+                    .mods
+                    .iter()
+                    .filter(|m| m.files.is_none() && m.problem.is_none())
+                    .map(|m| m.package.clone())
+                    .collect(),
+            ),
+            None => (base.to_owned(), Vec::new(), Vec::new()),
         };
-        Self { install: install.to_owned(), base, map, mods, played }
+        Self { install: install.to_owned(), base, map, mods, unresolved, played }
     }
 
     /// The junctions as these files have them. A map mod that can't be read (HVT's, say) leaves the base
     /// game's, so its roads still get their ways.
     fn open(&self) -> Option<Junctions> {
         if let Some((game, profile)) = &self.played
-            && !self.mods.is_empty()
+            && (!self.mods.is_empty() || !self.unresolved.is_empty() || self.map != self.base)
         {
+            // Disabling map preparation must not disable live junction navigation. Only this
+            // consumer resolves deferred mods, when it first opens the route's resources.
+            let resolved;
+            let profile = if !self.unresolved.is_empty()
+                && let Some(documents) = westplay_setup::places::game_documents(game.kind)
+            {
+                resolved = profile.resolve_pending_mods(game, &documents);
+                &resolved
+            } else {
+                profile
+            };
             match map::mount(game, profile)
                 .map_err(|error| error.to_string())
                 .and_then(|files| Junctions::new(files, &self.map).map_err(|error| error.to_string()))
@@ -1080,8 +1103,24 @@ mod tests {
         let files = JunctionFiles::of(running, Some(&(set_up.clone(), profile.clone())));
         assert_eq!(files.install, running);
         assert_eq!(files.played.as_ref().map(|(game, _)| game.dir.as_path()), Some(running));
-        // Only the map mods it has the files of, in the profile's order.
-        assert_eq!((files.map.as_str(), files.mods.clone()), ("europe", vec![PathBuf::from("mods/promods.scs")]));
+        // Every active mount can override a model or definition, regardless of its category.
+        assert_eq!(
+            (files.map.as_str(), files.mods.clone()),
+            ("europe", vec![PathBuf::from("mods/promods.scs"), PathBuf::from("mods/truck.scs")])
+        );
+        // Deferred packages must not look like the unmodded base game. Changing the active
+        // package order invalidates the route's open resources without resolving archives here.
+        let mut deferred = profile.clone();
+        for item in &mut deferred.mods {
+            item.files = None;
+            item.problem = None;
+            item.map = MapContent::default();
+        }
+        let lazy = JunctionFiles::of(running, Some(&(set_up.clone(), deferred.clone())));
+        assert_eq!(lazy.unresolved, ["promods", "truck", "gone"]);
+        assert_ne!(lazy, JunctionFiles::of(running, None));
+        deferred.mods.swap(0, 1);
+        assert_ne!(lazy, JunctionFiles::of(running, Some(&(set_up.clone(), deferred))));
 
         // Not worked out yet: the base game's map alone.
         let base = JunctionFiles::of(running, None);

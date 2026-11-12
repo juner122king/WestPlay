@@ -6,7 +6,7 @@ import { describe, expect, it, vi, beforeEach } from 'vitest'
 import { languages } from './onboarding/words'
 import { companionLanguages, companionWords } from './pages/words'
 import { RELEASED_APP_IDS, isAppId } from '../cabin/state/apps'
-import { prepareMapsAgain } from './setup'
+import { prepareMapsAgain, prepareMaps, cancelMapPreparation } from './setup'
 import { call } from './bridge'
 
 vi.mock('./bridge', () => ({ call: vi.fn(), on: vi.fn() }))
@@ -69,10 +69,12 @@ describe('2.3.0-domestic.1 domestic edition integration', () => {
     expect(release.bundle.resources['../target/release/westplay-probe.exe']).toBe('westplay-probe.exe')
   })
 
-  it('sends selected map folders explicitly, and null for all maps', () => {
-    prepareMapsAgain(['europe-1', 'usa-2'])
-    expect(call).toHaveBeenLastCalledWith('prepare_maps_again', { folders: ['europe-1', 'usa-2'] })
-    prepareMapsAgain()
-    expect(call).toHaveBeenLastCalledWith('prepare_maps_again', { folders: null })
+  it('requires explicit game/profile targets for verification, rebuilding and cancellation', () => {
+    prepareMapsAgain(['ets2:profiles/a', 'ats:profiles/b'])
+    expect(call).toHaveBeenLastCalledWith('prepare_maps_again', { targets: ['ets2:profiles/a', 'ats:profiles/b'] })
+    prepareMaps(['ats:profiles/b'])
+    expect(call).toHaveBeenLastCalledWith('prepare_maps', { targets: ['ats:profiles/b'], force: false })
+    cancelMapPreparation('task-1')
+    expect(call).toHaveBeenLastCalledWith('cancel_map_preparation', { taskId: 'task-1' })
   })
 })
