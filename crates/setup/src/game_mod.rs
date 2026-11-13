@@ -1467,6 +1467,40 @@ ui::text : _nameless.black {
         let _ = std::fs::remove_file(out);
     }
 
+    /// The real ATS installation: both truck GPS scripts are patched into distinct layouts.
+    /// `cargo test -p westplay-setup -- --ignored --nocapture builds_ats_t680_and_57x_screens`
+    #[test]
+    #[ignore = "reads this PC's ATS installation"]
+    fn builds_ats_t680_and_57x_screens() {
+        let game = crate::game::find(crate::game::Kind::Ats).into_iter().next().expect("ATS installed");
+        let files = GameFiles::install(&game.dir).unwrap();
+        let (bytes, built) = build(&files, &[], &GameFiles::new(Vec::new()), &cab_mark::Marks::default()).unwrap();
+        assert!(built.patched.contains(&"kenworth-t680-2022"), "{built:?}");
+        assert!(built.patched.contains(&"western-star-57x"), "{built:?}");
+        let out = std::env::temp_dir().join(format!("westplay-ats-t680-57x-{}.scs", std::process::id()));
+        std::fs::write(&out, bytes).unwrap();
+        let archive = westplay_mapdata::archive::Archive::open(&out).unwrap();
+        for (layout, script, width, height) in [
+            ("kenworth-t680-2022", "ui/dashboard/kenworth_t680_2022_gps.sii", 1280, 720),
+            ("western-star-57x", "ui/dashboard/westernstar_57x_gps.sii", 1440, 540),
+        ] {
+            let gps = archive.read(script).unwrap().unwrap_or_else(|| panic!("missing {script}"));
+            let gps = String::from_utf8(gps).unwrap();
+            let texture_name = format!("screen_{}", layout.replace('-', "_"));
+            assert!(gps.contains(&format!("/material/ui/westplay/{texture_name}.mat")), "{script}");
+            assert!(gps.contains("id: 100"), "{script}");
+            let texture_path = format!("material/ui/westplay/{texture_name}.dds");
+            let texture = archive.read(&texture_path).unwrap().unwrap_or_else(|| panic!("missing {texture_path}"));
+            let index = screen_layouts().iter().position(|candidate| candidate.id == layout).unwrap();
+            assert_eq!(u32::from_le_bytes(texture[12..16].try_into().unwrap()), ScreenLayout::texture_height(index));
+            assert_eq!(u32::from_le_bytes(texture[16..20].try_into().unwrap()), SCREEN_WIDTH);
+            assert!(gps.contains(&format!("coords_r: {width}")), "{script}");
+            assert!(gps.contains(&format!("coords_t: {height}")), "{script}");
+        }
+        drop(archive);
+        let _ = std::fs::remove_file(out);
+    }
+
     /// A game folder with the Smart Dash's script and screens file, and an Advanced and a 10.1" interior in
     /// each truck's folder (`gps_path`: what its screens file names).
     fn smart_dash_game(name: &str, gps_path: &str) -> PathBuf {

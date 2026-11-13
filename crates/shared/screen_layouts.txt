@@ -49,3 +49,9 @@ volvo-vnl-2025    ui/dashboard/volvo_vnl2025_gps.sii
 # ATS Freightliner Cascadia (2024), digital interior. Its own 1440 x 540 GPS script; the GPS mesh maps the whole
 # texture tile onto a 2.49:1 display. Keep new layouts last.
 freightliner-cascadia-2024 ui/dashboard/freightliner_cascadia_2024_gps.sii
+# ATS Kenworth T680 (2022): its 1280 x 720 GPS script; the GPS model piece maps the full texture tile to a
+# 1.874:1 display. Keep new layouts last.
+kenworth-t680-2022 ui/dashboard/kenworth_t680_2022_gps.sii
+# ATS Western Star 57X: its 1440 x 540 GPS script; the GPS model piece maps the full texture tile to a 2.493:1
+# display. Keep new layouts last.
+western-star-57x ui/dashboard/westernstar_57x_gps.sii

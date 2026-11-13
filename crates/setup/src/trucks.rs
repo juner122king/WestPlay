@@ -165,9 +165,14 @@ pub const ATS_TRUCKS: &[Truck] = &[
         id: "kenworth-t680-2022",
         name: "Kenworth T680 (2022)",
         source: Source::Game("kenworth.t680_2022"),
-        layout: None,
+        layout: Some("kenworth-t680-2022"),
     },
-    Truck { id: "western-star-57x", name: "Western Star 57X", source: Source::Game("westernstar.57x"), layout: None },
+    Truck {
+        id: "western-star-57x",
+        name: "Western Star 57X",
+        source: Source::Game("westernstar.57x"),
+        layout: Some("western-star-57x"),
+    },
     Truck { id: "western-star-49x", name: "Western Star 49X", source: Source::Game("westernstar.49x"), layout: None },
     Truck { id: "mack-anthem", name: "Mack Anthem", source: Source::Game("mack.anthem"), layout: None },
     Truck { id: "mack-pinnacle", name: "Mack Pinnacle", source: Source::Game("mack.pinnacle"), layout: None },
@@ -351,6 +356,21 @@ mod tests {
         let _ = std::fs::remove_dir_all(&root);
     }
 
+    #[test]
+    fn the_t680_and_57x_need_their_own_gps_screens() {
+        let (files, root) = game_with(&["kenworth.t680_2022", "westernstar.57x"]);
+        let ats_fit = |id: &str, patched: &[&str]| {
+            fit(Kind::Ats, &files, patched, &[], &[]).into_iter().find(|(truck, _)| truck.id == id).unwrap().1
+        };
+
+        for (id, other) in [("kenworth-t680-2022", "western-star-57x"), ("western-star-57x", "kenworth-t680-2022")] {
+            assert_eq!(ats_fit(id, &["generic", "tablet"]), Fit::NotYet);
+            assert_eq!(ats_fit(id, &[other]), Fit::NotYet);
+            assert_eq!(ats_fit(id, &[id]), Fit::Ready);
+        }
+
+        let _ = std::fs::remove_dir_all(&root);
+    }
     #[test]
     fn atss_trucks_are_its_own_their_screens_not_yet() {
         // Four entries avoid sharing the three-truck test fixture's temporary directory.

@@ -99,6 +99,10 @@ pub fn page_height(index: usize) -> u32 {
         Some("volvo-vnl-2025") => 712,
         // ATS Cascadia 2024 digital interior: its GPS model surface maps the full texture tile at 2.49:1.
         Some("freightliner-cascadia-2024") => 514,
+        // ATS Kenworth T680 2022: its GPS model surface maps the full texture tile at 1.874:1.
+        Some("kenworth-t680-2022") => 683,
+        // ATS Western Star 57X: its GPS model surface maps the full texture tile at 2.493:1.
+        Some("western-star-57x") => 513,
         _ => SCREEN_HEIGHT,
     }
 }
@@ -1025,6 +1029,8 @@ mod tests {
             ("ford-bronco-2024", 796),
             ("volvo-vnl-2025", 712),
             ("freightliner-cascadia-2024", 514),
+            ("kenworth-t680-2022", 683),
+            ("western-star-57x", 513),
         ] {
             assert_eq!(page_height(index(layout)), height, "{layout}");
         }
