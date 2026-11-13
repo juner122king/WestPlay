@@ -46,15 +46,19 @@ const DIR: &str = "vehicle/truck/upgrade/westplay_tablet";
 /// Its icon (`icon: "westplay_tablet"`: the shop's icons are under `ICON_DIR`).
 const ICON_DIR: &str = "material/ui/accessory";
 const NAME: &str = "westplay_tablet";
+const LARGE_NAME: &str = "westplay_tablet_large";
 /// The hanging one's model.
 const HANGING: &str = "westplay_tablet_hang";
 /// The one on a dashboard set's toy spot (a table's red slots: owner 2026-10-26).
 const ON_SLOT: &str = "westplay_tablet_slot";
+const LARGE_ON_SLOT: &str = "westplay_tablet_large_slot";
 /// Its hookup, beside the game's (`def/vehicle/addon_hookup_storage.sii` asks mods for a file of their own so named).
 const HOOKUPS: &str = "def/vehicle/addon_hookup_storage.westplay.sii";
 /// Its accessory's name, the first of its unit name's parts: each a token, 12 characters at the most (the game
 /// refused `westplay_tablet.scania.s_2016.toystand`: "the unit name ... is in wrong format", 2026-10-24).
 const UNIT: &str = "wp_tablet";
+const LARGE_UNIT: &str = "wp_tablet_lg";
+const LARGE_SCALE: f32 = 1.2;
 
 /// Where a truck takes the tablet.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -199,10 +203,14 @@ pub fn files(
     let hanging: BTreeSet<i32> =
         spots.iter().filter(|spot| spot.slot == Slot::Hanging).map(|spot| tenths(&spot.truck)).collect();
     let mut files = vec![
-        (format!("{DIR}/{NAME}.pmg"), model(texture_height, Origin::Base(ON_A_SET))?),
+        (format!("{DIR}/{NAME}.pmg"), model(texture_height, Origin::Base(ON_A_SET), 1.0)?),
         (format!("{DIR}/{NAME}.pmd"), descriptor()?),
-        (format!("{DIR}/{ON_SLOT}.pmg"), model(texture_height, Origin::Base(TOWARD_DRIVER))?),
+        (format!("{DIR}/{ON_SLOT}.pmg"), model(texture_height, Origin::Base(TOWARD_DRIVER), 1.0)?),
         (format!("{DIR}/{ON_SLOT}.pmd"), descriptor()?),
+        (format!("{DIR}/{LARGE_NAME}.pmg"), model(texture_height, Origin::Base(ON_A_SET), LARGE_SCALE)?),
+        (format!("{DIR}/{LARGE_NAME}.pmd"), descriptor()?),
+        (format!("{DIR}/{LARGE_ON_SLOT}.pmg"), model(texture_height, Origin::Base(TOWARD_DRIVER), LARGE_SCALE)?),
+        (format!("{DIR}/{LARGE_ON_SLOT}.pmd"), descriptor()?),
         (HOOKUPS.to_owned(), hookup().into_bytes()),
         (format!("{DIR}/body.mat"), body_material().into_bytes()),
         (format!("{DIR}/screen.mat"), screen_material(screen_texture).into_bytes()),
@@ -214,15 +222,24 @@ pub fn files(
     ];
     for &pitch in &hanging {
         let name = hanging_model(pitch);
-        files.push((format!("{DIR}/{name}.pmg"), model(texture_height, Origin::Top(pitch as f32 / 10.0))?));
+        files.push((format!("{DIR}/{name}.pmg"), model(texture_height, Origin::Top(pitch as f32 / 10.0), 1.0)?));
         files.push((format!("{DIR}/{name}.pmd"), descriptor()?));
     }
     for spot in spots.iter().filter(|spot| !vehicle_apart(&spot.truck) && !own_screen(&spot.truck)) {
-        let model = match spot.slot {
-            Slot::Hanging => hanging_model(tenths(&spot.truck)),
-            Slot::DashboardSet => NAME.to_owned(),
-        };
-        files.push((definition_path(spot), accessory(spot, &model).into_bytes()));
+        match spot.slot {
+            Slot::Hanging => {
+                let model = hanging_model(tenths(&spot.truck));
+                files
+                    .push((definition_path(spot, NAME), accessory(spot, &model, UNIT, "WestPlay tablet").into_bytes()));
+            }
+            Slot::DashboardSet => {
+                files.push((definition_path(spot, NAME), accessory(spot, NAME, UNIT, "WestPlay tablet").into_bytes()));
+                files.push((
+                    definition_path(spot, LARGE_NAME),
+                    accessory(spot, LARGE_NAME, LARGE_UNIT, "WestPlay tablet (large)").into_bytes(),
+                ));
+            }
+        }
     }
     Ok(files)
 }
@@ -289,8 +306,8 @@ fn own_screen(truck: &str) -> bool {
 }
 
 /// Where a spot's accessory is defined.
-fn definition_path(spot: &Spot) -> String {
-    format!("def/vehicle/truck/{}/accessory/{}/{NAME}.sii", spot.truck, spot.slot.folder())
+fn definition_path(spot: &Spot, name: &str) -> String {
+    format!("def/vehicle/truck/{}/accessory/{}/{}.sii", spot.truck, spot.slot.folder(), name)
 }
 
 /// The trucks' slots for the tablet in `files` (the game, its DLCs, a mod), sorted: each truck's hanging items
@@ -409,7 +426,7 @@ pub fn trucks_in_mod(path: &Path) -> Vec<Spot> {
     truck_dirs
         .iter()
         .flat_map(|truck| Slot::ALL.map(|slot| Spot::new(truck, slot)))
-        .filter(|spot| files.read(&definition_path(spot)).is_ok_and(|found| found.is_some()))
+        .filter(|spot| files.read(&definition_path(spot, NAME)).is_ok_and(|found| found.is_some()))
         .collect()
 }
 
@@ -417,10 +434,10 @@ pub fn trucks_in_mod(path: &Path) -> Vec<Spot> {
 /// with an `interior_model` and no `exterior_model`, drawn with the camera in the cab only (see the module's
 /// header). Hanging, it's fixed where the hanging toys hang from (theirs swing on a rope below it: a screen
 /// shouldn't).
-fn accessory(spot: &Spot, model: &str) -> String {
+fn accessory(spot: &Spot, model: &str, unit: &str, name: &str) -> String {
     let (truck, slot) = (&spot.truck, spot.slot.folder());
     format!(
-        "SiiNunit\n{{\naccessory_addon_data : {UNIT}.{truck}.{slot}\n{{\n\tname: \"WestPlay tablet\"\n\tprice: 1\n\tunlock: 0\n\ticon: \"{NAME}\"\n\tpart_type: aftermarket\n\n\tinterior_model: \"/{DIR}/{model}.pmd\"\n}}\n}}\n"
+        "SiiNunit\n{{\naccessory_addon_data : {unit}.{truck}.{slot}\n{{\n\tname: \"{name}\"\n\tprice: 1\n\tunlock: 0\n\ticon: \"{NAME}\"\n\tpart_type: aftermarket\n\n\tinterior_model: \"/{DIR}/{model}.pmd\"\n}}\n}}\n"
     )
 }
 
@@ -444,8 +461,22 @@ accessory_hookup_int_data : {UNIT}.addon_hookup
 
 	suitable_for[]: \"{}\"
 }}
+
+accessory_hookup_int_data : {LARGE_UNIT}.addon_hookup
+{{
+	name: \"WestPlay tablet (large)\"
+	price: 1
+	unlock: 0
+	icon: \"{NAME}\"
+	part_type: aftermarket
+
+	model: \"/{DIR}/{LARGE_ON_SLOT}.pmd\"
+
+	suitable_for[]: \"{}\"
+}}
 }}
 ",
+        Slot::DashboardSet.folder(),
         Slot::DashboardSet.folder()
     )
 }
@@ -556,7 +587,7 @@ fn cross(a: [f32; 3], b: [f32; 3]) -> [f32; 3] {
 /// in front holding the tablet's bottom edge, and an arm from the base's back up to the tablet's back, turned
 /// with the tablet toward the driver. Of the tablet's body's material, coloured as its back (`body`: the body
 /// piece, as made: its record and its vertices' colour). `height`, `thickness`: the tablet's, standing.
-fn stand(body: &Piece, turn: f32, height: f32, thickness: f32) -> Result<Piece, String> {
+fn stand(body: &Piece, turn: f32, height: f32, thickness: f32, scale: f32) -> Result<Piece, String> {
     // Boxes: a centre, three axes (each the cross of the two before it), half sizes along them.
     let x = [1.0, 0.0, 0.0];
     let mut boxes = vec![
@@ -571,7 +602,7 @@ fn stand(body: &Piece, turn: f32, height: f32, thickness: f32) -> Result<Piece, 
     let length = (0..3).map(|k| along[k] * along[k]).sum::<f32>().sqrt();
     let along = along.map(|v| v / length);
     boxes.push(([0, 1, 2].map(|k| (from[k] + to[k]) / 2.0), [x, along, cross(x, along)], [0.02, length / 2.0, 0.004]));
-    blocks(body, &boxes, |v| rotate_y(v, turn))
+    blocks(body, &boxes, |v| rotate_y(v.map(|axis| axis * scale), turn))
 }
 
 /// The hanging tablet's mount: a clamp over the middle of the tablet's top edge (a plate on it, a lip over the
@@ -674,7 +705,7 @@ fn blocks(body: &Piece, boxes: &[Block], turn: impl Fn([f32; 3]) -> [f32; 3]) ->
 /// set, on a stand of its own, leaning back) or its bar's foot (hanging below it), turned toward the driver, the
 /// glass showing the screen texture's first SCREEN_HEIGHT rows (of `texture_height`), the first at its top, left
 /// to right, across the whole of it (its rounded corners cut the frame's, as an iPad's do).
-fn model(texture_height: u32, origin: Origin) -> Result<Vec<u8>, String> {
+fn model(texture_height: u32, origin: Origin, scale: f32) -> Result<Vec<u8>, String> {
     let counts = (word(SOURCE_PMG, 0)?, word(SOURCE_PMG, PIECES)?, word(SOURCE_PMG, PARTS)?);
     let empty = (3..8).all(|index| word(SOURCE_PMG, index) == Ok(0)) && word(SOURCE_PMG, STRINGS_AT + 1)? == 0;
     if counts != (PMG_MAGIC, 2, 1) || !empty || word(SOURCE_PMG, PARTS_AT)? as usize != HEADER_SIZE {
@@ -699,7 +730,7 @@ fn model(texture_height: u32, origin: Origin) -> Result<Vec<u8>, String> {
     let place = |p: [f32; 3], direction: bool| match origin {
         Origin::Base(turn) => {
             let p = rotate_x(p, LEAN_BACK);
-            let p = if direction { p } else { [p[0], p[1] + STAND_LIFT, p[2] + STAND_SEAT] };
+            let p = if direction { p } else { [p[0], p[1] + STAND_LIFT * scale, p[2] + STAND_SEAT * scale] };
             rotate_y(p, turn)
         }
         Origin::Top(level) => hanging_turn(p, level),
@@ -714,7 +745,8 @@ fn model(texture_height: u32, origin: Origin) -> Result<Vec<u8>, String> {
         for vertex in piece.vertices.chunks_exact_mut(36) {
             let position = [float(vertex, 0)?, float(vertex, 4)?, float(vertex, 8)?];
             let normal = [float(vertex, 12)?, float(vertex, 16)?, float(vertex, 20)?];
-            let moved = place([0, 1, 2].map(|axis| position[axis] - centre[axis]), false);
+            let relative = [0, 1, 2].map(|axis| (position[axis] - centre[axis]) * scale);
+            let moved = place(relative, false);
             let turned = place(normal, true);
             for axis in 0..3 {
                 set_float(vertex, axis * 4, moved[axis]);
@@ -729,7 +761,7 @@ fn model(texture_height: u32, origin: Origin) -> Result<Vec<u8>, String> {
         set(&mut piece.record, PIECE_MATERIAL * 4, index as u32);
     }
     let added = match origin {
-        Origin::Base(turn) => stand(&pieces[0], turn, high[1] - low[1], high[2] - low[2])?,
+        Origin::Base(turn) => stand(&pieces[0], turn, high[1] - low[1], high[2] - low[2], scale)?,
         Origin::Top(level) => mount(&pieces[0], low[2] - centre[2], back - centre[2], level)?,
     };
     pieces.push(added);
@@ -868,7 +900,7 @@ mod tests {
 
     #[test]
     fn the_hanging_tablet_hangs_on_its_bar() {
-        let pmg = model(HEIGHT, Origin::Top(0.0)).unwrap();
+        let pmg = model(HEIGHT, Origin::Top(0.0), 1.0).unwrap();
         let (least, most) = extent(&pmg);
         // The bar from up in the trim, the tablet below it.
         assert!((tablet_height() - 0.1793).abs() < 0.001, "{}", tablet_height());
@@ -887,7 +919,7 @@ mod tests {
     fn the_hanging_tablet_is_held_by_its_clamp() {
         // The mount where the tablet is (turned back from toward the driver): nothing of it inside the tablet, its
         // plate on the top edge, its lips past the glass and the back, down over each.
-        let pmg = model(HEIGHT, Origin::Top(0.0)).unwrap();
+        let pmg = model(HEIGHT, Origin::Top(0.0), 1.0).unwrap();
         let points = |piece: usize| -> Vec<[f32; 3]> {
             let at = word(&pmg, PIECES_AT).unwrap() as usize + piece * PIECE_SIZE;
             let (positions, count) = (
@@ -935,7 +967,7 @@ mod tests {
         // In the cab, every corner of the tablet and its bar where it is under a hanging point turned round with no
         // pitch (upright, its top edge as level as the model's own: within a millimetre across it).
         let in_cab = |rotation: [f32; 4], level: f32| -> Vec<[f32; 3]> {
-            let pmg = model(HEIGHT, Origin::Top(level)).unwrap();
+            let pmg = model(HEIGHT, Origin::Top(level), 1.0).unwrap();
             let pmg = &pmg;
             (0..3)
                 .flat_map(|index| {
@@ -975,7 +1007,7 @@ mod tests {
     fn on_a_sets_toy_spot_the_tablet_faces_as_the_spot_does() {
         // A set's spots face back into the cab already: the tablet's front (-z) turned toward +x by TOWARD_DRIVER
         // alone (which the spot's turn round makes toward the driver), and up by its lean.
-        let pmg = model(HEIGHT, Origin::Base(TOWARD_DRIVER)).unwrap();
+        let pmg = model(HEIGHT, Origin::Base(TOWARD_DRIVER), 1.0).unwrap();
         assert_eq!(word(&pmg, PIECES).unwrap(), 3);
         let at = word(&pmg, PIECES_AT).unwrap() as usize + PIECE_SIZE;
         let normals = word(&pmg[at..], PIECE_NORMALS).unwrap() as usize;
@@ -986,7 +1018,7 @@ mod tests {
 
     #[test]
     fn the_tablet_stands_on_its_stand_its_screen_showing_the_frame() {
-        let pmg = model(HEIGHT, Origin::Base(ON_A_SET)).unwrap();
+        let pmg = model(HEIGHT, Origin::Base(ON_A_SET), 1.0).unwrap();
         assert_eq!(word(&pmg, PIECES).unwrap(), 3);
         // Read as the map's model reader reads any: its triangles (the body's, the glass's, the stand's three
         // boxes' 12 each).
@@ -1056,6 +1088,30 @@ mod tests {
     }
 
     #[test]
+    fn the_large_dashboard_tablet_is_scaled_without_changing_its_screen_mapping() {
+        let regular = model(HEIGHT, Origin::Base(ON_A_SET), 1.0).unwrap();
+        let large = model(HEIGHT, Origin::Base(ON_A_SET), LARGE_SCALE).unwrap();
+        let (regular_low, regular_high) = extent(&regular);
+        let (large_low, large_high) = extent(&large);
+        let regular_height = regular_high[1] - regular_low[1];
+        let large_height = large_high[1] - large_low[1];
+        assert!((large_height / regular_height - LARGE_SCALE).abs() < 0.01);
+
+        let regular_glass = word(&regular, PIECES_AT).unwrap() as usize + PIECE_SIZE;
+        let large_glass = word(&large, PIECES_AT).unwrap() as usize + PIECE_SIZE;
+        let regular_uv = word(&regular[regular_glass..], PIECE_UVS).unwrap() as usize;
+        let large_uv = word(&large[large_glass..], PIECE_UVS).unwrap() as usize;
+        let count = word(&regular[regular_glass..], PIECE_VERTICES).unwrap() as usize;
+        assert_eq!(word(&large[large_glass..], PIECE_VERTICES).unwrap() as usize, count);
+        for vertex in 0..count {
+            for axis in [0, 1] {
+                let at = vertex * 36 + axis * 4;
+                assert_eq!(float(&regular, regular_uv + at).unwrap(), float(&large, large_uv + at).unwrap());
+            }
+        }
+    }
+
+    #[test]
     fn its_descriptor_names_its_two_materials_as_a_toys_look() {
         let pmd = descriptor().unwrap();
         assert_eq!(word(&pmd, 1).unwrap(), 2);
@@ -1108,6 +1164,7 @@ mod tests {
                 "def/vehicle/addon_hookup_storage.westplay.sii",
                 "def/vehicle/truck/daf.xf/accessory/toyhang/westplay_tablet.sii",
                 "def/vehicle/truck/daf.xf/accessory/set_dashbrd/westplay_tablet.sii",
+                "def/vehicle/truck/daf.xf/accessory/set_dashbrd/westplay_tablet_large.sii",
                 "def/vehicle/truck/mercedes.actros2014/accessory/toyhang/westplay_tablet.sii"
             ]
         );
@@ -1122,6 +1179,12 @@ mod tests {
         let set = text("daf.xf/accessory/set_dashbrd").unwrap();
         assert!(set.contains("accessory_addon_data : wp_tablet.daf.xf.set_dashbrd"));
         assert!(set.contains("interior_model: \"/vehicle/truck/upgrade/westplay_tablet/westplay_tablet.pmd\""));
+        let large_set = text("daf.xf/accessory/set_dashbrd/westplay_tablet_large").unwrap();
+        assert!(large_set.contains("accessory_addon_data : wp_tablet_lg.daf.xf.set_dashbrd"));
+        assert!(large_set.contains("name: \"WestPlay tablet (large)\""));
+        assert!(
+            large_set.contains("interior_model: \"/vehicle/truck/upgrade/westplay_tablet/westplay_tablet_large.pmd\"")
+        );
         for def in [&hanging, &set] {
             assert!(!def.contains("exterior_model") && !def.contains("accessory_addon_int_data"), "{def}");
         }
@@ -1130,6 +1193,8 @@ mod tests {
         assert!(hookup.contains("accessory_hookup_int_data : wp_tablet.addon_hookup"));
         assert!(hookup.contains("suitable_for[]: \"set_dashbrd\""));
         assert!(hookup.contains("model: \"/vehicle/truck/upgrade/westplay_tablet/westplay_tablet_slot.pmd\""));
+        assert!(hookup.contains("accessory_hookup_int_data : wp_tablet_lg.addon_hookup"));
+        assert!(hookup.contains("model: \"/vehicle/truck/upgrade/westplay_tablet/westplay_tablet_large_slot.pmd\""));
         // Every unit name's parts tokens, as the game reads them (12 characters at the most).
         for (path, text) in files.iter().filter(|(path, _)| path.starts_with("def/")) {
             let text = String::from_utf8_lossy(text);
@@ -1138,7 +1203,14 @@ mod tests {
         }
         // Both models, each with its descriptor beside it.
         // The standing one, and a hanging one per pitch: the DAF XF's (5 degrees down), the Actros' (none read).
-        for model in ["westplay_tablet", "westplay_tablet_slot", "westplay_tablet_hang", "westplay_tablet_hang_m50"] {
+        for model in [
+            "westplay_tablet",
+            "westplay_tablet_slot",
+            "westplay_tablet_large",
+            "westplay_tablet_large_slot",
+            "westplay_tablet_hang",
+            "westplay_tablet_hang_m50",
+        ] {
             for kind in ["pmg", "pmd"] {
                 let path = format!("vehicle/truck/upgrade/westplay_tablet/{model}.{kind}");
                 assert!(files.iter().any(|(file, _)| *file == path), "{path}");
