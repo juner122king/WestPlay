@@ -1442,6 +1442,31 @@ ui::text : _nameless.black {
         let _ = std::fs::remove_file(out);
     }
 
+    /// The real ATS installation: the 2024 Cascadia's digital interiors use their own GPS script.
+    /// `cargo test -p westplay-setup -- --ignored --nocapture builds_ats_cascadia_2024_screen`
+    #[test]
+    #[ignore = "reads this PC's ATS installation"]
+    fn builds_ats_cascadia_2024_screen() {
+        let game = crate::game::find(crate::game::Kind::Ats).into_iter().next().expect("ATS installed");
+        let files = GameFiles::install(&game.dir).unwrap();
+        let (bytes, built) = build(&files, &[], &GameFiles::new(Vec::new()), &cab_mark::Marks::default()).unwrap();
+        assert!(built.patched.contains(&"freightliner-cascadia-2024"), "{built:?}");
+        let out = std::env::temp_dir().join(format!("westplay-ats-cascadia-2024-{}.scs", std::process::id()));
+        std::fs::write(&out, bytes).unwrap();
+        let archive = westplay_mapdata::archive::Archive::open(&out).unwrap();
+        let gps =
+            archive.read("ui/dashboard/freightliner_cascadia_2024_gps.sii").unwrap().expect("Cascadia 2024 GPS script");
+        let gps = String::from_utf8(gps).unwrap();
+        assert!(gps.contains("/material/ui/westplay/screen_freightliner_cascadia_2024.mat"));
+        assert!(gps.contains("id: 100"));
+        let texture = archive.read("material/ui/westplay/screen_freightliner_cascadia_2024.dds").unwrap().unwrap();
+        let index = screen_layouts().iter().position(|layout| layout.id == "freightliner-cascadia-2024").unwrap();
+        assert_eq!(u32::from_le_bytes(texture[12..16].try_into().unwrap()), ScreenLayout::texture_height(index));
+        assert_eq!(u32::from_le_bytes(texture[16..20].try_into().unwrap()), SCREEN_WIDTH);
+        drop(archive);
+        let _ = std::fs::remove_file(out);
+    }
+
     /// A game folder with the Smart Dash's script and screens file, and an Advanced and a 10.1" interior in
     /// each truck's folder (`gps_path`: what its screens file names).
     fn smart_dash_game(name: &str, gps_path: &str) -> PathBuf {

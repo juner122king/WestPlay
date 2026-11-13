@@ -159,7 +159,7 @@ pub const ATS_TRUCKS: &[Truck] = &[
         id: "freightliner-cascadia-2024",
         name: "Freightliner Cascadia (2024) - digital dash",
         source: Source::Game("freightliner.cascadia2024"),
-        layout: None,
+        layout: Some("freightliner-cascadia-2024"),
     },
     Truck {
         id: "kenworth-t680-2022",
@@ -326,6 +326,29 @@ mod tests {
             assert!(fit(Kind::Ets2, &files, &[layout], &[], &[]).iter().all(|(truck, _)| truck.id != layout));
             let _ = std::fs::remove_dir_all(&root);
         }
+    }
+
+    #[test]
+    fn the_2024_cascadia_needs_its_digital_dash_screen() {
+        let (files, root) = game_with(&["freightliner.cascadia2024"]);
+        let casc_fit = |patched: &[&str]| {
+            fit(Kind::Ats, &files, patched, &[], &[])
+                .into_iter()
+                .find(|(truck, _)| truck.id == "freightliner-cascadia-2024")
+                .unwrap()
+                .1
+        };
+
+        assert_eq!(casc_fit(&[]), Fit::NotYet);
+        assert_eq!(casc_fit(&["generic", "tablet"]), Fit::NotYet);
+        assert_eq!(casc_fit(&["freightliner-cascadia-2024"]), Fit::Ready);
+        assert!(
+            fit(Kind::Ets2, &files, &["freightliner-cascadia-2024"], &[], &[])
+                .iter()
+                .all(|(truck, _)| truck.id != "freightliner-cascadia-2024")
+        );
+
+        let _ = std::fs::remove_dir_all(&root);
     }
 
     #[test]

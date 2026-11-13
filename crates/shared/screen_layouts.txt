@@ -46,3 +46,6 @@ ford-bronco-2024  ui/dashboard/ford_bronco_gps_24.sii
 # ATS Volvo VNL (2025): its 1280 x 720 GPS script, drawn on the whole display except the model's 0.5% edge
 # margins; all cab models use the same 20.61 x 11.47 cm GPS piece (1.797:1). Keep new layouts last.
 volvo-vnl-2025    ui/dashboard/volvo_vnl2025_gps.sii
+# ATS Freightliner Cascadia (2024), digital interior. Its own 1440 x 540 GPS script; the GPS mesh maps the whole
+# texture tile onto a 2.49:1 display. Keep new layouts last.
+freightliner-cascadia-2024 ui/dashboard/freightliner_cascadia_2024_gps.sii

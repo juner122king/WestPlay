@@ -97,6 +97,8 @@ pub fn page_height(index: usize) -> u32 {
         Some("ford-bronco-2024") => 796,
         // ATS VNL 2025: 20.61 x 11.47 cm GPS surface, with a 0.5% UV margin (1.797:1).
         Some("volvo-vnl-2025") => 712,
+        // ATS Cascadia 2024 digital interior: its GPS model surface maps the full texture tile at 2.49:1.
+        Some("freightliner-cascadia-2024") => 514,
         _ => SCREEN_HEIGHT,
     }
 }
@@ -1022,6 +1024,7 @@ mod tests {
             ("ford-f150-2023", 812),
             ("ford-bronco-2024", 796),
             ("volvo-vnl-2025", 712),
+            ("freightliner-cascadia-2024", 514),
         ] {
             assert_eq!(page_height(index(layout)), height, "{layout}");
         }
